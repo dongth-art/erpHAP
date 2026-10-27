@@ -335,34 +335,52 @@ function wmsListDocOptions(token, docType) {
 function wmsListDocs(token, docType, searchKey, page, pageSize, includeOptions) {
   var auth = wmsDocAuth_(token, docType, 'read');
   if (!auth.ok) return auth.result;
+  var t0 = new Date();
   try {
     var docs = wmsDocGetSheet_();
+    var headers = docs.headers;
+    var docTypeUpper = String(docType || '').trim().toUpperCase();
+
+    var docTypeIndex = headers.indexOf('doc_type');
+    var deletedIndex = headers.indexOf('is_deleted');
+
+    // Cột dùng tìm kiếm full-text (giá trị đã qua wmsCellValue_, giữ nguyên hành vi cũ)
+    var searchCols = ['doc_no','doc_date','warehouse_id','partner_name_snapshot',
+      'partner_code_snapshot','external_ref_no','reason','notes',
+      'requested_by_name_snapshot','doc_status'];
+    var searchIdx = searchCols.map(function(h) { return headers.indexOf(h); });
+
+    // Quét sheet một lần (single getRange). Lọc trong JS, chỉ materialize đối tượng cho trang hiện tại.
     var docRows = wmsDocLoadRows_(docs);
-    var docIdIndex = docs.headers.indexOf('doc_id');
-    var docTypeIndex = docs.headers.indexOf('doc_type');
-    var deletedIndex = docs.headers.indexOf('is_deleted');
-    var visibleDocs = docRows.filter(function(row, index) {
-      if (String(row[docTypeIndex] || '').toUpperCase() !== String(docType).toUpperCase() ||
-          wmsIsDeleted_(row[deletedIndex]) ||
-          !matrixRowAllowed_(auth.docAuth.user, 'DOC', row, null, auth.docAuth.permission)) return false;
-      return true;
+    var visible = [];
+    docRows.forEach(function(row, index) {
+      if (String(row[docTypeIndex] || '').toUpperCase() !== docTypeUpper) return;
+      if (wmsIsDeleted_(row[deletedIndex])) return;
+      if (!matrixRowAllowed_(auth.docAuth.user, 'DOC', row, null, auth.docAuth.permission)) return;
+      visible.push({ index:index, row:row });
     });
-    var visibleDocObjects = wmsRowsAsObjects_(docs.headers, visibleDocs.reverse());
+    visible.reverse(); // mới nhất trước (giữ nguyên thứ tự cũ)
+
     var query = String(searchKey || '').trim().toLowerCase();
-    var result = visibleDocObjects.filter(function(item) {
-      return !query || [
-        item.doc_no, item.doc_date, item.warehouse_id, item.partner_name_snapshot,
-        item.partner_code_snapshot, item.external_ref_no, item.reason, item.notes,
-        item.requested_by_name_snapshot, item.doc_status
-      ].join(' ').toLowerCase().indexOf(query) !== -1;
+    var filtered = visible.filter(function(entry) {
+      if (!query) return true;
+      var haystack = [];
+      searchIdx.forEach(function(ci) {
+        if (ci >= 0) haystack.push(String(wmsCellValue_(entry.row[ci]) || ''));
+      });
+      return haystack.join(' ').toLowerCase().indexOf(query) !== -1;
     });
 
     page = Math.max(1, parseInt(page, 10) || 1);
     pageSize = Math.min(100, Math.max(1, parseInt(pageSize, 10) || 30));
-    var total = result.length;
+    var total = filtered.length;
     var pages = Math.max(1, Math.ceil(total / pageSize));
     page = Math.min(page, pages);
-    var pageRows = result.slice((page - 1) * pageSize, page * pageSize);
+    var pageEntries = filtered.slice((page - 1) * pageSize, page * pageSize);
+    var pageRows = wmsRowsAsObjects_(headers, pageEntries.map(function(e) { return e.row; }));
+
+    var t1 = new Date();
+    Logger.log('wmsListDocs scan+filter: ' + (t1 - t0) + 'ms (total=' + total + ', page=' + page + '/' + pageSize + ')');
 
     // Lấy thông tin dòng hàng (WMS_LINE) chỉ cho các phiếu thuộc trang hiện tại
     var pageDocIds = {};
@@ -440,7 +458,10 @@ function wmsListDocs(token, docType, searchKey, page, pageSize, includeOptions) 
       item.lines = detailLines[item.doc_id] || [];
     });
 
-    // Bổ sung tiến trình duyệt động
+    var t2 = new Date();
+    Logger.log('wmsListDocs lines: ' + (t2 - t1) + 'ms');
+
+    // Bổ sung tiến trình duyệt động (giữ lại vì Frontend tiêu dùng currentStep/totalSteps/nextApprover)
     try { wmsDocEnrichApprovalProgress_(pageRows, docs.spreadsheet); } catch (e) { Logger.log('Enrich err: ' + e); }
 
     // Gộp luôn danh sách task duyệt của user hiện tại (tránh gọi API nối tiếp ở Frontend)
@@ -451,6 +472,9 @@ function wmsListDocs(token, docType, searchKey, page, pageSize, includeOptions) 
         myTasksRes.list.forEach(function(t) { if (t.doc_id) taskMap[t.doc_id] = t.task_id; });
       }
     } catch (e) { Logger.log('myTaskMap err: ' + e); }
+
+    var t3 = new Date();
+    Logger.log('wmsListDocs total: ' + (t3 - t0) + 'ms');
 
     var response = {
       success: true,
