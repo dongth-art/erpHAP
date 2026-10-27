@@ -309,11 +309,20 @@
 
   function wmsLocationRender() {
     var levelNames = ['Khu vực', 'Dãy', 'Tầng', 'Ô'];
+    var childrenByParent = new Map();
+    wmsLocationRows.forEach(function(item) {
+      var parentId = String(item.parent_location_id || '');
+      if (!childrenByParent.has(parentId)) {
+        childrenByParent.set(parentId, []);
+      }
+      childrenByParent.get(parentId).push(item);
+    });
+    function childrenOf(parentId) {
+      return childrenByParent.get(String(parentId || '')) || [];
+    }
     for (var selectedLevel = 0; selectedLevel < 4; selectedLevel++) {
       var parentId = selectedLevel === 0 ? '' : wmsLocationSelectedIds[selectedLevel - 1];
-      var candidates = wmsLocationRows.filter(function(item) {
-        return String(item.parent_location_id || '') === parentId;
-      });
+      var candidates = childrenOf(parentId);
       var selectedItem = candidates.find(function(item) {
         return item.location_id === wmsLocationSelectedIds[selectedLevel];
       });
@@ -338,9 +347,7 @@
       var parent = parentSelected && level > 0
         ? wmsLocationRows.find(function(item) { return item.location_id === parentId; })
         : null;
-      var locations = parentSelected ? wmsLocationRows.filter(function(item) {
-        return String(item.parent_location_id || '') === parentId;
-      }).sort(function(left, right) {
+      var locations = parentSelected ? childrenOf(parentId).slice().sort(function(left, right) {
         return String(left.location_code || '').localeCompare(
           String(right.location_code || ''), undefined, { numeric:true, sensitivity:'base' }
         );
@@ -349,9 +356,7 @@
       var canCreate = level === 0 || !!wmsLocationSelectedIds[level - 1];
       var cards = locations.length ? locations.map(function(item) {
           var active = String(item.status || '').toUpperCase() !== 'INACTIVE';
-          var nestedCount = wmsLocationRows.filter(function(candidate) {
-            return String(candidate.parent_location_id || '') === String(item.location_id);
-          }).length;
+          var nestedCount = childrenOf(item.location_id).length;
           var isSelected = selectedId === item.location_id;
           var statusLabel = active ? 'Hoạt động' : 'Ngưng';
           var editButton = wmsLocationPermissions.update
