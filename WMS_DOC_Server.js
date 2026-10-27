@@ -604,9 +604,11 @@ function wmsSaveDoc(token, docType, record) {
       }
     }
 
-    return withLock_(function() {
+    var savedDocId = null;
+    var lockResult = withLock_(function() {
       var docId = isCreate ? 'DOC-' + Utilities.getUuid().replace(/-/g, '').substring(0, 16).toUpperCase()
         : String(record.doc_id).trim();
+      savedDocId = docId;
       var docMatches = isCreate ? [] : wmsDocReadByValue_(docs, 'doc_id', docId);
       if (!isCreate && !docMatches.length) return fail_('Không tìm thấy phiếu cần cập nhật.');
       if (docMatches.length > 1) throw new Error('Mã phiếu bị trùng trong sheet WMS_DOC.');
@@ -809,9 +811,6 @@ function wmsSaveDoc(token, docType, record) {
       wmsAudit_(auth.docAuth.user, 'DOC', isCreate ? 'CREATE_DRAFT' : 'UPDATE_DRAFT',
         docId, docNo);
 
-      // Tự động đồng bộ dữ liệu Lô hàng sang sheet WMS_LOT
-      wmsSyncLots_(docId, partnerCode, partnerName, normalizedLines, auth.docAuth.user);
-
       return {
         success:true,
         message:isCreate ? 'Đã lưu phiếu nháp.' : 'Đã cập nhật phiếu nháp.',
@@ -819,6 +818,10 @@ function wmsSaveDoc(token, docType, record) {
         doc:wmsRowsAsObjects_(docs.headers, [newRow])[0]
       };
     });
+    if (lockResult && lockResult.success && savedDocId) {
+      wmsSyncLots_(savedDocId, partnerCode, partnerName, normalizedLines, auth.docAuth.user);
+    }
+    return lockResult;
   } catch (err) {
     Logger.log('wmsSaveDoc: ' + err);
     var result = { success:false, message:'Không lưu được phiếu nháp: ' + err.message };
@@ -1120,12 +1123,14 @@ function wmsSyncLots_(docId, partnerCode, partnerName, lines, user) {
         var idxUpBy = headers.indexOf('updated_by');
         var idxUpAt = headers.indexOf('updated_at');
 
-        if (idxSupCode >= 0) rowVal[idxSupCode] = supCode;
-        if (idxSupName >= 0) rowVal[idxSupName] = supName;
-        if (idxUpBy >= 0) rowVal[idxUpBy] = user ? user.username : 'SYSTEM';
-        if (idxUpAt >= 0) rowVal[idxUpAt] = now;
-
-        sheet.getRange(rowNum, 1, 1, headers.length).setValues([rowVal]);
+        var changed = false;
+        if (idxSupCode >= 0 && String(rowVal[idxSupCode] || '') !== String(supCode)) { rowVal[idxSupCode] = supCode; changed = true; }
+        if (idxSupName >= 0 && String(rowVal[idxSupName] || '') !== String(supName)) { rowVal[idxSupName] = supName; changed = true; }
+        if (changed) {
+          if (idxUpBy >= 0) rowVal[idxUpBy] = user ? user.username : 'SYSTEM';
+          if (idxUpAt >= 0) rowVal[idxUpAt] = now;
+          sheet.getRange(rowNum, 1, 1, headers.length).setValues([rowVal]);
+        }
       } else {
         // Lô chưa tồn tại -> Tạo dòng mới trong sheet WMS_LOT
         var newLotValues = {
