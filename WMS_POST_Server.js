@@ -178,17 +178,25 @@ function wmsPostImpl_(sheets, doc, options) {
   var now = new Date();
   var actor = settings.actor || {};
 
-  // --- WMS_POST: tìm hoặc tạo dòng theo posting_key ---
-  var postLastRow = sheets.post.sheet.getLastRow();
-  var postRows = postLastRow > 1
-    ? wmsRowsAsObjects_(sheets.post.headers,
-      sheets.post.sheet.getRange(2, 1, postLastRow - 1, sheets.post.headers.length).getValues())
-    : [];
+  // --- WMS_POST: tìm hoặc tạo dòng theo posting_key (dùng TextFinder) ---
+  var postHeaderIndex = {};
+  sheets.post.headers.forEach(function(h, idx) { postHeaderIndex[h] = idx + 1; });
+  var postKeyCol = postHeaderIndex['posting_key'] || 2;
+  var postFinder = sheets.post.sheet.getRange(2, postKeyCol, Math.max(0, sheets.post.sheet.getLastRow() - 1), 1).createTextFinder(postingKey);
+  postFinder.matchEntireCell(true);
+  var postMatch = postFinder.findNext();
   var postIndex = -1;
-  for (var i = 0; i < postRows.length; i += 1) {
-    if (String(postRows[i].posting_key || '') === postingKey) { postIndex = i; break; }
+  var existing = null;
+  if (postMatch) {
+    var postRowNum = postMatch.getRow();
+    var postRange = sheets.post.sheet.getRange(postRowNum, 1, 1, sheets.post.headers.length);
+    var postVals = postRange.getValues()[0];
+    postIndex = postRowNum - 2;
+    existing = {};
+    for (var ph = 0; ph < sheets.post.headers.length; ph += 1) {
+      existing[sheets.post.headers[ph]] = postVals[ph];
+    }
   }
-  var existing = postIndex >= 0 ? postRows[postIndex] : null;
 
   if (existing && String(existing.status || '') === WMS_POSTING_PHASES_.COMPLETED) {
     return {
@@ -248,14 +256,22 @@ function wmsPostImpl_(sheets, doc, options) {
   };
 
   try {
-    // --- Ledger: bỏ qua transaction_key đã tồn tại để chạy lại không nhân đôi tồn ---
+    // --- Ledger: bỏ qua transaction_key đã tồn tại để chạy lại không nhân đôi tồn (TextFinder theo cột transaction_key) ---
+    var ledgerHeaderIndex = {};
+    sheets.ledger.headers.forEach(function(h, idx) { ledgerHeaderIndex[h] = idx + 1; });
+    var ledgerTxCol = ledgerHeaderIndex['transaction_key'] || 2;
     var ledgerLastRow = sheets.ledger.sheet.getLastRow();
-    var ledgerRows = ledgerLastRow > 1
-      ? wmsRowsAsObjects_(sheets.ledger.headers,
-        sheets.ledger.sheet.getRange(2, 1, ledgerLastRow - 1, sheets.ledger.headers.length).getValues())
-      : [];
     var knownKeys = {};
-    ledgerRows.forEach(function(row) { knownKeys[String(row.transaction_key || '')] = true; });
+    if (ledgerLastRow >= 2) {
+      var ledgerTxRange = sheets.ledger.sheet.getRange(2, ledgerTxCol, ledgerLastRow - 1, 1);
+      var ledgerTxValues = ledgerTxRange.getValues();
+      for (var l = 0; l < ledgerTxValues.length; l += 1) {
+        var ktx = ledgerTxValues[l][0];
+        if (ktx !== '' && ktx !== null) {
+          knownKeys[String(ktx)] = true;
+        }
+      }
+    }
 
     var isIssue = postingType === WMS_DOC_TYPES_.SALES_ISSUE;
     var newLedgerRows = [];
@@ -334,14 +350,23 @@ function wmsPostImpl_(sheets, doc, options) {
     postValues.updated_at = new Date();
     wmsPostWritePostRow_(sheets.post, postRowIndex - 2, postValues);
 
-    // --- WMS_BAL: cộng dồn theo khóa, kiểm tra tồn âm trước khi ghi ---
+    // --- WMS_BAL: cộng dồn theo khóa, kiểm tra tồn âm trước khi ghi (load bal với TextFinder/map theo key) ---
+    var balHeaderIndex = {};
+    sheets.bal.headers.forEach(function(h, idx) { balHeaderIndex[h] = idx + 1; });
     var balLastRow = sheets.bal.sheet.getLastRow();
-    var balRows = balLastRow > 1
-      ? wmsRowsAsObjects_(sheets.bal.headers,
-        sheets.bal.sheet.getRange(2, 1, balLastRow - 1, sheets.bal.headers.length).getValues())
-      : [];
+    var balRowsObjs = [];
+    if (balLastRow >= 2) {
+      var balValsAll = sheets.bal.sheet.getRange(2, 1, balLastRow - 1, sheets.bal.headers.length).getValues();
+      for (var br = 0; br < balValsAll.length; br += 1) {
+        var obj = {};
+        for (var bh = 0; bh < sheets.bal.headers.length; bh += 1) {
+          obj[sheets.bal.headers[bh]] = balValsAll[br][bh];
+        }
+        balRowsObjs.push(obj);
+      }
+    }
     var balIndex = {};
-    balRows.forEach(function(row, index) {
+    balRowsObjs.forEach(function(row, index) {
       balIndex[wmsPostBalanceKey_(row.sku_id, row.warehouse_id, row.location_id,
         row.lot_id, row.stock_status)] = { row:row, index:index };
     });
@@ -398,9 +423,17 @@ function wmsPostImpl_(sheets, doc, options) {
       if (current) balUpdates.push({ index:current.index, row:row });
       else balAppends.push(row);
     });
-    balUpdates.forEach(function(item) {
-      sheets.bal.sheet.getRange(item.index + 2, 1, 1, sheets.bal.headers.length).setValues([item.row]);
-    });
+    if (balUpdates.length) {
+      var balUpdateRanges = [];
+      var balUpdateValues = [];
+      balUpdates.forEach(function(item) {
+        balUpdateRanges.push(sheets.bal.sheet.getRange(item.index + 2, 1, 1, sheets.bal.headers.length));
+        balUpdateValues.push([item.row]);
+      });
+      for (var bu = 0; bu < balUpdateRanges.length; bu += 1) {
+        balUpdateRanges[bu].setValues(balUpdateValues[bu]);
+      }
+    }
     if (balAppends.length) {
       sheets.bal.sheet.getRange(sheets.bal.sheet.getLastRow() + 1, 1,
         balAppends.length, sheets.bal.headers.length).setValues(balAppends);
