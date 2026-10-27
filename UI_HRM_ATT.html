@@ -144,7 +144,7 @@
           </button>
         </div>
 
-        <input type="text" id="att-search-input" placeholder="Tìm Họ tên, Mã NV, CCCD..." onkeyup="filterATTTable()" class="erp-input" style="width: 200px;">
+        <input type="text" id="att-search-input" placeholder="Tìm Họ tên, Mã NV, CCCD..." onkeyup="window.debounceATTFilter()" class="erp-input" style="width: 200px;">
 
         <div style="display: flex; align-items: center; gap: 4px; background: #f8fafc; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.8rem; color: #475569;">
           <svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.89-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></svg>
@@ -657,6 +657,12 @@ window.isSelfModeActive = true;
 window.isProxyModeActive = false;
 window.currentATTViewMode = 'list';
 window.attFeaturePermissions = null;
+window.attFilterTimer = null;
+
+window.debounceATTFilter = function() {
+  clearTimeout(window.attFilterTimer);
+  window.attFilterTimer = setTimeout(window.filterATTTable, 300);
+};
 
 window.applyATTFeaturePermissions = function(permissions) {
   if (!permissions) return;
@@ -1377,7 +1383,12 @@ window.renderATTTable = function() {
     }
   });
 
-  tbody.innerHTML = html;
+  tbody.textContent = '';
+  var frag = document.createDocumentFragment();
+  var tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+  tbody.appendChild(frag);
   window.toggleColumnVisibility();
   window.updateATTBulkBtn();
   window.renderATTPagination();
@@ -1508,7 +1519,12 @@ window.generateLeaveDaysTable = function() {
   }
 
   if (!html) html = '<tr><td colspan="5" style="text-align:center; color: #94a3b8; padding: 12px;">Khoảng ngày chọn chỉ chứa Chủ nhật!</td></tr>';
-  tbody.innerHTML = html;
+  tbody.textContent = '';
+  var frag = document.createDocumentFragment();
+  var tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+  tbody.appendChild(frag);
 };
 
 window.syncCommonReason = function() {

@@ -306,9 +306,57 @@ function wmsDocLoadReferences_(auth) {
     return { location_id: item.location_id, warehouse_id: item.warehouse_id, location_code: item.location_code, location_name: item.location_name };
   });
 
-  var res = { warehouses: warehouses, skus: skus, locations: locations };
-  try { cache.put(cacheKey, JSON.stringify(res), 600); } catch(e) {}
+  // Đọc danh sách Nhà cung cấp từ sheet WMS_LOT
+  var suppliers = [];
+  try {
+    var spreadsheet = SpreadsheetApp.openById(CONFIG.DB_WMS_PART1_ID);
+    var lotSheet = spreadsheet.getSheetByName(CONFIG.SHEET_WMS_LOT || 'WMS_LOT');
+    if (lotSheet && lotSheet.getLastRow() > 1) {
+      var lotHeaders = lotSheet.getRange(1, 1, 1, lotSheet.getLastColumn()).getValues()[0].map(function(h) { return String(h || '').trim(); });
+      var idIdx = lotHeaders.indexOf('supplier_id');
+      var nameIdx = lotHeaders.indexOf('supplier_name_snapshot');
+      if (nameIdx >= 0) {
+        var lotRows = lotSheet.getRange(2, 1, lotSheet.getLastRow() - 1, lotSheet.getLastColumn()).getValues();
+        var supMap = {};
+        lotRows.forEach(function(r) {
+          var sName = String(r[nameIdx] || '').trim();
+          var sId = idIdx >= 0 ? String(r[idIdx] || '').trim() : '';
+          if (sName && !supMap[sName]) {
+            supMap[sName] = true;
+            suppliers.push({ supplier_id: sId, supplier_name: sName });
+          }
+        });
+      }
+    }
+  } catch (e) {
+    Logger.log('wmsDocLoadReferences_ suppliers err: ' + e);
+  }
+
+  var res = { warehouses: warehouses, skus: skus, locations: locations, suppliers: suppliers };
+  try { cache.put(cacheKey, JSON.stringify(res), 1800); } catch(e) {}
   return res;
+}
+
+function wmsGetDocReferences(token, docType) {
+  var auth = wmsDocAuth_(token, docType, 'read');
+  if (!auth.ok) return auth.result;
+  try {
+    var references = wmsDocLoadReferences_(auth.docAuth);
+    var workflowOptions = wmsDocLoadWorkflowOptions_(token, docType, auth.docAuth);
+    if (!workflowOptions.success) return workflowOptions;
+    return {
+      success: true,
+      warehouses: references.warehouses,
+      skus: references.skus,
+      locations: references.locations,
+      suppliers: references.suppliers,
+      workflows: workflowOptions.workflows,
+      workflowAccess: workflowOptions.workflowAccess
+    };
+  } catch (err) {
+    Logger.log('wmsGetDocReferences: ' + err);
+    return { success: false, message: 'Không tải được danh mục: ' + err.message };
+  }
 }
 
 function wmsListDocOptions(token, docType) {
@@ -332,7 +380,7 @@ function wmsListDocOptions(token, docType) {
   }
 }
 
-function wmsListDocs(token, docType, searchKey, page, pageSize, includeOptions) {
+function wmsListDocs(token, docType, searchKey, page, pageSize, includeOptions, since) {
   var auth = wmsDocAuth_(token, docType, 'read');
   if (!auth.ok) return auth.result;
   try {
@@ -347,6 +395,15 @@ function wmsListDocs(token, docType, searchKey, page, pageSize, includeOptions) 
           !matrixRowAllowed_(auth.docAuth.user, 'DOC', row, null, auth.docAuth.permission)) return false;
       return true;
     });
+    var incremental = Number(since) > 0;
+    if (incremental) {
+      var cursorSince = Number(since);
+      var updatedIndex = docs.headers.indexOf('updated_at');
+      visibleDocs = visibleDocs.filter(function(row) {
+        var t = new Date(row[updatedIndex]).getTime();
+        return isFinite(t) && t >= cursorSince;
+      });
+    }
     var visibleDocObjects = wmsRowsAsObjects_(docs.headers, visibleDocs.reverse());
     var query = String(searchKey || '').trim().toLowerCase();
     var result = visibleDocObjects.filter(function(item) {
@@ -357,12 +414,20 @@ function wmsListDocs(token, docType, searchKey, page, pageSize, includeOptions) 
       ].join(' ').toLowerCase().indexOf(query) !== -1;
     });
 
-    page = Math.max(1, parseInt(page, 10) || 1);
-    pageSize = Math.min(100, Math.max(1, parseInt(pageSize, 10) || 30));
-    var total = result.length;
-    var pages = Math.max(1, Math.ceil(total / pageSize));
-    page = Math.min(page, pages);
-    var pageRows = result.slice((page - 1) * pageSize, page * pageSize);
+    if (!incremental) {
+      page = Math.max(1, parseInt(page, 10) || 1);
+      pageSize = Math.min(100, Math.max(1, parseInt(pageSize, 10) || 30));
+      var total = result.length;
+      var pages = Math.max(1, Math.ceil(total / pageSize));
+      page = Math.min(page, pages);
+      var pageRows = result.slice((page - 1) * pageSize, page * pageSize);
+    } else {
+      page = 1;
+      pageSize = visibleDocs.length || 1;
+      var total = visibleDocs.length;
+      var pages = 1;
+      var pageRows = wmsRowsAsObjects_(docs.headers, visibleDocs.reverse());
+    }
 
     // Lấy thông tin dòng hàng (WMS_LINE) chỉ cho các phiếu thuộc trang hiện tại
     var pageDocIds = {};
@@ -375,20 +440,27 @@ function wmsListDocs(token, docType, searchKey, page, pageSize, includeOptions) 
     // NCC của Lô được đồng bộ sang WMS_LOT khi lưu; đọc lại để hiển thị cột "NCC Lô".
     var lotSupplierByLot = {};
     try {
-      var lotSheet = docs.spreadsheet.getSheetByName(CONFIG.SHEET_WMS_LOT);
-      if (lotSheet && lotSheet.getLastRow() > 1 && lotSheet.getLastColumn() > 0) {
-        var lotLastColumn = lotSheet.getLastColumn();
-        var lotHeaders = lotSheet.getRange(1, 1, 1, lotLastColumn).getDisplayValues()[0]
-          .map(function(header) { return String(header || '').trim(); });
-        var lotIdColumn = lotHeaders.indexOf('lot_id');
-        var lotSupplierColumn = lotHeaders.indexOf('supplier_name_snapshot');
-        if (lotIdColumn >= 0 && lotSupplierColumn >= 0) {
-          var lotValues = lotSheet.getRange(2, 1, lotSheet.getLastRow() - 1, lotLastColumn).getDisplayValues();
-          lotValues.forEach(function(values) {
-            var lotKey = String(values[lotIdColumn] || '').trim();
-            if (lotKey) lotSupplierByLot[lotKey] = values[lotSupplierColumn];
-          });
+      var cache = CacheService.getScriptCache();
+      var cachedLot = cache.get('WMS_LOT_SUPPLIER_MAP');
+      if (cachedLot) {
+        lotSupplierByLot = JSON.parse(cachedLot) || {};
+      } else {
+        var lotSheet = docs.spreadsheet.getSheetByName(CONFIG.SHEET_WMS_LOT);
+        if (lotSheet && lotSheet.getLastRow() > 1 && lotSheet.getLastColumn() > 0) {
+          var lotLastColumn = lotSheet.getLastColumn();
+          var lotHeaders = lotSheet.getRange(1, 1, 1, lotLastColumn).getDisplayValues()[0]
+            .map(function(header) { return String(header || '').trim(); });
+          var lotIdColumn = lotHeaders.indexOf('lot_id');
+          var lotSupplierColumn = lotHeaders.indexOf('supplier_name_snapshot');
+          if (lotIdColumn >= 0 && lotSupplierColumn >= 0) {
+            var lotValues = lotSheet.getRange(2, 1, lotSheet.getLastRow() - 1, lotLastColumn).getDisplayValues();
+            lotValues.forEach(function(values) {
+              var lotKey = String(values[lotIdColumn] || '').trim();
+              if (lotKey) lotSupplierByLot[lotKey] = values[lotSupplierColumn];
+            });
+          }
         }
+        try { cache.put('WMS_LOT_SUPPLIER_MAP', JSON.stringify(lotSupplierByLot), 300); } catch (e) {}
       }
     } catch (lotError) {
       Logger.log('wmsListDocs lot lookup: ' + lotError);
@@ -437,7 +509,7 @@ function wmsListDocs(token, docType, searchKey, page, pageSize, includeOptions) 
       var summary = summaries[item.doc_id] || { count: 0, quantity: 0 };
       item.line_count = summary.count;
       item.quantity_total = summary.quantity;
-      item.lines = detailLines[item.doc_id] || [];
+      item.lines = [];
     });
 
     // Bổ sung tiến trình duyệt động
@@ -452,14 +524,16 @@ function wmsListDocs(token, docType, searchKey, page, pageSize, includeOptions) 
       }
     } catch (e) { Logger.log('myTaskMap err: ' + e); }
 
-    var response = {
-      success: true,
-      list: pageRows,
-      total: total,
-      page: page,
-      page_size: pageSize,
-      page_count: pages,
-      myTaskMap: taskMap,
+     var response = {
+       success: true,
+       list: pageRows,
+       total: total,
+       page: page,
+       page_size: pageSize,
+       page_count: pages,
+       incremental: incremental,
+       cursor: Date.now(),
+       myTaskMap: taskMap,
       permissions: {
         create: auth.docAuth.canCreate,
         update: auth.docAuth.canEdit,
@@ -469,9 +543,10 @@ function wmsListDocs(token, docType, searchKey, page, pageSize, includeOptions) 
 
     if (includeOptions === true) {
       var references = wmsDocLoadReferences_(auth.docAuth);
-      response.warehouses = references.warehouses;
-      response.skus = references.skus;
-      response.locations = references.locations;
+       response.warehouses = references.warehouses;
+       response.skus = references.skus;
+       response.locations = references.locations;
+       response.suppliers = references.suppliers;
       var workflowOptions = wmsDocLoadWorkflowOptions_(token, docType, auth.docAuth);
       if (!workflowOptions.success) return workflowOptions;
       response.workflows = workflowOptions.workflows;
@@ -481,6 +556,116 @@ function wmsListDocs(token, docType, searchKey, page, pageSize, includeOptions) 
   } catch (err) {
     Logger.log('wmsListDocs: ' + err);
     return { success: false, message: 'Không tải được danh sách phiếu: ' + err.message, list: [] };
+  }
+}
+
+function wmsGetDocDetail(token, docType, docId) {
+  var auth = wmsDocAuth_(token, docType, 'read');
+  if (!auth.ok) return auth.result;
+  try {
+    var docs = wmsDocGetSheet_();
+    var docRows = wmsDocLoadRows_(docs);
+    var docTypeIndex = docs.headers.indexOf('doc_type');
+    var deletedIndex = docs.headers.indexOf('is_deleted');
+    var docIdIndex = docs.headers.indexOf('doc_id');
+    var found = null;
+    for (var i = 0; i < docRows.length; i++) {
+      var row = docRows[i];
+      if (String(row[docIdIndex]) !== String(docId)) continue;
+      if (String(row[docTypeIndex] || '').toUpperCase() !== String(docType).toUpperCase()) continue;
+      if (wmsIsDeleted_(row[deletedIndex])) continue;
+      if (!matrixRowAllowed_(auth.docAuth.user, 'DOC', row, null, auth.docAuth.permission)) continue;
+      found = wmsRowsAsObjects_(docs.headers, [row])[0];
+      break;
+    }
+    if (!found) return { success: false, message: 'Không tìm thấy phiếu.' };
+    var detailLines = [];
+    if (auth.lineAuth) {
+      var lines = wmsGetSheet_('SHEET_WMS_LINE', WMS_LINE_HEADERS_);
+      var lineMatches = wmsDocReadByValues_(lines, ['doc_id'], [docId]);
+      var lotSupplierByLot = {};
+      try {
+        var lotSheet = docs.spreadsheet.getSheetByName(CONFIG.SHEET_WMS_LOT);
+        if (lotSheet && lotSheet.getLastRow() > 1) {
+          var lotHeaders = lotSheet.getRange(1, 1, 1, lotSheet.getLastColumn()).getDisplayValues()[0].map(function(h){return String(h||'').trim();});
+          var li = lotHeaders.indexOf('lot_id'), si = lotHeaders.indexOf('supplier_name_snapshot');
+          if (li >= 0 && si >= 0) {
+            var vals = lotSheet.getRange(2,1,lotSheet.getLastRow()-1,lotSheet.getLastColumn()).getDisplayValues();
+            vals.forEach(function(v){ var k=String(v[li]||'').trim(); if(k) lotSupplierByLot[k]=v[si]; });
+          }
+        }
+      } catch(e){}
+      lineMatches.forEach(function(entry) {
+        var r = entry.row;
+        var lineDeleted = lines.headers.indexOf('is_deleted');
+        if (wmsIsDeleted_(r[lineDeleted])) return;
+        var lineLotId = r[lines.headers.indexOf('lot_id')];
+        var lineSupplierColumn = lines.headers.indexOf('supplier_name_snapshot');
+        detailLines.push({
+          line_id: r[lines.headers.indexOf('line_id')],
+          sku_id: r[lines.headers.indexOf('sku_id')],
+          sku_code_snapshot: r[lines.headers.indexOf('sku_code_snapshot')],
+          sku_name_snapshot: r[lines.headers.indexOf('sku_name_snapshot')],
+          quantity_entered: r[lines.headers.indexOf('quantity_entered')],
+          uom_entered: r[lines.headers.indexOf('uom_entered')],
+          unit_cost: r[lines.headers.indexOf('unit_cost')],
+          lot_id: lineLotId,
+          supplier_name_snapshot: (lineSupplierColumn >= 0 ? r[lineSupplierColumn] : '') || lotSupplierByLot[String(lineLotId||'').trim()] || '',
+          production_batch_id: r[lines.headers.indexOf('production_batch_id')],
+          location_id: r[lines.headers.indexOf('location_id')],
+          destination_warehouse_id: r[lines.headers.indexOf('destination_warehouse_id')],
+          destination_location_id: r[lines.headers.indexOf('destination_location_id')],
+          line_notes: r[lines.headers.indexOf('line_notes')]
+        });
+      });
+    }
+    found.lines = detailLines;
+    return { success: true, doc: found };
+  } catch (err) {
+    Logger.log('wmsGetDocDetail: ' + err);
+    return { success: false, message: 'Không tải được chi tiết phiếu: ' + err.message };
+  }
+}
+
+function wmsDocPatchField(token, docType, docId, field, newValue, lastVersion) {
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    var auth = wmsDocAuth_(token, docType, 'edit');
+    if (!auth.ok) return auth.result;
+    var docs = wmsDocGetSheet_();
+    var docRows = wmsDocLoadRows_(docs);
+    var docIdIndex = docs.headers.indexOf('doc_id');
+    var docTypeIndex = docs.headers.indexOf('doc_type');
+    var deletedIndex = docs.headers.indexOf('is_deleted');
+    var updatedIndex = docs.headers.indexOf('updated_at');
+    var colIndex = docs.headers.indexOf(field);
+    if (colIndex < 0) return { success: false, message: 'Trường không tồn tại: ' + field };
+    var rowIndex = -1;
+    for (var i = 0; i < docRows.length; i++) {
+      var r = docRows[i];
+      if (String(r[docIdIndex]) !== String(docId)) continue;
+      if (String(r[docTypeIndex] || '').toUpperCase() !== String(docType).toUpperCase()) continue;
+      if (wmsIsDeleted_(r[deletedIndex])) continue;
+      rowIndex = i + 2;
+      if (lastVersion !== undefined && lastVersion !== null) {
+        var cur = new Date(r[updatedIndex]).getTime();
+        if (isFinite(cur) && Number(lastVersion) !== cur) {
+          return { success: false, message: 'Dữ liệu đã thay đổi, vui lòng tải lại.' };
+        }
+      }
+      break;
+    }
+    if (rowIndex < 0) return { success: false, message: 'Không tìm thấy phiếu.' };
+    docs.sheet.getRange(rowIndex, colIndex + 1).setValue(newValue);
+    if (updatedIndex >= 0) docs.sheet.getRange(rowIndex, updatedIndex + 1).setValue(new Date());
+    try { CacheService.getScriptCache().remove('WMS_REF_DATA_' + (auth.docAuth.user.username || '')); } catch (e) {}
+    return { success: true };
+  } catch (err) {
+    Logger.log('wmsDocPatchField: ' + err);
+    return { success: false, message: err.message };
+  } finally {
+    try { lock.releaseLock(); } catch (e) {}
   }
 }
 
@@ -1966,11 +2151,14 @@ function wmsSaveDoc(token, docType, record) {
         }
         throw writeError;
       }
-      wmsAudit_(auth.docAuth.user, 'DOC', isCreate ? 'CREATE_DRAFT' : 'UPDATE_DRAFT',
-        docId, docNo);
+       wmsAudit_(auth.docAuth.user, 'DOC', isCreate ? 'CREATE_DRAFT' : 'UPDATE_DRAFT',
+         docId, docNo);
+
+       // Invalidate references cache
+       try { CacheService.getScriptCache().remove('WMS_REF_DATA_' + auth.docAuth.user.username); } catch(e) {}
 
       // Tự động đồng bộ dữ liệu Lô hàng sang sheet WMS_LOT
-      wmsSyncLots_(docId, partnerCode, partnerName, normalizedLines, auth.docAuth.user);
+       wmsSyncLots_(docId, partnerCode, partnerName, docDate, normalizedLines, auth.docAuth.user);
 
       return {
         success:true,
@@ -2118,9 +2306,10 @@ function wmsDeleteDocs(token, docType, records) {
         lineChanges.push({ index:index, row:row });
       });
       wmsDocWriteRowRuns_(lines.sheet, lines.headers.length, lineChanges);
-      wmsAuditBatch_(auth.docAuth.user, 'DOC', 'SOFT_DELETE_DRAFT', removed.map(function(item) {
-        return { key:item.doc_id, detail:'Draft ' + docType };
-      }));
+       wmsAuditBatch_(auth.docAuth.user, 'DOC', 'SOFT_DELETE_DRAFT', removed.map(function(item) {
+         return { key:item.doc_id, detail:'Draft ' + docType };
+       }));
+       try { CacheService.getScriptCache().remove('WMS_REF_DATA_' + auth.docAuth.user.username); } catch(e) {}
       return {
         success:true,
         message:'Đã chuyển ' + removed.length + ' phiếu nháp vào danh sách ẩn.',
@@ -2209,7 +2398,7 @@ function wmsDocEnrichApprovalProgress_(pageRows, spreadsheet) {
 /**
  * Tự động đồng bộ/tham chiếu thông tin Lô hàng vào sheet WMS_LOT
  */
-function wmsSyncLots_(docId, partnerCode, partnerName, lines, user) {
+function wmsSyncLots_(docId, partnerCode, partnerName, docDate, lines, user) {
   if (!lines || !lines.length) return;
 
   var lotHeaders = [
@@ -2261,68 +2450,158 @@ function wmsSyncLots_(docId, partnerCode, partnerName, lines, user) {
 
     var now = new Date();
     var appends = [];
+    // Load SKU short_name map
+    var skuShortMap = {};
+    try {
+      var skuSource = wmsGetSkuSheet_();
+      var skuRows = skuSource.sheet.getLastRow() > 1
+        ? skuSource.sheet.getRange(2, 1, skuSource.sheet.getLastRow() - 1, skuSource.headers.length).getValues() : [];
+      skuRows.forEach(function(r) {
+        var sid = String(r[skuSource.headers.indexOf('sku_id')] || '').trim();
+        var sn = String(r[skuSource.headers.indexOf('short_name')] || '').trim();
+        if (sid) skuShortMap[sid] = sn;
+      });
+    } catch (e) { Logger.log('sku map err: ' + e); }
+
+    // ddmmyy from docDate
+    var ddmmyy = '010126';
+    var dateStr = String(docDate || '').trim();
+    var dm = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dm) ddmmyy = dm[3] + dm[2] + dm[1].slice(-2);
+
+    // supplier id resolver
+    function resolveSupplierId(supName) {
+      if (!supName) return '';
+      for (var i = 0; i < existingRows.length; i++) {
+        var r = existingRows[i];
+        var nameIdx = headers.indexOf('supplier_name_snapshot');
+        var idIdx = headers.indexOf('supplier_id');
+        if (nameIdx >= 0 && idIdx >= 0 &&
+            String(r[nameIdx] || '').trim() === String(supName).trim()) {
+          var sid = String(r[idIdx] || '').trim();
+          if (sid) return sid;
+        }
+      }
+      // new
+      var maxId = 0;
+      existingRows.forEach(function(r) {
+        var idIdx = headers.indexOf('supplier_id');
+        if (idIdx >= 0) {
+          var raw = String(r[idIdx] || '').replace(/\D/g, '');
+          var n = parseInt(raw, 10);
+          if (!isNaN(n) && n > maxId) maxId = n;
+        }
+      });
+      return String(maxId + 1).padStart(3, '0');
+    }
 
     lines.forEach(function(line) {
-      var lotId = String(line.lot_id || '').trim();
-      if (!lotId) return; // Bỏ qua nếu dòng phiếu không có Số Lô
-
-      // Ưu tiên NCC từ từng dòng Excel, nếu trống lấy NCC ở Header phiếu
+      // lot_id system-generated opaque
+      var lotId = 'LOT-' + Utilities.getUuid().replace(/-/g, '').substring(0, 12).toUpperCase();
       var supName = line.supplier_name_snapshot || partnerName || '';
       var supCode = partnerCode || '';
+      var shortName = skuShortMap[String(line.sku_id || '').trim()] || String(line.sku_id || '').trim();
+      var supplierId = resolveSupplierId(supName);
+      var internalLotNo = shortName + '.' + supplierId + '.' + ddmmyy;
 
-      if (existingLotMap[lotId]) {
-        // Lô đã tồn tại -> Cập nhật thông tin Nhà cung cấp
-        var rowNum = existingLotMap[lotId];
-        var rowVal = existingRows[rowNum - 2];
-        
-        var idxSupCode = headers.indexOf('supplier_code_snapshot');
-        var idxSupName = headers.indexOf('supplier_name_snapshot');
-        var idxUpBy = headers.indexOf('updated_by');
-        var idxUpAt = headers.indexOf('updated_at');
+      // Lô luôn tạo mới (lot_id opaque), không dedup theo internal_lot_no
+      var newLotValues = {
+        lot_id: lotId,
+        internal_lot_no: internalLotNo,
+        sku_id: line.sku_id || '',
+        supplier_id: supplierId,
+        supplier_code_snapshot: supCode,
+        supplier_name_snapshot: supName,
+        supplier_lot_no: '',
+        manufacture_date: '',
+        expiry_date: '',
+        first_receipt_doc_id: docId || '',
+        first_receipt_line_id: line.line_id || '',
+        quality_status: 'PENDING',
+        lot_status: 'ACTIVE',
+        created_by: user ? user.username : 'SYSTEM',
+        created_at: now,
+        updated_by: user ? user.username : 'SYSTEM',
+        updated_at: now,
+        is_deleted: false
+      };
 
-        if (idxSupCode >= 0) rowVal[idxSupCode] = supCode;
-        if (idxSupName >= 0) rowVal[idxSupName] = supName;
-        if (idxUpBy >= 0) rowVal[idxUpBy] = user ? user.username : 'SYSTEM';
-        if (idxUpAt >= 0) rowVal[idxUpAt] = now;
-
-        sheet.getRange(rowNum, 1, 1, headers.length).setValues([rowVal]);
-      } else {
-        // Lô chưa tồn tại -> Tạo dòng mới trong sheet WMS_LOT
-        var newLotValues = {
-          lot_id: lotId,
-          internal_lot_no: lotId,
-          sku_id: line.sku_id || '',
-          supplier_id: '',
-          supplier_code_snapshot: supCode,
-          supplier_name_snapshot: supName,
-          supplier_lot_no: '',
-          manufacture_date: '',
-          expiry_date: '',
-          first_receipt_doc_id: docId || '',
-          first_receipt_line_id: line.line_id || '',
-          quality_status: 'PENDING',
-          lot_status: 'ACTIVE',
-          created_by: user ? user.username : 'SYSTEM',
-          created_at: now,
-          updated_by: user ? user.username : 'SYSTEM',
-          updated_at: now,
-          is_deleted: false
-        };
-
-        // Ánh xạ dữ liệu theo đúng thứ tự tiêu đề cột thực tế của Sheet
-        var rowToWrite = headers.map(function(h) {
-          return newLotValues[h] !== undefined ? newLotValues[h] : '';
-        });
-        appends.push(rowToWrite);
-      }
+      var rowToWrite = headers.map(function(h) {
+        return newLotValues[h] !== undefined ? newLotValues[h] : '';
+      });
+      appends.push(rowToWrite);
     });
 
     if (appends.length) {
       sheet.getRange(sheet.getLastRow() + 1, 1, appends.length, headers.length).setValues(appends);
     }
 
-  } catch (e) {
-    Logger.log('Lỗi wmsSyncLots_: ' + e.message + '\nStack: ' + e.stack);
+    } catch (e) {
+      Logger.log('Lỗi wmsSyncLots_: ' + e.message + '\nStack: ' + e.stack);
+    }
+    try { CacheService.getScriptCache().remove('WMS_LOT_SUPPLIER_MAP'); } catch (e) {}
+}
+
+/**
+ * Xử lý Action quickCreateSupplier tạo nhanh Nhà cung cấp
+ */
+function wdocQuickCreateSupplier(token, payload) {
+  var auth = wmsCanRead_(token, 'DOC', WMS_DOC_VIEW_IN_);
+  if (!auth.ok) return auth.result;
+
+  try {
+    var supplierName = String((payload && payload.supplier_name) || '').trim();
+    if (!supplierName) {
+      return { success: false, message: 'Tên nhà cung cấp không được để trống.' };
+    }
+
+    var spreadsheet = SpreadsheetApp.openById(CONFIG.DB_WMS_PART1_ID);
+    var sheetName = CONFIG.SHEET_WMS_LOT || 'WMS_LOT';
+    var sheet = spreadsheet.getSheetByName(sheetName);
+
+    if (!sheet) {
+      return { success: false, message: 'Không tìm thấy bảng dữ liệu WMS_LOT.' };
+    }
+
+    var lastRow = sheet.getLastRow();
+    var lastCol = sheet.getLastColumn();
+    if (lastRow < 1) {
+      return { success: false, message: 'Sheet WMS_LOT chưa khởi tạo tiêu đề.' };
+    }
+
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) {
+      return String(h || '').trim();
+    });
+
+    var supIdIdx = headers.indexOf('supplier_id');
+    var supNameIdx = headers.indexOf('supplier_name_snapshot');
+
+    if (supIdIdx < 0 || supNameIdx < 0) {
+      return { success: false, message: 'Sheet WMS_LOT thiếu cột supplier_id hoặc supplier_name_snapshot.' };
+    }
+
+    var data = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues() : [];
+    var maxId = 0;
+
+    data.forEach(function(row) {
+      var rawId = String(row[supIdIdx] || '').replace(/\D/g, '');
+      var numId = parseInt(rawId, 10);
+      if (!isNaN(numId) && numId > maxId) {
+        maxId = numId;
+      }
+    });
+
+    var newSupplierId = String(maxId + 1).padStart(3, '0');
+
+    return {
+      success: true,
+      supplier_id: newSupplierId,
+      supplier_name: supplierName,
+      message: 'Tạo thành công NCC ' + newSupplierId + ' - ' + supplierName
+    };
+  } catch (err) {
+    Logger.log('wdocQuickCreateSupplier err: ' + err);
+    return { success: false, message: 'Lỗi máy chủ khi tạo NCC: ' + err.message };
   }
   }
 }

@@ -74,9 +74,9 @@
   <!-- ACTION BAR -->
   <div style="background: #ffffff; padding: 14px 16px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1;">
-      <input type="text" id="emp-search-input" placeholder="Tìm kiếm nhanh nhân viên..." onkeyup="filterEMPTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; width: 280px; outline: none;">
+      <input type="text" id="emp-search-input" placeholder="Tìm kiếm nhanh nhân viên..." onkeyup="window.debounceEMPFilter()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; width: 280px; outline: none;">
       
-      <select id="emp-status-filter" onchange="filterEMPTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; outline: none; background: #fff;">
+      <select id="emp-status-filter" onchange="window.debounceEMPFilter()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; outline: none; background: #fff;">
         <option value="">Tất cả Trạng thái</option>
         <option value="Đang làm việc">Đang làm việc</option>
         <option value="Đã nghỉ việc">Đã nghỉ việc</option>
@@ -423,6 +423,12 @@ window.totalEMPPages = window.totalEMPPages || 1;
 window.pendingEMPConfirm = window.pendingEMPConfirm || null;
 window.parsedExcelPreviewRecords = window.parsedExcelPreviewRecords || [];
 window.currentAppUsername = window.currentAppUsername || 'admin';
+window.empFilterTimer = null;
+
+window.debounceEMPFilter = function() {
+  clearTimeout(window.empFilterTimer);
+  window.empFilterTimer = setTimeout(window.filterEMPTable, 300);
+};
 
 var EMP_COL_GROUPS = [
   { key: "basic_info", label: "Mã & Họ Tên NV" },
@@ -651,7 +657,7 @@ window.renderEMPTable = function(data) {
   }
 
   var startNum = (window.currentEMPPage - 1) * window.empPageSize;
-  var html = '';
+  var frag = document.createDocumentFragment();
 
   data.forEach(function(item, idx) {
     var basicHtml = '<div style="font-weight: 700; color: #2563eb;">' + item.emp_id + '</div>' +
@@ -676,7 +682,7 @@ window.renderEMPTable = function(data) {
     var sysHtml = '<div style="font-weight: 600; color: #334155;">Tạo: ' + (item.created_by || 'admin') + '</div>' +
       '<div style="font-size: 0.75rem; color: #94a3b8;">' + (item.updated_at || '-') + '</div>';
 
-    html += '<tr onclick="openEMPDrawer(\'' + item.emp_id + '\')" style="border-bottom: 1px solid #f1f5f9;">' +
+    var rowHtml = '<tr onclick="openEMPDrawer(\'' + item.emp_id + '\')" style="border-bottom: 1px solid #f1f5f9;">' +
       '<td style="padding: 10px; text-align: center;"><input type="checkbox" class="chk-emp-item" value="' + item.emp_id + '" onclick="event.stopPropagation()" onchange="updateEMPBulkBtn()"' + (window.empPermissions && !window.empPermissions.delete ? ' style="display:none;"' : '') + '></td>' +
       '<td style="padding: 10px; text-align: center; color: #64748b;">' + (startNum + idx + 1) + '</td>' +
       '<td data-col="basic_info" style="padding: 10px;">' + basicHtml + '</td>' +
@@ -691,9 +697,13 @@ window.renderEMPTable = function(data) {
         (window.empPermissions && !window.empPermissions.delete ? '' : '<button onclick="event.stopPropagation(); confirmSingleDeleteEMP(\'' + item.emp_id + '\', \'' + item.full_name + '\')" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; font-weight: 600; cursor: pointer;">Xóa</button>') +
       '</td>' +
     '</tr>';
+    var tmp = document.createElement('div');
+    tmp.innerHTML = rowHtml;
+    frag.appendChild(tmp.firstElementChild);
   });
 
-  tbody.innerHTML = html;
+  tbody.textContent = '';
+  tbody.appendChild(frag);
   window.applyEMPColVisibility();
   window.updateEMPBulkBtn();
 };

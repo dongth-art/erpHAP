@@ -210,6 +210,7 @@ function fetchAllHRMIDRecords(token) {
     if (!sheet || sheet.getLastRow() <= 1) return { success: true, list: [] };
 
     var n = sheet.getLastRow() - 1;
+    if (n > 5000) return { success: false, message: 'Dữ liệu quá lớn (' + n + ' bản ghi). Vui lòng dùng bộ lọc hoặc xuất theo trang.', list: [] };
     var lastColumn = Math.max(sheet.getLastColumn(), 1);
     var data = sheet.getRange(2, 1, n, lastColumn).getValues();
     var flags = readDeletedFlags_(sheet, idFlagCol_(), 2, n);
@@ -281,12 +282,15 @@ function uploadCCCDImages(token, frontBase64, backBase64, cccdNo) {
 
     var safeNo = cleanId_(cccdNo).replace(/[^0-9A-Za-z]/g, '').substring(0, 20) || 'NOID';
     var stamp = Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMddHHmmss');
+    var totalB64 = 0;
 
     var saveOne = function (dataUrl, label) {
       if (!dataUrl) return '';
       var m = String(dataUrl).match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
       if (!m) return '';
-      if (m[2].length > 7000000) throw new Error('Ảnh vượt quá giới hạn dung lượng.');
+      totalB64 += m[2].length;
+      if (totalB64 > 6000000) throw new Error('Tổng dung lượng ảnh vượt quá giới hạn.');
+      if (m[2].length > 3000000) throw new Error('Ảnh vượt quá giới hạn dung lượng.');
       var ext = m[1] === 'image/png' ? 'png' : (m[1] === 'image/webp' ? 'webp' : 'jpg');
       var blob = Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], safeNo + '_' + label + '_' + stamp + '.' + ext);
       var file = folder.createFile(blob);

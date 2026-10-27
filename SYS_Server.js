@@ -1443,21 +1443,28 @@ function getSysUsersListApi(token) {
 function getEffectivePermission_(username, role, sheetName) {
   var roleCode = normalizeRoleCode_(role) || String(role || '').trim().toUpperCase();
 
-  // P7: SuperAdmin toàn quyền, không đọc sheet SYS_PERM.
-  if (isSuperAdminRole_(roleCode)) {
-    return {
+  // CacheService (5 phút) theo user + sheet, giảm đọc SYS_PERM mỗi request.
+  var cacheKey = 'PERM_EFF|' + String(username || '').trim().toLowerCase() + '|' + String(sheetName || '').trim().toUpperCase();
+  try {
+    var cache = CacheService.getScriptCache();
+    var cached = cache.get(cacheKey);
+    if (cached) {
+      var parsed = JSON.parse(cached);
+      if (parsed && parsed._role === roleCode) return parsed.value;
+    }
+  } catch (e) {}
+  var result = isSuperAdminRole_(roleCode) ? {
       canRead: true, canCreate: true, canEdit: true, canDelete: true,
       rules: [{ conditions: [], canRead: true, canCreate: true, canEdit: true, canDelete: true }],
       customActions: "APPROVE,EXPORT,PRINT,RESTORE"
-    };
-  }
-
-  // Ghi nhớ theo request: cùng 1 user + bảng chỉ đọc SYS_PERM / SYS_PERM_CONDITIONS 1 lần.
-  var memoKey = 'PERM_EFF|' + String(username || '').trim().toLowerCase() + '|' + roleCode + '|' +
-    String(sheetName || '').trim().toUpperCase();
-  return requestMemo_(memoKey, function () {
-    return computeEffectivePermission_(username, role, roleCode, sheetName);
-  });
+    } : requestMemo_('PERM_EFF|' + String(username).trim().toLowerCase() + '|' + roleCode + '|' + String(sheetName).trim().toUpperCase(), function () {
+      return computeEffectivePermission_(username, role, roleCode, sheetName);
+    });
+  try {
+    var cache = CacheService.getScriptCache();
+    cache.put(cacheKey, JSON.stringify({ _role: roleCode, value: result }), 300);
+  } catch (e) {}
+  return result;
 }
 
 function computeEffectivePermission_(username, role, roleCode, sheetName) {
@@ -1870,6 +1877,7 @@ function invalidatePermissionCache_(targetValue, sheetName) {
     if (names.length) {
       names.forEach(function(name) {
         keys.push('PERM_' + username + '_' + String(name).trim().toUpperCase());
+        keys.push('PERM_EFF|' + username + '|' + String(name).trim().toUpperCase());
       });
     } else {
       // Nếu không biết sheet, xóa toàn bộ cache PERM của user này (ít chính xác nhưng an toàn)
