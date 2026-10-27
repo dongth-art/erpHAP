@@ -37,27 +37,25 @@ function empSet_(arr) {
 }
 
 function getHRMEMPHeaderMap_() {
-  return requestMemo_('HRM_EMP_HEADER_MAP', function () {
-    try {
-      var sheet = getEMPSheet_(false);
-      if (!sheet) return {};
-      if (typeof getHeaderMap_ === 'function') {
-        return getHeaderMap_(sheet);
-      }
-      if (typeof getSheetHeaders_ === 'function') {
-        var headers = getSheetHeaders_(sheet);
-        var map = {};
-        for (var i = 0; i < headers.length; i++) {
-          var h = String(headers[i] || '').trim();
-          if (h) map[h] = i;
-        }
-        return map;
-      }
-      return {};
-    } catch (e) {
-      return {};
+  try {
+    var sheet = getEMPSheet_(false);
+    if (!sheet) return {};
+    if (typeof getHeaderMap_ === 'function') {
+      return getHeaderMap_(sheet);
     }
-  });
+    if (typeof getSheetHeaders_ === 'function') {
+      var headers = getSheetHeaders_(sheet);
+      var map = {};
+      for (var i = 0; i < headers.length; i++) {
+        var h = String(headers[i] || '').trim();
+        if (h) map[h] = i;
+      }
+      return map;
+    }
+    return {};
+  } catch (e) {
+    return {};
+  }
 }
 
 function hreColIdx_(name) {
@@ -165,40 +163,19 @@ function empFindByCccd_(cccd) { return empFindByColumn_(0, cccd); }
 
 /** Bản đồ mã nhân viên (chữ thường) -> họ tên. Dùng để hiển thị tên người duyệt. */
 function empNameMap_() {
-  return requestMemo_('HRM_EMP_NAME_MAP', function () {
-    var map = {};
-    var sheet = getEMPSheet_(false);
-    if (!sheet || sheet.getLastRow() <= 1) return map;
-    var empIdIdx = hreColIdx_('emp_id');
-    var fullNameIdx = hreColIdx_('full_name');
-    var n = sheet.getLastRow() - 1;
-    var lastColumn = Math.max(sheet.getLastColumn(), empIdIdx + 1, fullNameIdx + 1);
-    var d = sheet.getRange(2, 1, n, lastColumn).getValues();
-    d.forEach(function (r) {
-      var k = cleanId_(r[empIdIdx]);
-      if (k) map[k.toLowerCase()] = String(r[fullNameIdx] || '');
-    });
-    return map;
+  var map = {};
+  var sheet = getEMPSheet_(false);
+  if (!sheet || sheet.getLastRow() <= 1) return map;
+  var empIdIdx = hreColIdx_('emp_id');
+  var fullNameIdx = hreColIdx_('full_name');
+  var n = sheet.getLastRow() - 1;
+  var lastColumn = Math.max(sheet.getLastColumn(), empIdIdx + 1, fullNameIdx + 1);
+  var d = sheet.getRange(2, 1, n, lastColumn).getValues();
+  d.forEach(function (r) {
+    var k = cleanId_(r[empIdIdx]);
+    if (k) map[k.toLowerCase()] = String(r[fullNameIdx] || '');
   });
-}
-
-/** Bản đồ mã nhân viên -> mã quản lý trực tiếp. Cache theo request để tránh đọc lại bảng nhiều lần. */
-function _buildManagerDict_() {
-  return requestMemo_('HRM_EMP_MGR_DICT', function () {
-    var dict = {};
-    var sheet = getEMPSheet_(false);
-    if (!sheet || sheet.getLastRow() <= 1) return dict;
-    var empIdIdx = hreColIdx_('emp_id');
-    var managerIdx = hreColIdx_('manager_id');
-    var n = sheet.getLastRow() - 1;
-    var lastColumn = Math.max(sheet.getLastColumn(), Math.max(empIdIdx, managerIdx) + 1);
-    var data = sheet.getRange(2, 1, n, lastColumn).getValues();
-    for (var i = 0; i < data.length; i++) {
-      var eId = cleanId_(data[i][empIdIdx]).toLowerCase();
-      if (eId) dict[eId] = cleanId_(data[i][managerIdx]);
-    }
-    return dict;
-  });
+  return map;
 }
 
 /**
@@ -207,7 +184,20 @@ function _buildManagerDict_() {
  */
 function getApprovalHierarchyForEmployee_(empId) {
   try {
-    var dict = _buildManagerDict_();
+    var sheet = getEMPSheet_(false);
+    if (!sheet || sheet.getLastRow() <= 1) return { manager_id: '', hierarchy: [] };
+
+    var empIdIdx = hreColIdx_('emp_id');
+    var managerIdx = hreColIdx_('manager_id');
+    var n = sheet.getLastRow() - 1;
+    var lastColumn = Math.max(sheet.getLastColumn(), Math.max(empIdIdx, managerIdx) + 1);
+    var data = sheet.getRange(2, 1, n, lastColumn).getValues();
+    var dict = {};
+    for (var i = 0; i < data.length; i++) {
+      var eId = cleanId_(data[i][empIdIdx]).toLowerCase();
+      if (eId) dict[eId] = cleanId_(data[i][managerIdx]);
+    }
+
     var direct = dict[cleanId_(empId).toLowerCase()] || '';
     var hierarchy = [], visited = {}, curr = direct;
     while (curr && !visited[curr.toLowerCase()]) {
@@ -296,7 +286,6 @@ function fetchAllHRMEMPRecords(token) {
     if (!sheet || sheet.getLastRow() <= 1) return { success: true, list: [] };
 
     var n = sheet.getLastRow() - 1;
-    if (n > 5000) return { success: false, message: 'Dữ liệu quá lớn (' + n + ' bản ghi). Vui lòng dùng bộ lọc hoặc xuất theo trang.', list: [] };
     var lastColumn = Math.max(sheet.getLastColumn(), 1);
     var data = sheet.getRange(2, 1, n, lastColumn).getValues();
     var flags = readDeletedFlags_(sheet, empFlagCol_(), 2, n);

@@ -84,7 +84,6 @@
   <canvas id="qr-canvas" style="display:none;"></canvas>
   <div id="qr-overlay-msg" style="color:#e2e8f0; font-size:0.88rem; text-align:center; max-width:520px; min-height:2.6em;"></div>
   <div style="display:flex; gap:10px;">
-    <button type="button" onclick="HapQrScan.scanNow();" style="background:#0284c7; color:#fff; border:none; padding:10px 18px; border-radius:8px; font-weight:600; cursor:pointer;">Quét ngay</button>
     <button type="button" onclick="HapQrScan.stop(); HapQrScan.pickPhoto(true);" style="background:#0284c7; color:#fff; border:none; padding:10px 18px; border-radius:8px; font-weight:600; cursor:pointer;">Chụp ảnh</button>
     <button type="button" onclick="HapQrScan.stop();" style="background:#fff; color:#0f172a; border:none; padding:10px 18px; border-radius:8px; font-weight:600; cursor:pointer;">Đóng</button>
   </div>
@@ -98,9 +97,9 @@
     
     <!-- NHÓM BỘ LỌC VÀ TÌM KIẾM -->
     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1;">
-      <input type="text" id="hrm-id-search-input" placeholder="Tìm theo Tên, Số CCCD, CMND, Địa chỉ..." onkeyup="debounceHRMIDFilter()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; width: 280px; outline: none;">
+      <input type="text" id="hrm-id-search-input" placeholder="Tìm theo Tên, Số CCCD, CMND, Địa chỉ..." onkeyup="filterHRMIDTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; width: 280px; outline: none;">
       
-      <select id="hrm-id-gender-filter" onchange="debounceHRMIDFilter()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; outline: none; background: #fff;">
+      <select id="hrm-id-gender-filter" onchange="filterHRMIDTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; outline: none; background: #fff;">
         <option value="">-- Tất cả Giới tính --</option>
         <option value="Nam">Nam</option>
         <option value="Nữ">Nữ</option>
@@ -429,7 +428,6 @@
   let base64Front = "";
   let base64Back = "";
   let pendingConfirmCallback = null;
-  let hrmIdFilterTimer = null;
 
   const HRMID_COL_GROUPS = [
     { key: "id_numbers", label: "Số CCCD / CMND" },
@@ -532,38 +530,36 @@
       try { await video.play(); } catch (e) {}
       $('qr-scan-overlay').style.display = 'flex';
       setStatus('', false);
-      setOverlayMsg('Đưa mã QR ở mặt trước CCCD vào khung, giữ máy thẳng và đủ sáng. Bấm "Quét ngay" để đọc mã.', false);
+      setOverlayMsg('Đưa mã QR ở mặt trước CCCD vào khung, giữ máy thẳng và đủ sáng.', false);
       scanning = true;
       hintTimer = setTimeout(function() {
         setOverlayMsg('Chưa đọc được? Đưa thẻ lại gần hơn, tránh chói sáng, hoặc bấm "Chụp ảnh" bên dưới.', false);
       }, 12000);
+      loop();
     }
 
-    function scanOnce() {
+    function loop() {
       if (!scanning) return;
       const video = $('qr-video'), canvas = $('qr-canvas');
-      if (!video || video.readyState < 2 || video.videoWidth <= 0) {
-        setOverlayMsg('Camera chưa sẵn sàng. Vui lòng đợi giây lát rồi bấm lại.', true);
-        return;
-      }
-      const w = Math.min(video.videoWidth, 1280);
-      const h = Math.round(video.videoHeight * w / video.videoWidth);
-      canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(video, 0, 0, w, h);
-      const img = ctx.getImageData(0, 0, w, h);
-      const code = window.jsQR(img.data, w, h, { inversionAttempts: 'attemptBoth' });
-      if (code && code.data) {
-        if (looksLikeCCCD(code.data)) {
-          const text = code.data;
-          stopLive();
-          accept(text);
-          return;
+      if (video && video.readyState >= 2 && video.videoWidth > 0) {
+        const w = Math.min(video.videoWidth, 1280);
+        const h = Math.round(video.videoHeight * w / video.videoWidth);
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(video, 0, 0, w, h);
+        const img = ctx.getImageData(0, 0, w, h);
+        const code = window.jsQR(img.data, w, h, { inversionAttempts: 'attemptBoth' });
+        if (code && code.data) {
+          if (looksLikeCCCD(code.data)) {
+            const text = code.data;
+            stopLive();
+            accept(text);
+            return;
+          }
+          setOverlayMsg('Đã thấy một mã QR nhưng không phải mã trên CCCD. Hãy quét đúng mã QR ở mặt trước thẻ.', true);
         }
-        setOverlayMsg('Đã thấy một mã QR nhưng không phải mã trên CCCD. Hãy quét đúng mã QR ở mặt trước thẻ.', true);
-      } else {
-        setOverlayMsg('Không đọc được mã QR trong khung hình. Hãy giữ máy thẳng, đủ sáng và bấm "Quét ngay" lại.', false);
       }
+      timer = setTimeout(loop, 120);
     }
 
     function toBitmap(file) {
@@ -633,7 +629,7 @@
       input.click();
     }
 
-    return { openLive: openLive, stop: stopLive, pickPhoto: pickPhoto, onPhoto: onPhoto, scanNow: scanOnce, reset: function() { stopLive(); setStatus('', false); } };
+    return { openLive: openLive, stop: stopLive, pickPhoto: pickPhoto, onPhoto: onPhoto, reset: function() { stopLive(); setStatus('', false); } };
   })();
 
   // ---- Chống chèn mã (XSS): mọi dữ liệu người dùng/Excel/QR phải đi qua các hàm này trước khi đưa vào HTML ----
@@ -932,8 +928,8 @@
     }
 
     const rowStartNumber = (currentPage - 1) * pageSize;
-    const frag = document.createDocumentFragment();
 
+    let html = '';
     data.forEach((item, idx) => {
       const idNumbersHtml = `
         <div style="font-weight: 700; color: #0f172a;">${idEsc(item.cccd_no || '-')}</div>
@@ -962,7 +958,7 @@
         <div style="font-size: 0.75rem; color: #94a3b8;">${idEsc(item.created_at || '')}</div>
       `;
 
-      const rowHtml = `
+      html += `
         <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#ffffff'">
           <td style="padding: 10px; text-align: center;">
             <input type="checkbox" class="chk-item-hrm-id" value="${idEsc(item.cccd_no)}" onchange="updateBulkActionButtons()"${hrmIdPermissions && !hrmIdPermissions.delete && !hrmIdPermissions.addEmployee ? ' style="display:none;"' : ''}>
@@ -983,19 +979,10 @@
           </td>
         </tr>
       `;
-      const tmp = document.createElement('div');
-      tmp.innerHTML = rowHtml;
-      frag.appendChild(tmp.firstElementChild);
     });
+    tbody.innerHTML = html;
 
-    tbody.textContent = '';
-    tbody.appendChild(frag);
     applyColumnVisibility();
-  }
-
-  function debounceHRMIDFilter() {
-    clearTimeout(hrmIdFilterTimer);
-    hrmIdFilterTimer = setTimeout(filterHRMIDTable, 300);
   }
 
   function filterHRMIDTable() {

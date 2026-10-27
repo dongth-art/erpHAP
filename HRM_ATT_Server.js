@@ -62,17 +62,15 @@ function dateToYYYYMMDD_(val) {
 }
 
 function getHeaderMap_(sheet) {
-  return requestMemo_('HRM_ATT_HEADER_MAP_' + sheet.getSheetName(), function () {
-    var lastCol = sheet.getLastColumn();
-    if (lastCol === 0) return {};
-    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-    var map = {};
-    for (var i = 0; i < headers.length; i++) {
-      var hKey = cleanCompareKey_(headers[i]);
-      if (hKey) map[hKey] = i;
-    }
-    return map;
-  });
+  var lastCol = sheet.getLastColumn();
+  if (lastCol === 0) return {};
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var map = {};
+  for (var i = 0; i < headers.length; i++) {
+    var hKey = cleanCompareKey_(headers[i]);
+    if (hKey) map[hKey] = i;
+  }
+  return map;
 }
 
 function formatDateTimeValue_(val, type) {
@@ -124,6 +122,11 @@ function fetchHRMATTListPaginated(token, page, pageSize) {
   var auth = requireAuth_(token, 'HRM', 'view', 'HRM_ATT', 'view-hrm-att');
   if (!auth.ok) return Object.assign({ totalRows: 0 }, auth.res);
   var dataPermission = getEffectivePermission_(auth.user.username, auth.user.role, 'HRM_ATT');
+  // Dự phòng khi chưa cài bộ hẹn giờ: kiểm tra đơn cấp cuối quá 24 giờ (tối đa 5 phút/lần)
+  try {
+    var swc = CacheService.getScriptCache();
+    if (!swc.get('LV_SWEEP')) { swc.put('LV_SWEEP', '1', 300); runLeaveAutoApprove_(); }
+  } catch (e) { Logger.log('lazy sweep: ' + e); }
   try {
     page = Math.max(1, parseInt(page, 10) || 1);
     pageSize = Math.min(3000, Math.max(1, parseInt(pageSize, 10) || 20));
@@ -164,7 +167,7 @@ function fetchHRMATTListPaginated(token, page, pageSize) {
     if (pageRows.length === 0) return { success: true, list: [], totalRows: totalRows };
 
     var minR = pageRows[0], maxR = pageRows[pageRows.length - 1];
-    // rawAll đã đọc toàn bộ sheet ở trên (index 0 = hàng row 2). Truy cập trực tiếp để tránh đọc trùng lại range con.
+    var rawData = sheet.getRange(minR, 1, maxR - minR + 1, lastCol).getValues();
     var displayData = sheet.getRange(minR, 1, maxR - minR + 1, lastCol).getDisplayValues();
     var list = [];
 
@@ -180,7 +183,7 @@ function fetchHRMATTListPaginated(token, page, pageSize) {
     };
 
     pageRows.forEach(function(r) {
-      var row = rawAll[r - 2];
+      var row = rawData[r - minR];
       var dispRow = displayData[r - minR];
 
       var attId = getRawText_(getVal(row, "att_id"));
