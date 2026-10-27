@@ -1,0 +1,618 @@
+<!-- UI_WMS_WAREHOUSE.html - Danh mục kho -->
+<style>
+  .wms-card { padding:20px; background:#fff; border:1px solid #e2e8f0; border-radius:10px; }
+  .wms-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:9px; margin:16px 0; }
+  .wms-toolbar input { flex:1; min-width:220px; }
+  .wms-input, .wms-select { box-sizing:border-box; width:100%; padding:9px 11px; border:1px solid #cbd5e1; border-radius:6px; background:#fff; color:#0f172a; font:inherit; }
+  .wms-btn { border:1px solid #cbd5e1; border-radius:6px; padding:8px 13px; background:#fff; color:#334155; font-weight:600; cursor:pointer; }
+  .wms-btn.primary { border-color:#2563eb; background:#2563eb; color:#fff; }
+  .wms-btn:disabled { opacity:.55; cursor:wait; }
+  .wms-table-wrap { overflow:auto; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 4px 16px rgba(15,23,42,.06); background:#fff; }
+  .wms-table { width:100%; border-collapse:separate; border-spacing:0; font-size:.9rem; font-variant-numeric:tabular-nums; }
+  .wms-table th, .wms-table td { padding:12px 14px; border-bottom:1px solid #f1f5f9; text-align:left; white-space:nowrap; }
+  .wms-table tbody tr { transition:background .15s ease, box-shadow .15s ease; }
+  .wms-table tbody tr:hover { background:#f8fafc; box-shadow:inset 3px 0 0 #2563eb; }
+  .wms-table tbody tr:nth-child(even) { background:#fafbfc; }
+  .wms-table tbody tr:nth-child(even):hover { background:#f1f5f9; }
+  .wms-table th { background:#fff; color:#0f172a; font-weight:700; position:sticky; top:0; z-index:1; border-bottom:2px solid #e2e8f0; box-shadow:0 2px 4px rgba(15,23,42,.04); }
+  .wms-table td { color:#334155; }
+  .wms-muted { color:#64748b; font-size:.82rem; }
+  .wms-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:20px; background:#dcfce7; color:#15803d; font-size:.75rem; font-weight:600; }
+  .wms-badge.chilled { background:#dbeafe; color:#1d4ed8; }
+  .wms-badge.frozen { background:#cffafe; color:#0e7490; }
+  .wms-badge.ambient { background:#fef3c7; color:#b45309; }
+  .wms-badge::before { content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .wms-modal { position:fixed; inset:0; z-index:100010; display:none; align-items:center; justify-content:center; padding:16px; background:rgba(15,23,42,.48); }
+  .wms-modal-card { width:min(620px,100%); max-height:92vh; overflow:auto; padding:22px; border-radius:12px; background:#fff; box-shadow:0 20px 50px rgba(15,23,42,.25); }
+  .wms-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 14px; }
+  .wms-field { display:flex; flex-direction:column; gap:6px; margin:13px 0; color:#475569; font-size:.82rem; font-weight:600; }
+  .wms-check { display:flex; align-items:center; gap:8px; color:#334155; font-size:.86rem; }
+  .wms-row-click { cursor:pointer; }
+  .wms-row-click:hover { background:#f8fafc; }
+  .wms-location-screen { display:none; padding:22px; min-height:72vh; background:#f4f7fb; border:1px solid #dbe3ee; border-radius:14px; }
+  .wms-location-header { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px; padding-bottom:18px; border-bottom:1px solid #e2e8f0; }
+  .wms-map-columns { display:grid; grid-template-columns:repeat(4,minmax(220px,1fr)); gap:12px; margin-top:18px; overflow-x:auto; padding-bottom:8px; }
+  .wms-map-columns { scrollbar-width:thin; scrollbar-color:#cbd5e1 transparent; }
+  .wms-map-columns::-webkit-scrollbar { width:2px; height:3px; }
+  .wms-map-columns::-webkit-scrollbar-track { background:transparent; }
+  .wms-map-columns::-webkit-scrollbar-thumb { border-radius:3px; background:#cbd5e1; }
+  .wms-map-column { scrollbar-width:thin; scrollbar-color:#cbd5e1 transparent; }
+  .wms-map-column::-webkit-scrollbar { width:2px; height:3px; }
+  .wms-map-column::-webkit-scrollbar-track { background:transparent; }
+  .wms-map-column::-webkit-scrollbar-thumb { border-radius:3px; background:#cbd5e1; }
+  .wms-map-column:hover::-webkit-scrollbar-thumb { background:#94a3b8; }
+  .wms-map-column { min-height:340px; max-height:68vh; overflow:auto; padding:9px; border:1px solid #dbe3ee; border-radius:12px; background:#edf2f8; }
+  .wms-map-column-head { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:3px 2px 12px; }
+  .wms-map-column-head h3 { margin:0; color:#334155; font-size:.9rem; }
+  .wms-map-column-list { display:flex; flex-direction:column; gap:6px; }
+  .wms-map-card { display:flex; flex-direction:column; gap:8px; padding:8px 10px; border:1px solid #dbe3ee; border-radius:9px; background:#fff; box-shadow:0 1px 4px rgba(15,23,42,.04); cursor:pointer; outline:none; transition:box-shadow .15s ease,border-color .15s ease; }
+  .wms-map-card.selected { border-color:#2563eb; box-shadow:0 0 0 2px rgba(37,99,235,.16),0 3px 9px rgba(37,99,235,.08); }
+  .wms-map-card:hover, .wms-map-card:focus-visible { border-color:#93b4fa; box-shadow:0 4px 12px rgba(37,99,235,.1); }
+  .wms-map-card.selected:hover, .wms-map-card.selected:focus-visible { border-color:#2563eb; box-shadow:0 0 0 2px rgba(37,99,235,.18),0 4px 12px rgba(37,99,235,.12); }
+  .wms-map-card-top { display:flex; justify-content:space-between; align-items:center; gap:8px; min-height:24px; }
+  .wms-map-card h4 { min-width:0; overflow:hidden; margin:0; color:#0f172a; font-size:.84rem; line-height:1.2; text-overflow:ellipsis; white-space:nowrap; }
+  .wms-map-card-foot { display:flex; justify-content:space-between; align-items:center; gap:6px; margin-top:0; }
+  .wms-map-empty { padding:18px 12px; text-align:center; border:1px dashed #cbd5e1; border-radius:9px; background:rgba(255,255,255,.7); color:#64748b; font-size:.8rem; }
+  .wms-map-actions { display:flex; gap:6px; }
+  .wms-map-icon-button { display:inline-flex; width:25px; height:25px; align-items:center; justify-content:center; padding:0; border:1px solid transparent; border-radius:6px; background:transparent; color:#64748b; cursor:pointer; }
+  .wms-map-icon-button:hover, .wms-map-icon-button:focus-visible { border-color:#dbe3ee; background:#f8fafc; color:#334155; outline:none; }
+  .wms-map-icon-button.danger:hover, .wms-map-icon-button.danger:focus-visible { border-color:#fecaca; background:#fef2f2; color:#dc2626; }
+  .wms-map-status-icon { display:block; width:17px; height:17px; flex:none; }
+  .wms-btn.small { padding:4px 8px; font-size:.73rem; }
+  .wms-badge.compact { flex:none; padding:2px 7px; font-size:.68rem; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+
+<section class="wms-card" id="wms-warehouse-list">
+  <div class="wms-toolbar">
+    <div style="position:relative;flex:1;min-width:220px;">
+      <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#94a3b8;" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <input class="wms-input" id="wms-warehouse-search" type="search" placeholder="Tìm mã kho, tên kho hoặc địa chỉ" oninput="wmsWarehouseRender()" style="padding-left:34px;">
+    </div>
+    <button class="wms-btn" type="button" onclick="reloadWmsWarehouses()" title="Tải lại" aria-label="Tải lại"><svg id="wms-reload-icon" viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;"><path d="M20 7v5h-5M4 17v-5h5M6 9a7 7 0 0 1 12-2l2 2M4 13l2 2a7 7 0 0 0 12-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button class="wms-btn primary" id="wms-warehouse-create" type="button" onclick="wmsWarehouseOpenForm(-1)" title="Thêm kho" aria-label="Thêm kho"><svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  </div>
+  <div class="wms-table-wrap">
+    <table class="wms-table">
+      <thead><tr><th>Mã kho</th><th>Tên kho</th><th>Mục đích</th><th>Bảo quản</th><th>Nhiệt độ °C</th><th>Địa chỉ</th><th>Trạng thái</th><th></th></tr></thead>
+      <tbody id="wms-warehouse-body"><tr><td colspan="8" class="wms-muted">Chọn màn hình để tải danh sách.</td></tr></tbody>
+    </table>
+  </div>
+  <div class="wms-toolbar" style="justify-content:flex-end;margin-top:12px;">
+    <button class="wms-btn" id="wms-warehouse-prev" type="button" onclick="wmsWarehouseChangePage(-1)" title="Trang trước" aria-label="Trang trước"><svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;"><path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <span id="wms-warehouse-page" class="wms-muted"></span>
+    <button class="wms-btn" id="wms-warehouse-next" type="button" onclick="wmsWarehouseChangePage(1)" title="Trang sau" aria-label="Trang sau"><svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+</section>
+
+<div class="wms-modal" id="wms-warehouse-modal" role="dialog" aria-modal="true" aria-labelledby="wms-warehouse-title">
+  <form class="wms-modal-card" onsubmit="wmsWarehouseSave(event)">
+    <h3 id="wms-warehouse-title" style="margin:0 0 14px;color:#0f172a;">Thêm kho</h3>
+    <div id="wms-warehouse-id-row" class="wms-field" style="display:none;">Mã định danh<input class="wms-input" id="wms-warehouse-id" readonly></div>
+    <div class="wms-grid">
+      <label class="wms-field">Mã kho *<input class="wms-input" id="wms-warehouse-code" maxlength="80" required></label>
+      <label class="wms-field">Tên kho *<input class="wms-input" id="wms-warehouse-name" maxlength="200" required></label>
+      <label class="wms-field">Mục đích kho<input class="wms-input" id="wms-warehouse-purpose" maxlength="80" placeholder="Ví dụ: Thức ăn, vật tư"></label>
+      <label class="wms-field">Chế độ bảo quản<input class="wms-input" id="wms-warehouse-storage" maxlength="80" placeholder="Ví dụ: AMBIENT, CHILLED, FROZEN"></label>
+      <label class="wms-field">Nhiệt độ tối thiểu (°C)<input class="wms-input" id="wms-warehouse-temp-min" type="number" step="any"></label>
+      <label class="wms-field">Nhiệt độ tối đa (°C)<input class="wms-input" id="wms-warehouse-temp-max" type="number" step="any"></label>
+      <label class="wms-field" style="grid-column:1/-1;">Địa chỉ<textarea class="wms-input" id="wms-warehouse-address" rows="2" maxlength="1000"></textarea></label>
+    </div>
+    <label class="wms-check"><input id="wms-warehouse-active" type="checkbox" checked> Kho đang hoạt động</label>
+    <div id="wms-warehouse-message" class="wms-muted" role="status" style="margin-top:12px;"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;">
+      <button class="wms-btn" type="button" onclick="wmsWarehouseCloseForm()">Đóng</button>
+      <button class="wms-btn primary" id="wms-warehouse-save" type="submit">Lưu kho</button>
+    </div>
+  </form>
+</div>
+
+<section class="wms-location-screen" id="wms-location-screen" aria-labelledby="wms-location-title">
+  <header class="wms-location-header">
+    <div>
+      <h2 id="wms-location-title" style="margin:0;color:#0f172a;font-size:1.25rem;">Sơ đồ vị trí kho</h2>
+      <p id="wms-location-warehouse" class="wms-muted" style="margin:5px 0 0;"></p>
+    </div>
+    <div class="wms-toolbar" style="margin:0;">
+      <button class="wms-btn" type="button" onclick="wmsLocationReload()">Làm mới</button>
+      <button class="wms-btn" type="button" onclick="wmsLocationClose()">← Danh sách kho</button>
+    </div>
+  </header>
+  <p class="wms-muted" style="margin:16px 0 0;">Chọn một thẻ để xem các vị trí con ở cột kế tiếp. Cấp đơn lẻ sẽ được mở sẵn để bạn thấy trọn nhánh vị trí.</p>
+  <div id="wms-location-map" class="wms-map-columns" aria-live="polite"></div>
+</section>
+
+<div class="wms-modal" id="wms-location-form-modal" role="dialog" aria-modal="true" aria-labelledby="wms-location-form-title">
+  <form class="wms-modal-card" onsubmit="wmsLocationSave(event)" style="width:min(560px,100%);">
+    <h3 id="wms-location-form-title" style="margin:0 0 12px;color:#0f172a;">Thêm vị trí</h3>
+    <label class="wms-field">Mã vị trí *<input class="wms-input" id="wms-location-code" maxlength="100" required></label>
+    <label class="wms-field">Tên vị trí *<input class="wms-input" id="wms-location-name" maxlength="200" required></label>
+    <label class="wms-field">Cấp vị trí<input class="wms-input" id="wms-location-type" maxlength="80" readonly></label>
+    <label class="wms-field" style="display:none;">Vị trí cha<input type="hidden" id="wms-location-parent"></label>
+    <label class="wms-field">Trạng thái<select class="wms-select" id="wms-location-status"><option value="ACTIVE">Đang hoạt động</option><option value="INACTIVE">Ngừng hoạt động</option></select></label>
+    <div id="wms-location-form-message" class="wms-muted" role="status"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+      <button class="wms-btn" type="button" onclick="wmsLocationFormClose()">Đóng</button>
+      <button class="wms-btn primary" id="wms-location-save" type="submit">Lưu vị trí</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  var wmsWarehouseRows = [];
+  var wmsWarehousePermissions = { create: false, update: false, delete: false };
+  var wmsWarehouseVisibleRows = [];
+  var wmsWarehousePageNumber = 1;
+  var wmsWarehousePageSize = 30;
+  var wmsCurrentLocationWarehouse = null;
+  var wmsLocationRows = [];
+  var wmsLocationPermissions = { create:false, update:false, delete:false };
+  var wmsLocationEditing = null;
+  var wmsLocationSelectedIds = ['', '', '', ''];
+  var wmsLocationEditingLevel = 0;
+
+  function wmsWarehouseEscape(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function(c) {
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+
+  function reloadWmsWarehouses() {
+    if (!window.HAP_IS_AUTHED || !window.HAP_IS_AUTHED()) return;
+    var body = document.getElementById('wms-warehouse-body');
+    body.innerHTML = '<tr><td colspan="8" class="wms-muted">Đang tải danh sách kho...</td></tr>';
+    var icon = document.getElementById('wms-reload-icon');
+    if (icon) icon.style.animation = 'spin .7s linear infinite';
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (!res || !res.success) {
+          body.innerHTML = '<tr><td colspan="8" class="wms-muted">Không tải được dữ liệu.</td></tr>';
+          if (window.HAP_handleAuthFailure_(res)) return;
+          window.showToast(res && res.message ? res.message : 'Không tải được danh sách kho.', 'error');
+          return;
+        }
+        wmsWarehouseRows = res.list || [];
+        wmsWarehousePermissions = res.permissions || { create:false, update:false, delete:false };
+        document.getElementById('wms-warehouse-create').style.display = wmsWarehousePermissions.create ? '' : 'none';
+        wmsWarehouseRender();
+        var icon = document.getElementById('wms-reload-icon');
+        if (icon) icon.style.animation = '';
+      })
+      .withFailureHandler(function(err) {
+        body.innerHTML = '<tr><td colspan="8" class="wms-muted">Lỗi kết nối máy chủ.</td></tr>';
+        window.showToast('Lỗi kết nối máy chủ: ' + (err && err.message ? err.message : err), 'error');
+        var icon = document.getElementById('wms-reload-icon');
+        if (icon) icon.style.animation = '';
+      })
+      .handleApiRoute('WMS', 'listWarehouses', {
+        token: window.HAP_TOKEN(),
+        searchKey: ''
+      });
+  }
+
+  function wmsWarehouseRender() {
+    var body = document.getElementById('wms-warehouse-body');
+    var keyword = document.getElementById('wms-warehouse-search').value.trim().toLowerCase();
+    wmsWarehouseVisibleRows = wmsWarehouseRows.filter(function(item) {
+      return !keyword || [
+        item.warehouse_code, item.warehouse_name, item.address,
+        item.warehouse_purpose, item.storage_mode
+      ].join(' ').toLowerCase().indexOf(keyword) !== -1;
+    });
+    var pageCount = Math.max(1, Math.ceil(wmsWarehouseVisibleRows.length / wmsWarehousePageSize));
+    wmsWarehousePageNumber = Math.min(wmsWarehousePageNumber, pageCount);
+    var start = (wmsWarehousePageNumber - 1) * wmsWarehousePageSize;
+    var pageRows = wmsWarehouseVisibleRows.slice(start, start + wmsWarehousePageSize);
+    document.getElementById('wms-warehouse-page').textContent =
+      (wmsWarehouseVisibleRows.length ? (start + 1) + '–' + Math.min(start + wmsWarehousePageSize, wmsWarehouseVisibleRows.length) : '0') +
+      ' / ' + wmsWarehouseVisibleRows.length;
+    document.getElementById('wms-warehouse-prev').disabled = wmsWarehousePageNumber <= 1;
+    document.getElementById('wms-warehouse-next').disabled = wmsWarehousePageNumber >= pageCount;
+    if (!pageRows.length) {
+      body.innerHTML = '<tr><td colspan="8" class="wms-muted">Chưa có kho phù hợp.</td></tr>';
+      return;
+    }
+    body.innerHTML = pageRows.map(function(item, index) {
+      var active = item.is_active === true || String(item.is_active).toUpperCase() === 'TRUE' ||
+        String(item.is_active).toUpperCase() === 'Y' || String(item.is_active) === '1';
+      var deleteButton = wmsWarehousePermissions.delete
+        ? '<button class="wms-map-icon-button danger" type="button" title="Đánh dấu xóa kho" aria-label="Đánh dấu xóa kho ' +
+          wmsWarehouseEscape(item.warehouse_name) + '" onclick="event.stopPropagation();wmsWarehouseDelete(' +
+          wmsWarehouseRows.indexOf(item) + ')"><svg class="wms-map-status-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+          '<path d="M4 7h16M10 11v6m4-6v6M5.5 7l1 13h11l1-13M9 7V4h6v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' : '';
+      return '<tr class="wms-row-click" title="Bấm để quản lý vị trí kho" onclick="wmsLocationOpen(' + index + ')"><td>' + wmsWarehouseEscape(item.warehouse_code) + '</td>' +
+        '<td>' + wmsWarehouseEscape(item.warehouse_name) + '</td>' +
+        '<td>' + wmsWarehouseEscape(item.warehouse_purpose || '—') + '</td>' +
+        '<td><span class="wms-badge ' + (function(m){var v=String(m||'').toUpperCase();return v==='CHILLED'?'chilled':v==='FROZEN'?'frozen':v==='AMBIENT'?'ambient':'off';})(item.storage_mode) + '">' + wmsWarehouseEscape(item.storage_mode || '—') + '</span></td>' +
+        '<td><span style="display:inline-flex;align-items:center;gap:4px;"><svg viewBox="0 0 24 24" fill="none" style="width:14px;height:14px;color:#64748b;"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        wmsWarehouseEscape(item.temperature_min_c === '' || item.temperature_min_c == null ? '—' : item.temperature_min_c) +
+        ' – ' + wmsWarehouseEscape(item.temperature_max_c === '' || item.temperature_max_c == null ? '—' : item.temperature_max_c) + ' °C</span></td>' +
+        '<td>' + wmsWarehouseEscape(item.address) + '</td>' +
+        '<td><span class="wms-badge' + (active ? '' : ' off') + '">' + (active ? 'Đang hoạt động' : 'Ngừng hoạt động') + '</span></td>' +
+        '<td><div class="wms-map-actions">' +
+        (wmsWarehousePermissions.update ? '<button class="wms-map-icon-button" type="button" title="Sửa kho" aria-label="Sửa kho ' +
+          wmsWarehouseEscape(item.warehouse_name) + '" onclick="event.stopPropagation();wmsWarehouseOpenForm(' + wmsWarehouseRows.indexOf(item) + ')"><svg class="wms-map-status-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 20h9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="m16.5 3.5 4 4L8 20H4v-4L16.5 3.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' : '') +
+        deleteButton + '</div></td></tr>';
+    }).join('');
+  }
+
+  function wmsWarehouseDelete(index) {
+    var item = wmsWarehouseRows[index];
+    if (!item) return;
+    window.showEMPConfirm('Đánh dấu xóa kho "' + item.warehouse_name +
+      '"? Dòng dữ liệu vẫn được giữ trong sheet.', function() {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) {
+            window.showToast(res && res.message ? res.message : 'Không đánh dấu xóa được kho.', 'error');
+            if (res && res.code === 'STALE_RECORD') reloadWmsWarehouses();
+            return;
+          }
+          wmsWarehouseRows = wmsWarehouseRows.filter(function(row) {
+            return row.warehouse_id !== item.warehouse_id;
+          });
+          wmsWarehouseRender();
+          window.showToast(res.message || 'Đã đánh dấu xóa kho.', 'success');
+        })
+        .withFailureHandler(function(err) {
+          window.showToast('Lỗi kết nối máy chủ: ' + (err && err.message ? err.message : err), 'error');
+        })
+        .handleApiRoute('WMS', 'deleteWarehouse', {
+          token: window.HAP_TOKEN(),
+          warehouseId: item.warehouse_id,
+          expectedUpdatedAt: item.updated_at || ''
+        });
+    });
+  }
+
+  function wmsWarehouseChangePage(delta) {
+    wmsWarehousePageNumber += delta;
+    wmsWarehouseRender();
+  }
+
+  function wmsLocationOpen(index) {
+    var warehouse = wmsWarehouseVisibleRows[(wmsWarehousePageNumber - 1) * wmsWarehousePageSize + index];
+    if (!warehouse) return;
+    wmsCurrentLocationWarehouse = warehouse;
+    document.getElementById('wms-location-title').textContent = 'Vị trí kho: ' + warehouse.warehouse_name;
+    document.getElementById('wms-location-warehouse').textContent =
+      warehouse.warehouse_code + ' · ' + warehouse.warehouse_id;
+    wmsLocationSelectedIds = ['', '', '', ''];
+    document.getElementById('wms-warehouse-list').style.display = 'none';
+    document.getElementById('wms-location-screen').style.display = 'block';
+    wmsLocationReload();
+  }
+
+  function wmsLocationReload() {
+    var map = document.getElementById('wms-location-map');
+    map.innerHTML = '<div class="wms-map-empty" style="grid-column:1/-1;">Đang tải sơ đồ vị trí...</div>';
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (!res || !res.success) {
+          map.innerHTML = '<div class="wms-map-empty" style="grid-column:1/-1;">Không tải được sơ đồ vị trí.</div>';
+          window.showToast(res && res.message ? res.message : 'Không tải được vị trí kho.', 'error');
+          return;
+        }
+        wmsLocationRows = res.list || [];
+        wmsLocationPermissions = res.permissions || { create:false, update:false, delete:false };
+        wmsLocationRender();
+      })
+      .withFailureHandler(function(err) {
+        map.innerHTML = '<div class="wms-map-empty" style="grid-column:1/-1;">Lỗi kết nối máy chủ.</div>';
+        window.showToast('Lỗi kết nối máy chủ: ' + (err && err.message ? err.message : err), 'error');
+      })
+      .handleApiRoute('WMS', 'listLocations', {
+        token: window.HAP_TOKEN(),
+        warehouseId: wmsCurrentLocationWarehouse.warehouse_id
+      });
+  }
+
+  function wmsLocationRender() {
+    var levelNames = ['Khu vực', 'Dãy', 'Tầng', 'Ô'];
+    for (var selectedLevel = 0; selectedLevel < 4; selectedLevel++) {
+      var parentId = selectedLevel === 0 ? '' : wmsLocationSelectedIds[selectedLevel - 1];
+      var candidates = wmsLocationRows.filter(function(item) {
+        return String(item.parent_location_id || '') === parentId;
+      });
+      var selectedItem = candidates.find(function(item) {
+        return item.location_id === wmsLocationSelectedIds[selectedLevel];
+      });
+      if (!selectedItem && candidates.length === 1) {
+        selectedItem = candidates[0];
+        wmsLocationSelectedIds[selectedLevel] = selectedItem.location_id;
+      } else if (!selectedItem) {
+        wmsLocationSelectedIds[selectedLevel] = '';
+      }
+      if (!selectedItem) {
+        for (var clearLevel = selectedLevel + 1; clearLevel < 4; clearLevel++) {
+          wmsLocationSelectedIds[clearLevel] = '';
+        }
+        break;
+      }
+    }
+
+    var columns = [];
+    for (var level = 0; level < levelNames.length; level++) {
+      var parentId = level === 0 ? '' : wmsLocationSelectedIds[level - 1];
+      var parentSelected = level === 0 || !!parentId;
+      var parent = parentSelected && level > 0
+        ? wmsLocationRows.find(function(item) { return item.location_id === parentId; })
+        : null;
+      var locations = parentSelected ? wmsLocationRows.filter(function(item) {
+        return String(item.parent_location_id || '') === parentId;
+      }).sort(function(left, right) {
+        return String(left.location_code || '').localeCompare(
+          String(right.location_code || ''), undefined, { numeric:true, sensitivity:'base' }
+        );
+      }) : [];
+      var selectedId = wmsLocationSelectedIds[level];
+      var canCreate = level === 0 || !!wmsLocationSelectedIds[level - 1];
+      var cards = locations.length ? locations.map(function(item) {
+          var active = String(item.status || '').toUpperCase() !== 'INACTIVE';
+          var nestedCount = wmsLocationRows.filter(function(candidate) {
+            return String(candidate.parent_location_id || '') === String(item.location_id);
+          }).length;
+          var isSelected = selectedId === item.location_id;
+          var statusLabel = active ? 'Hoạt động' : 'Ngưng';
+          var editButton = wmsLocationPermissions.update
+            ? '<button class="wms-map-icon-button" type="button" title="Sửa vị trí" aria-label="Sửa vị trí ' +
+              wmsWarehouseEscape(item.location_name) + '" onclick="event.stopPropagation();wmsLocationOpenFormById(&quot;' +
+              wmsWarehouseEscape(item.location_id) + '&quot;,' + level + ')">' +
+              '<svg class="wms-map-status-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+              '<path d="M12 20h9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>' +
+              '<path d="m16.5 3.5 4 4L8 20H4v-4L16.5 3.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>' +
+              '</svg></button>' : '';
+          var deleteButton = wmsLocationPermissions.delete
+            ? '<button class="wms-map-icon-button danger" type="button" title="Đánh dấu xóa vị trí" aria-label="Đánh dấu xóa vị trí ' +
+              wmsWarehouseEscape(item.location_name) + '" onclick="event.stopPropagation();wmsLocationDelete(&quot;' +
+              wmsWarehouseEscape(item.location_id) + '&quot;)">' +
+              '<svg class="wms-map-status-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+              '<path d="M4 7h16M10 11v6m4-6v6M5.5 7l1 13h11l1-13M9 7V4h6v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>' +
+              '</svg></button>' : '';
+          return '<article class="wms-map-card' +
+            (isSelected ? ' selected' : '') + '" role="button" tabindex="0" aria-pressed="' +
+            (isSelected ? 'true' : 'false') + '" onclick="wmsLocationSelect(' + level + ',&quot;' +
+            wmsWarehouseEscape(item.location_id) + '&quot;)" onkeydown="wmsLocationCardKeydown(event,' +
+            level + ',&quot;' + wmsWarehouseEscape(item.location_id) + '&quot;)">' +
+            '<div class="wms-map-card-top"><h4 title="' + wmsWarehouseEscape(item.location_name) + '">' +
+            wmsWarehouseEscape(item.location_name) + '</h4>' +
+            '<span title="' + statusLabel + '" aria-label="' + statusLabel + '">' +
+            '<svg class="wms-map-status-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">' +
+            (active
+              ? '<circle cx="10" cy="10" r="7" fill="#16a34a"/><path d="m6.7 10.1 2.1 2.1 4.6-4.7" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'
+              : '<circle cx="10" cy="10" r="7" fill="#dc2626"/><path d="m7.5 7.5 5 5m0-5-5 5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>') +
+            '</svg></span></div>' +
+            '<div class="wms-map-card-foot"><span class="wms-muted">' +
+            (level < 3 ? nestedCount + ' cấp con' : 'Vị trí lưu trữ') +
+            '</span><div class="wms-map-actions">' + editButton + deleteButton +
+            '</div></div></article>';
+        }).join('') : '<div class="wms-map-empty">' +
+          (parentSelected ? 'Chưa có ' + levelNames[level].toLowerCase() :
+            'Chọn ' + levelNames[level - 1].toLowerCase() + ' ở cột trước') + '</div>';
+
+      cards += wmsLocationPermissions.create && canCreate
+        ? '<button class="wms-btn small" type="button" onclick="wmsLocationOpenForm(-1,' + level +
+          ')">+ Thêm ' + levelNames[level] + '</button>' : '';
+      columns.push('<section class="wms-map-column"><header class="wms-map-column-head"><h3>' +
+        levelNames[level] + '</h3><span class="wms-muted">' + locations.length +
+        '</span></header><div class="wms-map-column-list">' + cards + '</div></section>');
+    }
+    document.getElementById('wms-location-map').innerHTML = columns.join('');
+  }
+
+  function wmsLocationSelect(level, locationId) {
+    wmsLocationSelectedIds[level] = locationId;
+    for (var nextLevel = level + 1; nextLevel < wmsLocationSelectedIds.length; nextLevel++) {
+      wmsLocationSelectedIds[nextLevel] = '';
+    }
+    var location = wmsLocationRows.find(function(item) { return item.location_id === locationId; });
+    var parentLevel = level - 1;
+    while (location && location.parent_location_id && parentLevel >= 0) {
+      var parent = wmsLocationRows.find(function(item) {
+        return item.location_id === location.parent_location_id;
+      });
+      if (!parent) break;
+      wmsLocationSelectedIds[parentLevel] = parent.location_id;
+      location = parent;
+      parentLevel--;
+    }
+    wmsLocationRender();
+  }
+
+  function wmsLocationCardKeydown(event, level, locationId) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      wmsLocationSelect(level, locationId);
+    }
+  }
+
+  function wmsLocationDelete(locationId) {
+    var item = wmsLocationRows.find(function(location) { return location.location_id === locationId; });
+    if (!item) return;
+    window.showEMPConfirm('Đánh dấu xóa vị trí "' + item.location_name +
+      '"? Dòng dữ liệu vẫn được giữ trong sheet.', function() {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) {
+            window.showToast(res && res.message ? res.message : 'Không đánh dấu xóa được vị trí.', 'error');
+            if (res && res.code === 'STALE_RECORD') wmsLocationReload();
+            return;
+          }
+          wmsLocationRows = wmsLocationRows.filter(function(location) {
+            return location.location_id !== locationId;
+          });
+          wmsLocationSelectedIds = wmsLocationSelectedIds.map(function(selectedId) {
+            return selectedId === locationId ? '' : selectedId;
+          });
+          wmsLocationRender();
+          window.showToast(res.message || 'Đã đánh dấu xóa vị trí.', 'success');
+        })
+        .withFailureHandler(function(err) {
+          window.showToast('Lỗi kết nối máy chủ: ' + (err && err.message ? err.message : err), 'error');
+        })
+        .handleApiRoute('WMS', 'deleteLocation', {
+          token: window.HAP_TOKEN(),
+          locationId: locationId,
+          expectedUpdatedAt: item.updated_at || ''
+        });
+    });
+  }
+
+  function wmsLocationOpenFormById(locationId, level) {
+    var item = wmsLocationRows.find(function(location) { return location.location_id === locationId; });
+    if (!item) return;
+    wmsLocationOpenForm(item, level);
+  }
+
+  function wmsLocationOpenForm(itemOrIndex, level) {
+    var item = typeof itemOrIndex === 'object' && itemOrIndex
+      ? itemOrIndex
+      : (itemOrIndex < 0 ? null : wmsLocationRows[itemOrIndex]);
+    if (typeof itemOrIndex === 'number' && itemOrIndex >= 0 && !item) return;
+    var parent = level > 0 ? wmsLocationRows.find(function(location) {
+      return location.location_id === wmsLocationSelectedIds[level - 1];
+    }) : null;
+    level = Math.max(0, Math.min(Number(level) || 0, 3));
+    wmsLocationEditingLevel = level;
+    wmsLocationEditing = item;
+    var levelNames = ['Khu vực', 'Dãy', 'Tầng', 'Ô'];
+    var levelName = levelNames[level];
+    document.getElementById('wms-location-form-title').textContent =
+      item ? 'Cập nhật vị trí' : 'Thêm ' + levelName;
+    document.getElementById('wms-location-code').value = item ? item.location_code || '' : '';
+    document.getElementById('wms-location-name').value = item ? item.location_name || '' : '';
+    document.getElementById('wms-location-type').value = levelName;
+    document.getElementById('wms-location-status').value = item ? item.status || 'ACTIVE' : 'ACTIVE';
+    document.getElementById('wms-location-parent').value = item
+      ? item.parent_location_id || '' : (parent ? parent.location_id : '');
+    document.getElementById('wms-location-form-message').textContent = '';
+    document.getElementById('wms-location-form-modal').style.display = 'flex';
+  }
+
+  function wmsLocationFormClose() {
+    document.getElementById('wms-location-form-modal').style.display = 'none';
+  }
+
+  function wmsLocationClose() {
+    document.getElementById('wms-location-screen').style.display = 'none';
+    document.getElementById('wms-warehouse-list').style.display = '';
+  }
+
+  function wmsLocationSave(event) {
+    event.preventDefault();
+    var button = document.getElementById('wms-location-save');
+    var message = document.getElementById('wms-location-form-message');
+    var record = {
+      mode: wmsLocationEditing ? 'UPDATE' : 'CREATE',
+      location_id: wmsLocationEditing ? wmsLocationEditing.location_id : '',
+      expected_updated_at: wmsLocationEditing ? wmsLocationEditing.updated_at || '' : '',
+      warehouse_id: wmsCurrentLocationWarehouse.warehouse_id,
+      location_code: document.getElementById('wms-location-code').value,
+      location_name: document.getElementById('wms-location-name').value,
+      location_type: document.getElementById('wms-location-type').value,
+      parent_location_id: document.getElementById('wms-location-parent').value,
+      status: document.getElementById('wms-location-status').value
+    };
+    button.disabled = true;
+    message.textContent = 'Đang lưu vị trí...';
+    google.script.run
+      .withSuccessHandler(function(res) {
+        button.disabled = false;
+        if (!res || !res.success) {
+          message.textContent = res && res.message ? res.message : 'Không lưu được vị trí.';
+          if (res && res.code === 'STALE_RECORD') wmsLocationReload();
+          return;
+        }
+        var position = wmsLocationRows.findIndex(function(location) {
+          return location.location_id === res.location_id;
+        });
+        if (position < 0) wmsLocationRows.push(res.location);
+        else wmsLocationRows[position] = res.location;
+        wmsLocationSelect(wmsLocationEditingLevel, res.location_id);
+        wmsLocationFormClose();
+        window.showToast(res.message || 'Đã lưu vị trí.', 'success');
+      })
+      .withFailureHandler(function(err) {
+        button.disabled = false;
+        message.textContent = 'Lỗi kết nối máy chủ: ' + (err && err.message ? err.message : err);
+      })
+      .handleApiRoute('WMS', 'saveLocation', { token: window.HAP_TOKEN(), record: record });
+  }
+
+  function wmsWarehouseOpenForm(index) {
+    var item = index < 0 ? null : wmsWarehouseRows[index];
+    if (index >= 0 && !item) return;
+    document.getElementById('wms-warehouse-title').textContent = item ? 'Cập nhật kho' : 'Thêm kho';
+    document.getElementById('wms-warehouse-id-row').style.display = item ? '' : 'none';
+    document.getElementById('wms-warehouse-id').value = item ? item.warehouse_id || '' : '';
+    document.getElementById('wms-warehouse-code').value = item ? item.warehouse_code || '' : '';
+    document.getElementById('wms-warehouse-name').value = item ? item.warehouse_name || '' : '';
+    document.getElementById('wms-warehouse-address').value = item ? item.address || '' : '';
+    document.getElementById('wms-warehouse-purpose').value = item ? item.warehouse_purpose || '' : '';
+    document.getElementById('wms-warehouse-storage').value = item ? item.storage_mode || '' : '';
+    document.getElementById('wms-warehouse-temp-min').value = item && item.temperature_min_c != null
+      ? item.temperature_min_c : '';
+    document.getElementById('wms-warehouse-temp-max').value = item && item.temperature_max_c != null
+      ? item.temperature_max_c : '';
+    document.getElementById('wms-warehouse-active').checked = item
+      ? (item.is_active === true || String(item.is_active).toUpperCase() === 'TRUE' || String(item.is_active).toUpperCase() === 'Y' || String(item.is_active) === '1')
+      : true;
+    document.getElementById('wms-warehouse-message').textContent = '';
+    document.getElementById('wms-warehouse-modal').style.display = 'flex';
+  }
+
+  function wmsWarehouseCloseForm() {
+    document.getElementById('wms-warehouse-modal').style.display = 'none';
+  }
+
+  function wmsWarehouseSave(event) {
+    event.preventDefault();
+    var itemId = document.getElementById('wms-warehouse-id').value;
+    var button = document.getElementById('wms-warehouse-save');
+    var message = document.getElementById('wms-warehouse-message');
+    button.disabled = true;
+    message.textContent = 'Đang lưu...';
+    var record = {
+      mode: itemId ? 'UPDATE' : 'CREATE',
+      warehouse_id: itemId,
+      expected_updated_at: itemId
+        ? (wmsWarehouseRows.find(function(row) { return row.warehouse_id === itemId; }) || {}).updated_at || ''
+        : '',
+      warehouse_code: document.getElementById('wms-warehouse-code').value,
+      warehouse_name: document.getElementById('wms-warehouse-name').value,
+      address: document.getElementById('wms-warehouse-address').value,
+      is_active: document.getElementById('wms-warehouse-active').checked,
+      warehouse_purpose: document.getElementById('wms-warehouse-purpose').value,
+      storage_mode: document.getElementById('wms-warehouse-storage').value,
+      temperature_min_c: document.getElementById('wms-warehouse-temp-min').value,
+      temperature_max_c: document.getElementById('wms-warehouse-temp-max').value
+    };
+    google.script.run
+      .withSuccessHandler(function(res) {
+        button.disabled = false;
+        message.textContent = res && res.message ? res.message : '';
+        if (res && res.success) {
+          var existingIndex = wmsWarehouseRows.findIndex(function(row) {
+            return row.warehouse_id === res.warehouse_id;
+          });
+          if (existingIndex < 0) {
+            wmsWarehouseRows.push(res.warehouse);
+            document.getElementById('wms-warehouse-search').value = '';
+            wmsWarehousePageNumber = Math.ceil(wmsWarehouseRows.length / wmsWarehousePageSize);
+          }
+          else wmsWarehouseRows[existingIndex] = res.warehouse;
+          wmsWarehouseCloseForm();
+          wmsWarehouseRender();
+          window.showToast(res.message || 'Đã lưu kho.', 'success');
+        } else if (res && res.code === 'STALE_RECORD') {
+          window.showToast(res.message, 'warning');
+          reloadWmsWarehouses();
+        }
+      })
+      .withFailureHandler(function(err) {
+        button.disabled = false;
+        message.textContent = 'Lỗi kết nối máy chủ: ' + (err && err.message ? err.message : err);
+      })
+      .handleApiRoute('WMS', 'saveWarehouse', { token: window.HAP_TOKEN(), record: record });
+  }
+</script>

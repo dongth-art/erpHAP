@@ -1,0 +1,66 @@
+<section id="view-wms-out" class="view-container">
+  <div class="wdoc-card">
+    <div class="wdoc-head">
+      <div class="wdoc-title-group">
+        <h2 class="wdoc-title">Xuất kho</h2>
+        <span class="wdoc-subtitle">Quản lý phiếu xuất, gửi duyệt và theo dõi quy trình</span>
+      </div>
+    </div>
+    <div class="wdoc-toolbar">
+      <div class="wdoc-toolbar-group">
+        <div class="wdoc-search-wrap">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <input class="wdoc-search-input" id="wdoc-search-out" type="search" placeholder="Tìm số phiếu, kho, khách hàng, chứng từ tham chiếu..." oninput="wdocSearch('SALES_ISSUE',this.value)">
+        </div>
+      </div>
+      <div class="wdoc-toolbar-actions">
+        <button class="wdoc-btn" id="wdoc-reload-out" type="button" onclick="reloadWmsDocs('SALES_ISSUE',true)"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 9a7 7 0 0 1 12-2l2 2M4 13l2 2a7 7 0 0 0 12-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Tải lại</button>
+        <button class="wdoc-btn primary" id="wdoc-create-out" type="button" onclick="wdocOpenNew('SALES_ISSUE')"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Tạo phiếu xuất</button>
+        <span class="wdoc-muted" id="wdoc-status-out" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+    <div class="wdoc-filter-bar">
+      <div class="wdoc-filter-item">
+        <span class="wdoc-filter-label">Kho</span>
+        <select class="wdoc-select wdoc-filter-select" id="wdoc-filter-warehouse-out" onchange="wdocApplyFilters('SALES_ISSUE')">
+          <option value="">Tất cả kho</option>
+        </select>
+      </div>
+      <div class="wdoc-filter-item">
+        <span class="wdoc-filter-label">Trạng thái</span>
+        <select class="wdoc-select wdoc-filter-select" id="wdoc-filter-status-out" onchange="wdocApplyFilters('SALES_ISSUE')">
+          <option value="">Tất cả trạng thái</option>
+          <option value="DRAFT">Nháp</option>
+          <option value="IN_APPROVAL">Chờ duyệt</option>
+          <option value="APPROVED">Đã duyệt</option>
+          <option value="RETURNED">Từ chối</option>
+          <option value="COMPLETED">Đã ghi sổ</option>
+        </select>
+      </div>
+      <div class="wdoc-filter-item">
+        <span class="wdoc-filter-label">Từ ngày</span>
+        <input class="wdoc-input wdoc-filter-date" id="wdoc-filter-from-out" type="date" onchange="wdocApplyFilters('SALES_ISSUE')">
+      </div>
+      <div class="wdoc-filter-item">
+        <span class="wdoc-filter-label">Đến ngày</span>
+        <input class="wdoc-input wdoc-filter-date" id="wdoc-filter-to-out" type="date" onchange="wdocApplyFilters('SALES_ISSUE')">
+      </div>
+      <div class="wdoc-filter-spacer"></div>
+      <button class="wdoc-btn ghost" type="button" onclick="wdocClearFilters('SALES_ISSUE')">Xóa bộ lọc</button>
+    </div>
+    <div class="wdoc-selection" id="wdoc-selection-out"><span class="wdoc-selection-text" id="wdoc-selection-count-out"></span><button class="wdoc-btn danger" id="wdoc-delete-selected-out" type="button" onclick="wdocDeleteSelected('SALES_ISSUE')">Xóa phiếu đã chọn</button></div>
+    <div class="wdoc-table-wrap">
+      <table class="wdoc-table">
+        <thead><tr><th><input id="wdoc-select-page-out" type="checkbox" aria-label="Chọn tất cả phiếu trong trang" onchange="wdocSelectPage('SALES_ISSUE',this.checked)"></th><th>Số phiếu / Ngày</th><th>Kho / Khách hàng</th><th>Chứng từ tham chiếu</th><th class="wdoc-num">Số dòng / Tổng SL</th><th>Trạng thái</th><th>Người đề nghị</th><th style="text-align:right;">Thao tác</th></tr></thead>
+        <tbody id="wdoc-body-out"><tr><td colspan="8" class="wdoc-muted">Mở chức năng để tải dữ liệu.</td></tr></tbody>
+      </table>
+    </div>
+    <div class="wdoc-pager">
+      <span class="wdoc-pager-info" id="wdoc-count-out"></span>
+      <div class="wdoc-pager-controls">
+        <label class="wdoc-muted" for="wdoc-size-out">Số dòng</label><select class="wdoc-select wdoc-page-size" id="wdoc-size-out" onchange="wdocSetPageSize('SALES_ISSUE',this.value)"><option>15</option><option selected>30</option><option>50</option><option>100</option></select>
+        <button class="wdoc-icon-btn" type="button" title="Trang trước" aria-label="Trang trước" onclick="wdocChangePage('SALES_ISSUE',-1)"><svg viewBox="0 0 24 24" fill="none"><path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span class="wdoc-muted" id="wdoc-page-out"></span><button class="wdoc-icon-btn" type="button" title="Trang sau" aria-label="Trang sau" onclick="wdocChangePage('SALES_ISSUE',1)"><svg viewBox="0 0 24 24" fill="none"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+    </div>
+  </div>
+</section>

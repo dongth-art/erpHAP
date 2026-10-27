@@ -1,0 +1,158 @@
+<section id="view-wms-in" class="view-container">
+  <div class="wdoc-card">
+    <!-- Stat Cards -->
+    <div class="wdoc-stats-grid">
+      <div class="wdoc-stat-card">
+        <div class="wdoc-stat-header">
+          <span class="wdoc-stat-label">Tổng phiếu nhập tháng</span>
+          <div class="wdoc-stat-icon wdoc-stat-icon-blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6M9 17h4"/></svg>
+          </div>
+        </div>
+        <div class="wdoc-stat-body">
+          <div class="wdoc-stat-value" id="wdoc-stat-total-count">0</div>
+          <div class="wdoc-stat-trend wdoc-stat-trend-up"><span id="wdoc-stat-total-trend">+0%</span> so với tháng trước</div>
+        </div>
+        <div class="wdoc-stat-sparkline"><svg viewBox="0 0 100 40" width="100%" height="18"><path d="M5,25 Q25,10 50,22 T95,12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+      </div>
+      <div class="wdoc-stat-card" style="cursor:pointer;" onclick="filterPendingDocs()">
+        <div class="wdoc-stat-header">
+          <span class="wdoc-stat-label">Phiếu chờ duyệt</span>
+          <div class="wdoc-stat-icon wdoc-stat-icon-amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          </div>
+        </div>
+        <div class="wdoc-stat-body">
+          <div class="wdoc-stat-value" id="wdoc-stat-pending-count">0</div>
+          <div class="wdoc-stat-trend wdoc-stat-trend-amber">Đang chờ phê duyệt</div>
+        </div>
+      </div>
+      <div class="wdoc-stat-card">
+        <div class="wdoc-stat-header">
+          <span class="wdoc-stat-label">Tổng sản lượng nhập</span>
+          <div class="wdoc-stat-icon wdoc-stat-icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-4-9 4 9 4 9-4z"/><path d="M3 8v8l9 4 9-4V8"/><path d="M12 12v8"/></svg>
+          </div>
+        </div>
+        <div class="wdoc-stat-body">
+          <div class="wdoc-stat-value" id="wdoc-stat-qty">0</div>
+          <div class="wdoc-stat-trend wdoc-stat-trend-emerald" id="wdoc-stat-capacity">0%</div>
+        </div>
+        <div style="margin-top:8px;"><div class="wdoc-progress-bar"><div class="wdoc-progress-fill" id="wdoc-progress-fill" style="width:0%"></div></div></div>
+      </div>
+      <div class="wdoc-stat-card">
+        <div class="wdoc-stat-header">
+          <span class="wdoc-stat-label">Tổng giá trị nhập kho</span>
+          <div class="wdoc-stat-icon wdoc-stat-icon-purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18M3 14h18M5 6h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><circle cx="12" cy="12" r="2"/></svg>
+          </div>
+        </div>
+        <div class="wdoc-stat-body">
+          <div class="wdoc-stat-value" id="wdoc-stat-amount">0 đ</div>
+          <div class="wdoc-stat-trend wdoc-stat-trend-up"><span id="wdoc-stat-amount-trend">+0%</span></div>
+        </div>
+        <div class="wdoc-stat-sparkline"><svg viewBox="0 0 100 40" width="100%" height="18"><path d="M2,35 Q20,18 40,28 T80,10 T98,5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="wdoc-toolbar-new">
+      <div class="wdoc-toolbar-left">
+        <div class="wdoc-search-new">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input class="wdoc-search-input" id="wdoc-search-in" type="search" placeholder="Tìm số phiếu, kho, nhà cung cấp, chứng từ tham chiếu..." oninput="wdocSearch('PURCHASE_RECEIPT',this.value)">
+        </div>
+        <select class="wdoc-select wdoc-filter-select" id="wdoc-filter-status-in" onchange="wdocApplyFilters('PURCHASE_RECEIPT')">
+          <option value="ALL">Tất cả Trạng thái</option>
+          <option value="DRAFT">Nháp / Mới tạo</option>
+          <option value="IN_APPROVAL">Chờ phê duyệt</option>
+          <option value="APPROVED">Đã duyệt</option>
+          <option value="COMPLETED">Đã nhập kho</option>
+        </select>
+         <button class="wdoc-btn" id="wdoc-reload-in" type="button" onclick="reloadWmsDocs('PURCHASE_RECEIPT',true)" style="margin-left:4px;">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v6h-6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <span class="wdoc-muted" id="wdoc-status-in" role="status" aria-live="polite"></span>
+      </div>
+      <div class="wdoc-toolbar-right">
+         <button class="wdoc-btn ghost" type="button" onclick="wdocOpenImport()" title="Nhập Excel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Nhập Excel
+        </button>
+        <button class="wdoc-btn wdoc-btn-brand" id="wdoc-create-in" type="button" onclick="wdocOpenNew('PURCHASE_RECEIPT')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Tạo phiếu nhập kho
+        </button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="wdoc-table-wrap" style="border-radius:12px; overflow:hidden;">
+      <table class="wdoc-table-new" style="min-width:1000px;">
+        <thead>
+          <tr>
+            <th style="width:44px; text-align:center;"><input id="wdoc-select-page-in" type="checkbox" aria-label="Chọn tất cả phiếu trong trang" onchange="wdocSelectPage('PURCHASE_RECEIPT',this.checked)"></th>
+            <th style="width:50px; text-align:center;">STT</th>
+            <th>Số phiếu / Thời gian</th>
+            <th>Kho tiếp nhận / Nhà cung cấp</th>
+            <th>Chứng từ tham chiếu</th>
+            <th class="wdoc-num">Số dòng / Tổng SL</th>
+            <th>Trạng thái</th>
+            <th>Người đề nghị</th>
+            <th style="width:150px; text-align:center;">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody id="wdoc-body-in"></tbody>
+      </table>
+    </div>
+
+    <!-- Pager -->
+    <div class="wdoc-pager-new">
+      <span class="wdoc-pager-info" id="wdoc-count-in">0 phiếu</span>
+      <div class="wdoc-pager-controls">
+        <label class="wdoc-muted" for="wdoc-size-in">Hiển thị</label>
+        <select class="wdoc-select wdoc-page-size" id="wdoc-size-in" onchange="wdocSetPageSize('PURCHASE_RECEIPT',this.value)"><option>15</option><option selected>30</option><option>50</option><option>100</option></select>
+        <span class="wdoc-muted" id="wdoc-page-in">1 / 1</span>
+        <button class="wdoc-icon-btn" type="button" title="Trang trước" aria-label="Trang trước" onclick="wdocChangePage('PURCHASE_RECEIPT',-1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m15 18-6-6 6-6"/></svg></button>
+        <button class="wdoc-icon-btn" type="button" title="Trang sau" aria-label="Trang sau" onclick="wdocChangePage('PURCHASE_RECEIPT',1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m9 18 6-6-6-6"/></svg></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Modal tạo phiếu nhanh -->
+<div id="wdoc-add-modal" class="wdoc-modal-new" role="dialog" aria-modal="true" aria-labelledby="wdoc-add-modal-title">
+  <div class="wdoc-modal-new-card">
+    <div class="wdoc-modal-new-head">
+      <h3 id="wdoc-add-modal-title"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7l-5-5M20 7H4v10"/></svg> Lập phiếu nhập kho mới</h3>
+      <button class="wdoc-modal-new-close" onclick="closeAddModal()" aria-label="Đóng"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="wdoc-modal-new-body">
+      <div class="wdoc-modal-new-grid">
+        <div class="wdoc-modal-new-field">
+          <label>Mã kho tiếp nhận *</label>
+          <select class="wdoc-select" id="wdoc-add-warehouse"><option value="">Chọn kho</option></select>
+        </div>
+        <div class="wdoc-modal-new-field">
+          <label>Nhà cung cấp *</label>
+          <input class="wdoc-input" id="wdoc-add-partner-name" placeholder="Nhập tên nhà cung cấp">
+        </div>
+        <div class="wdoc-modal-new-field">
+          <label>Số chứng từ (PO / Hóa đơn)</label>
+          <input class="wdoc-input" id="wdoc-add-reference" placeholder="PO-2026-9912">
+        </div>
+        <div class="wdoc-modal-new-field">
+          <label>Ngày nhập kho dự kiến</label>
+          <input class="wdoc-input" id="wdoc-add-date" type="date">
+        </div>
+        <div class="wdoc-modal-new-field" style="grid-column: 1 / -1;">
+          <label>Ghi chú phiếu nhập kho</label>
+          <textarea class="wdoc-area" id="wdoc-add-notes" rows="2" placeholder="Nhập ghi chú yêu cầu kiểm duyệt..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="wdoc-modal-new-foot">
+      <button class="wdoc-btn ghost" type="button" onclick="closeAddModal()">Hủy bỏ</button>
+      <button class="wdoc-btn" type="button" onclick="closeAddModal()">Lưu nháp</button>
+      <button class="wdoc-btn wdoc-btn-brand" type="button" onclick="saveAddModal()">Gửi trình duyệt</button>
+    </div>
+  </div>
+</div>

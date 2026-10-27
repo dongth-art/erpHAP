@@ -1,0 +1,317 @@
+<!-- UI_Scripts.html - HAP ERP SYSTEM -->
+<script>
+  var HAP_VIEW_DATA_LOADED = {};
+
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('HAP ERP UI Initialized');
+    checkUserSession();
+
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+      document.addEventListener('click', function(e) {
+        if (sidebar.contains(e.target)) {
+          if (e.target.closest('.menu-link')) {
+            sidebar.classList.remove('collapsed');
+          }
+        } else {
+          sidebar.classList.add('collapsed');
+        }
+      });
+    }
+  });
+
+  function toggleSubmenu(element, event) {
+    event.stopPropagation();
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.classList.remove('collapsed');
+    const menuItem = element.parentElement;
+    const submenu = menuItem.querySelector('.submenu');
+    const arrow = element.querySelector('.arrow-icon');
+
+    document.querySelectorAll('.submenu').forEach(sub => {
+      if (sub !== submenu) {
+        sub.classList.remove('open');
+        const parentArrow = sub.parentElement.querySelector('.arrow-icon');
+        if (parentArrow) {
+          parentArrow.style.transform = 'rotate(0deg)';
+        }
+      }
+    });
+
+    if (submenu) {
+      const isOpen = submenu.classList.contains('open');
+      if (isOpen) {
+        submenu.classList.remove('open');
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+      } else {
+        submenu.classList.add('open');
+        if (arrow) arrow.style.transform = 'rotate(90deg)';
+      }
+    }
+  }
+
+  function navigationChildSlug_(value) {
+    return String(value || '').toLowerCase()
+      .replace(/đ/g, 'd')
+      .normalize('NFD').replace(/\p{M}/gu, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  }
+
+  function navigationKeyFor_(viewId, parentName, childName) {
+    const links = Array.from(document.querySelectorAll('#sidebar [onclick*="switchView("]'));
+    const matching = links.map(function(link) {
+      const handler = link.getAttribute('onclick') || '';
+      const match = handler.match(/switchView\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]/);
+      return match ? { viewId: match[1], parentName: match[2], childName: match[3] } : null;
+    }).filter(function(item) { return item && item.viewId === viewId; });
+    if (matching.length < 2) return viewId;
+    const selected = matching.find(function(item) {
+      return item.childName === childName && item.parentName === parentName;
+    });
+    return selected ? viewId + '-' + navigationChildSlug_(selected.childName) : viewId;
+  }
+
+  function hasNavigationAccess_(viewId, parentName, childName, user) {
+    if (!viewId) return false;
+    if (!user) return false;
+    const role = String(user.role || '').trim().toUpperCase();
+    const isSuperAdmin = role === 'SUPERADMIN';
+    const isPermissionAdmin = isSuperAdmin || role === 'ADMIN';
+    if (viewId === 'view-sys-admin') return isSuperAdmin;
+    if (isPermissionAdmin) return true;
+
+    const navAccess = user.navAccess;
+    if (navAccess === null || navAccess === undefined || String(navAccess).trim() === '') return false;
+    const allowedViews = String(navAccess).split(',').map(function(value) {
+      return value.trim().toLowerCase();
+    });
+    const key = navigationKeyFor_(viewId, parentName, childName).toLowerCase();
+    return allowedViews.indexOf('all') !== -1 || allowedViews.indexOf(key) !== -1;
+  }
+
+  function applyNavigationPermissions_(user) {
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+    const allowedLinks = [];
+    const allowedViewIds = {};
+
+    sidebar.querySelectorAll('[onclick*="switchView("]').forEach(function(link) {
+      const handler = link.getAttribute('onclick') || '';
+      const match = handler.match(/switchView\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]/);
+      if (!match) return;
+      const isSuperOnly = !!link.closest('.super-only');
+      const isSuperAdmin = user && String(user.role || '').trim().toUpperCase() === 'SUPERADMIN';
+      const allowed = (!isSuperOnly || isSuperAdmin) &&
+        hasNavigationAccess_(match[1], match[2], match[3], user);
+      const item = link.closest('li');
+      const target = item || link;
+      target.style.display = allowed ? '' : 'none';
+      target.setAttribute('aria-hidden', allowed ? 'false' : 'true');
+      if (allowed) {
+        allowedLinks.push({ link: link, match: match });
+        allowedViewIds[match[1]] = true;
+      }
+    });
+
+    sidebar.querySelectorAll('.menu-item').forEach(function(menuItem) {
+      const submenu = menuItem.querySelector(':scope > .submenu');
+      if (!submenu) return;
+      const visibleEntries = Array.from(submenu.children).filter(function(item) {
+        return item.style.display !== 'none' && !item.hidden;
+      });
+      menuItem.style.display = visibleEntries.length ? '' : 'none';
+      menuItem.setAttribute('aria-hidden', visibleEntries.length ? 'false' : 'true');
+    });
+
+    const activeView = document.querySelector('.view-container.active');
+    if (activeView && !allowedViewIds[activeView.id]) {
+      document.querySelectorAll('.view-container').forEach(function(view) {
+        view.classList.remove('active');
+      });
+      if (allowedLinks.length) {
+        const first = allowedLinks[0].match;
+        switchView(first[1], first[2], first[3]);
+      } else {
+        const noAccessView = document.getElementById('view-no-navigation-access');
+        if (noAccessView) noAccessView.classList.add('active');
+      }
+    }
+  }
+
+  function switchView(viewId, parentName, childName, eventArg) {
+    let user = null;
+    try { user = JSON.parse(localStorage.getItem('HAP_USER_SESSION') || 'null'); } catch (e) {}
+    if (!hasNavigationAccess_(viewId, parentName, childName, user)) {
+      const deniedEvent = eventArg || (typeof event !== 'undefined' ? event : null);
+      if (deniedEvent && typeof deniedEvent.preventDefault === 'function') deniedEvent.preventDefault();
+      return false;
+    }
+
+    document.querySelectorAll('.view-container').forEach(view => {
+      view.classList.remove('active');
+    });
+
+    const targetView = document.getElementById(viewId);
+    if (targetView) {
+      targetView.classList.add('active');
+    }
+
+    const parentElem = document.getElementById('breadcrumb-parent');
+    const childElem = document.getElementById('breadcrumb-child');
+    if (parentElem) parentElem.textContent = parentName;
+    if (childElem) childElem.textContent = childName;
+
+    document.querySelectorAll('.submenu-link').forEach(link => {
+      link.classList.remove('active');
+    });
+    const clickEvent = eventArg || (typeof event !== 'undefined' ? event : null);
+    if (clickEvent && clickEvent.currentTarget) {
+      clickEvent.currentTarget.classList.add('active');
+    }
+    ensureViewDataLoaded_(viewId);
+    return true;
+  }
+
+  function ensureViewDataLoaded_(viewId) {
+    if (!window.HAP_TOKEN || !window.HAP_TOKEN() || HAP_VIEW_DATA_LOADED[viewId]) return;
+
+    var loader = {
+      'view-hrm-id': window.reloadHRMIDData,
+      'view-hrm-emp': window.reloadEMPData,
+      'view-hrm-att': window.reloadATTData,
+      'view-wms-warehouse': window.reloadWmsWarehouses,
+      'view-wms-sku': window.reloadWmsSkus,
+      'view-wms-in': function() { window.reloadWmsDocs('PURCHASE_RECEIPT'); },
+      'view-wms-out': function() { window.reloadWmsDocs('SALES_ISSUE'); },
+      'view-wms-wf': window.reloadWmsWorkflow,
+      'view-wms-wf-inbox': window.reloadWmsWorkflowInbox,
+      'view-dms-sys': window.reloadDmsDocs,
+      'view-sys-usr': function() { if (typeof ensureSysUsrData === 'function') ensureSysUsrData(); }
+    }[viewId];
+    if (typeof loader !== 'function') return;
+
+    HAP_VIEW_DATA_LOADED[viewId] = true;
+    loader(false);
+  }
+
+  // Token phiên đăng nhập do server cấp. Mọi lời gọi server phải gửi kèm token này.
+  window.HAP_TOKEN = function() {
+    try {
+      const s = JSON.parse(localStorage.getItem('HAP_USER_SESSION') || '{}');
+      return s.token || '';
+    } catch (e) { return ''; }
+  };
+
+  // Chưa có token nghĩa là chưa đăng nhập: không được gọi server để tránh lỗi AUTH.
+  window.HAP_IS_AUTHED = function() {
+    return !!window.HAP_TOKEN();
+  };
+
+  window.HAP_clearToasts = function() {
+    ['toast-container', 'toast-container-att'].forEach(function(id) {
+      var box = document.getElementById(id);
+      if (box) box.innerHTML = '';
+    });
+  };
+
+  // Server trả về lỗi phiên (code 'AUTH'): đưa người dùng về màn hình đăng nhập, không báo toast lỗi.
+  window.HAP_handleAuthFailure_ = function(res) {
+    if (!res || String(res.code || '').toUpperCase() !== 'AUTH') return false;
+    localStorage.removeItem('HAP_USER_SESSION');
+    window.HAP_clearToasts();
+    showLoginOverlay();
+    return true;
+  };
+
+  // Chặn toast lỗi phiên khi người dùng chưa đăng nhập (tránh toast đè lên màn hình đăng nhập).
+  window.HAP_shouldSuppressAuthToast_ = function(message) {
+    if (window.HAP_IS_AUTHED()) return false;
+    return /phiên đăng nhập|đăng nhập lại/i.test(String(message == null ? '' : message));
+  };
+
+  // Nạp dữ liệu sau xác thực cho màn hình đang mở; các màn hình khác tải khi được mở lần đầu.
+  window.HAP_onAuthenticated = function() {
+    const activeView = document.querySelector('.view-container.active');
+    if (activeView) ensureViewDataLoaded_(activeView.id);
+  };
+
+  function showLoginOverlay() {
+    window.HAP_clearToasts();
+    Object.keys(HAP_VIEW_DATA_LOADED).forEach(function(k) { delete HAP_VIEW_DATA_LOADED[k]; });
+    const o = document.getElementById('login-overlay');
+    if (o) o.style.display = 'flex';
+  }
+
+  function checkUserSession() {
+    const savedUser = localStorage.getItem('HAP_USER_SESSION');
+    const loginOverlay = document.getElementById('login-overlay');
+
+    if (!savedUser) { showLoginOverlay(); return; }
+
+    let user = null;
+    try { user = JSON.parse(savedUser); } catch (e) {}
+    if (!user || !user.token) {
+      localStorage.removeItem('HAP_USER_SESSION');
+      showLoginOverlay();
+      return;
+    }
+
+    // Hỏi server xem phiên còn hợp lệ không (không tin dữ liệu lưu ở trình duyệt)
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.success) {
+          const merged = Object.assign({}, res.user, { token: user.token });
+          localStorage.setItem('HAP_USER_SESSION', JSON.stringify(merged));
+          updateUserHeaderUI(res.user);
+          if (loginOverlay) loginOverlay.style.display = 'none';
+          window.HAP_onAuthenticated();
+        } else {
+          localStorage.removeItem('HAP_USER_SESSION');
+          showLoginOverlay();
+        }
+      })
+      .withFailureHandler(function() {
+        localStorage.removeItem('HAP_USER_SESSION');
+        showLoginOverlay();
+      })
+      .verifySession(user.token);
+  }
+
+  function updateUserHeaderUI(user) {
+    const nameElem = document.getElementById('header-user-name');
+    const roleElem = document.getElementById('header-user-role');
+    const avatarElem = document.getElementById('header-user-avatar');
+
+    // Ẩn các mục chỉ dành cho SuperAdmin (server vẫn kiểm tra quyền thật sự)
+    document.querySelectorAll('.super-only').forEach(function(el) {
+      el.style.display = (user.role === 'SuperAdmin') ? '' : 'none';
+    });
+    applyNavigationPermissions_(user);
+
+    if (nameElem) nameElem.textContent = user.fullName || user.username;
+    if (roleElem) roleElem.textContent = user.role || 'User';
+    if (avatarElem) {
+      const firstLetter = (user.fullName || user.username).charAt(0).toUpperCase();
+      avatarElem.textContent = firstLetter;
+    }
+  }
+
+  function handleLogout() {
+    if (window.showToast) window.showToast('Đang đăng xuất...', 'info', 1500);
+    const token = window.HAP_TOKEN();
+    const finish = function() {
+      localStorage.removeItem('HAP_USER_SESSION');
+      showLoginOverlay();
+      document.querySelectorAll('.view-container').forEach(function(v){ v.classList.remove('active'); });
+      const dash = document.getElementById('view-dashboard');
+      if (dash) dash.classList.add('active');
+    };
+    google.script.run
+      .withSuccessHandler(finish)
+      .withFailureHandler(finish)
+      .logoutSession(token);
+  }
+
+  // handleApiRoute là hàm server cấp cao nhất (CORE_Router.js) nên google.script.run
+  // đã cung cấp sẵn google.script.run.handleApiRoute(...). Không cần polyfill.
+</script>

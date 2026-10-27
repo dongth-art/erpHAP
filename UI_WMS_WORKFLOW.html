@@ -1,0 +1,633 @@
+<style>
+  .wfw-shell { display:grid; gap:14px; min-width:0; }
+  .wfw-card { padding:18px; border:1px solid #e2e8f0; border-radius:12px; background:#fff; }
+  .wfw-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; }
+  .wfw-head h2, .wfw-head h3 { margin:0; color:#0f172a; }
+  .wfw-head h2 { font-size:1.15rem; }
+  .wfw-head h3 { font-size:.96rem; }
+  .wfw-muted { color:#64748b; font-size:.8rem; }
+  .wfw-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px 12px; margin-top:14px; }
+  .wfw-field { display:flex; min-width:0; flex-direction:column; gap:5px; color:#475569; font-size:.76rem; font-weight:650; }
+  .wfw-span2 { grid-column:span 2; }
+  .wfw-control { box-sizing:border-box; width:100%; min-height:36px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:7px; background:#fff; color:#0f172a; font:inherit; font-size:.83rem; }
+  .wfw-actions { display:flex; align-items:center; flex-wrap:wrap; gap:7px; }
+  .wfw-btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:34px; padding:7px 10px; border:1px solid #cbd5e1; border-radius:7px; background:#fff; color:#334155; font:inherit; font-size:.79rem; font-weight:650; cursor:pointer; }
+  .wfw-btn.primary { border-color:#2563eb; background:#2563eb; color:#fff; }
+  .wfw-btn.danger { color:#b91c1c; }
+  .wfw-btn:disabled { opacity:.55; cursor:not-allowed; }
+  .wfw-btn svg { width:15px; height:15px; }
+  .wfw-icon-btn { width:32px; min-width:32px; min-height:32px; padding:6px; border:0; border-radius:8px; background:transparent; }
+  .wfw-icon-btn:hover { background:#f1f5f9; }
+  .wfw-icon-btn.primary { border-color:transparent; background:transparent; color:#2563eb; }
+  .wfw-icon-btn.primary:hover { background:#eff6ff; }
+  .wfw-icon-btn svg { width:16px; height:16px; }
+  .wfw-icon-btn.danger:hover { border-color:transparent; background:#fef2f2; }
+  .wfw-loading { display:inline-flex; align-items:center; gap:7px; }
+  .wfw-loading::before { width:13px; height:13px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; content:""; animation:wfw-spin .7s linear infinite; }
+  @keyframes wfw-spin { to { transform:rotate(360deg); } }
+  .wfw-table-wrap { min-width:0; max-width:100%; max-height:min(68vh,720px); overflow:auto; margin-top:12px; border:1px solid #e2e8f0; border-radius:8px; }
+  .wfw-table { width:100%; min-width:900px; border-collapse:collapse; font-size:.79rem; }
+  .wfw-table th, .wfw-table td { padding:9px 10px; border-bottom:1px solid #f1f5f9; text-align:left; vertical-align:middle; }
+  .wfw-table th { position:sticky; top:0; z-index:1; background:#f8fafc; color:#0f172a; font-weight:700; white-space:nowrap; }
+  .wfw-badge { display:inline-flex; padding:3px 8px; border-radius:14px; background:#f1f5f9; color:#475569; font-size:.72rem; font-weight:700; white-space:nowrap; }
+  .wfw-badge.active { background:#dcfce7; color:#166534; }
+  .wfw-badge.pending { background:#fef3c7; color:#92400e; }
+  .wfw-steps-overview { min-width:220px; color:#334155; font-size:.74rem; line-height:1.55; }
+  .wfw-steps-overview span { display:block; }
+  .wfw-steps-overview b { display:inline-grid; width:18px; height:18px; margin-right:4px; place-items:center; border-radius:50%; background:#eff6ff; color:#1d4ed8; font-size:.68rem; }
+  .wfw-step-account { color:#64748b; white-space:nowrap; }
+  .wfw-change-reason { min-width:170px; max-width:250px; white-space:normal; overflow-wrap:anywhere; }
+  .wfw-created-at { min-width:140px; white-space:nowrap; }
+  .wfw-steps { display:grid; gap:7px; margin-top:12px; }
+  .wfw-step { display:grid; grid-template-columns:36px minmax(120px,1fr) minmax(180px,1.2fr) minmax(160px,1fr) auto auto; align-items:center; gap:8px; }
+  .wfw-step-no { color:#64748b; font-size:.8rem; text-align:center; }
+  .wfw-check { display:flex; align-items:center; gap:6px; color:#475569; font-size:.75rem; white-space:nowrap; }
+  .wfw-help { margin:8px 0 0; color:#64748b; font-size:.75rem; }
+  .wfw-task-actions { display:flex; gap:6px; white-space:nowrap; }
+  .wfw-comment { min-height:56px; resize:vertical; }
+  .wfw-pagination { margin-top:12px; }
+  .wfw-pagination label { display:flex; align-items:center; gap:8px; }
+  .wfw-page-size { width:76px; min-height:30px; padding:4px 8px; }
+  .wfw-editor-overlay, .wfw-confirm { position:fixed; z-index:10000; inset:0; display:grid; place-items:center; padding:3vh 3vw; background:rgba(15,23,42,.42); }
+  .wfw-editor-overlay[hidden], .wfw-confirm[hidden] { display:none; }
+  .wfw-editor-dialog { box-sizing:border-box; width:min(1240px,96vw); max-height:94vh; overflow:auto; padding:22px; border:0; box-shadow:0 24px 70px rgba(15,23,42,.24); }
+  .wfw-editor-dialog .wfw-head { position:sticky; top:-22px; z-index:2; padding:4px 0 12px; background:#fff; }
+  .wfw-editor-dialog form { padding-bottom:4px; }
+  .wfw-confirm-box { width:min(420px,100%); padding:18px; border-radius:12px; background:#fff; box-shadow:0 20px 50px rgba(15,23,42,.2); }
+  .wfw-confirm-box h3 { margin:0 0 8px; }
+  .wfw-confirm-box p { margin:0 0 16px; }
+  .wfw-confirm-box .wfw-actions { justify-content:flex-end; }
+  @media(max-width:850px) { .wfw-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .wfw-step { grid-template-columns:32px repeat(2,minmax(150px,1fr)); } .wfw-step .wfw-check, .wfw-step button { grid-column:auto; } }
+  @media(max-width:520px) { .wfw-grid { grid-template-columns:1fr; } .wfw-span2 { grid-column:auto; } .wfw-step { grid-template-columns:28px 1fr; } .wfw-step > *:not(.wfw-step-no) { grid-column:2; } }
+</style>
+
+<section id="view-wms-wf" class="view-container">
+  <div class="wfw-shell">
+    <section class="wfw-card">
+  <div class="wfw-head">
+    <div style="position:relative;flex:1;min-width:220px;">
+      <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#94a3b8;" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <input class="wfw-control" type="search" placeholder="Tìm workflow..." style="padding-left:34px;">
+    </div>
+    <div class="wfw-actions"><span class="wfw-muted" id="wfw-status" role="status" aria-live="polite"></span>
+      <button class="wfw-btn" id="wfw-reload" type="button" onclick="reloadWmsWorkflow(true)" title="Tải lại"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 9a7 7 0 0 1 12-2l2 2M4 13l2 2a7 7 0 0 0 12-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="wfw-btn primary" id="wfw-new" type="button" onclick="wfwNewWorkflow()" title="Tạo WF"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+  </div>
+      <div class="wfw-table-wrap"><table class="wfw-table"><thead><tr><th>Mã WF / Tên / Phiên bản</th><th>Loại phiếu / Kho áp dụng</th><th>Lý do thay đổi</th><th>Người tạo / Thời gian</th><th>Luồng duyệt</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody id="wfw-workflow-body"><tr><td colspan="7" class="wfw-muted">Đang tải...</td></tr></tbody></table></div>
+      <div class="wfw-head wfw-pagination"><label class="wfw-muted">Số dòng
+        <select id="wfw-page-size" class="wfw-control wfw-page-size" onchange="wfwChangePageSize()"><option>10</option><option>25</option><option>50</option></select>
+      </label><div class="wfw-actions"><span class="wfw-muted" id="wfw-page-info"></span>
+        <button class="wfw-btn wfw-icon-btn" type="button" title="Trang trước" aria-label="Trang trước" onclick="wfwChangePage(-1)">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="wfw-btn wfw-icon-btn" type="button" title="Trang sau" aria-label="Trang sau" onclick="wfwChangePage(1)">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div></div>
+    </section>
+    <div class="wfw-editor-overlay" id="wfw-editor-card" hidden>
+    <section class="wfw-card wfw-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="wfw-editor-title">
+      <div class="wfw-head"><div><h3 id="wfw-editor-title">Tạo workflow</h3><span class="wfw-muted">Mỗi bước chọn trực tiếp nhân viên và tài khoản đăng nhập đang hoạt động.</span></div>
+        <button class="wfw-btn" type="button" onclick="wfwCancelEdit()">Đóng</button></div>
+      <form id="wfw-form" onsubmit="wfwSaveWorkflow(event)">
+        <div class="wfw-grid">
+          <label class="wfw-field">Mã WF *<input class="wfw-control" id="wfw-code" required maxlength="30" pattern="[A-Za-z0-9_-]{2,30}" placeholder="WF01"></label>
+          <label class="wfw-field">Tên workflow *<input class="wfw-control" id="wfw-name" required maxlength="150" placeholder="Nhập mua hàng"></label>
+          <label class="wfw-field">Loại phiếu *<select class="wfw-control" id="wfw-doc-type"><option value="PURCHASE_RECEIPT">Nhập kho</option><option value="SALES_ISSUE">Xuất kho</option></select></label>
+          <label class="wfw-field">Phạm vi kho<select class="wfw-control" id="wfw-warehouse"></select></label>
+          <label class="wfw-field wfw-span2">Lý do thay đổi<input class="wfw-control" id="wfw-reason" maxlength="500" placeholder="Ghi chú phiên bản / thay đổi quy trình"></label>
+        </div>
+        <div class="wfw-head" style="margin-top:16px"><strong>Các bước duyệt</strong><button class="wfw-btn" type="button" onclick="wfwAddStep()">+ Thêm bước</button></div>
+        <div class="wfw-steps" id="wfw-steps"></div>
+        <div class="wfw-actions" style="margin-top:12px"><button class="wfw-btn primary" id="wfw-save" type="submit">Tạo phiên bản nháp</button><span class="wfw-muted">Bước cuối hoàn tất duyệt nhưng chưa ghi sổ tồn kho.</span></div>
+      </form>
+    </section>
+    </div>
+    <div id="wfw-confirm" class="wfw-confirm" hidden role="dialog" aria-modal="true" aria-labelledby="wfw-confirm-title">
+      <div class="wfw-confirm-box"><h3 id="wfw-confirm-title">Xác nhận</h3><p id="wfw-confirm-message" class="wfw-muted"></p>
+        <div class="wfw-actions"><button class="wfw-btn" type="button" onclick="wfwCloseConfirm()">Hủy</button>
+          <button class="wfw-btn danger" type="button" id="wfw-confirm-accept" onclick="wfwConfirmWorkflowAction()">Tiếp tục</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="view-wms-wf-inbox" class="view-container">
+  <div class="wfw-shell">
+    <section class="wfw-card">
+      <div class="wfw-head"><div><h2>Duyệt của tôi</h2><span class="wfw-muted">Các phiếu đang chờ bạn xử lý.</span></div>
+        <div class="wfw-actions"><span class="wfw-muted" id="wfw-inbox-status" role="status" aria-live="polite"></span>
+          <button class="wfw-btn" type="button" onclick="reloadWmsWorkflowInbox()">Tải lại</button></div>
+      </div>
+      <div class="wfw-head" style="margin-top:12px"><h3>Hộp thư duyệt</h3><span class="wfw-muted" id="wfw-task-count"></span></div>
+      <div class="wfw-table-wrap"><table class="wfw-table"><thead><tr><th>Số phiếu</th><th>Loại / Ngày</th><th>Kho / Đối tác</th><th>Bước</th><th>Người đề nghị</th><th>Thao tác</th></tr></thead><tbody id="wfw-task-body"><tr><td colspan="6" class="wfw-muted">Bấm tải lại để lấy task.</td></tr></tbody></table></div>
+      <label class="wfw-field" style="margin-top:10px">Lý do trả phiếu (bắt buộc khi trả)<textarea class="wfw-control wfw-comment" id="wfw-return-reason" maxlength="1000"></textarea></label>
+      <p class="wfw-help">Trả phiếu đưa chứng từ về người đề nghị để chỉnh sửa và gửi lại. Duyệt bước cuối chưa ghi sổ kho.</p>
+    </section>
+  </div>
+</section>
+
+<script>
+  (function() {
+    var setup = { workflows:[], employees:[], accounts:[], warehouses:[], permissions:{} };
+    var viewLoaded = false;
+    var page = 1;
+    var editorSource = null;
+    var setupCursor = 0;
+    var setupLoading = false;
+    var safe = function(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, function(char) {
+        return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char];
+      });
+    };
+    function invoke(action, payload, success, failure) {
+      google.script.run.withSuccessHandler(success).withFailureHandler(failure)
+        .handleApiRoute('WMS', action, Object.assign({ token:window.HAP_TOKEN() }, payload || {}));
+    }
+    function toast(message, type) { if (window.showToast) window.showToast(message, type || 'error'); }
+    function actionIcon(name) {
+      var paths = {
+        edit:'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z',
+        activate:'m8 5 11 7-11 7V5Z',
+        lock:'M5 10h14v11H5zM8 10V7a4 4 0 0 1 8 0v3m-4 4v3',
+        delete:'M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6'
+      };
+      return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="' +
+        (paths[name] || '') + '" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    }
+
+    function formatWorkflowDateTime(value) {
+      if (!value) return '—';
+      var sheetDate = String(value).match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}:\d{2}:\d{2})$/);
+      if (sheetDate) return sheetDate[1] + '/' + sheetDate[2] + '/' + sheetDate[3] + ' ' + sheetDate[4];
+      var date = value instanceof Date ? value : new Date(value);
+      if (!isFinite(date.getTime())) return String(value);
+      return new Intl.DateTimeFormat('vi-VN', {
+        year:'numeric', month:'2-digit', day:'2-digit',
+        hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23'
+      }).format(date);
+    }
+
+    function reloadWmsWorkflow(forceFull) {
+      if (!window.HAP_IS_AUTHED || !window.HAP_IS_AUTHED()) return;
+      if (setupLoading) return;
+      setupLoading = true;
+      var status = document.getElementById('wfw-status');
+      status.textContent = 'Đang tải...';
+      var refreshButton = document.getElementById('wfw-reload');
+      if (refreshButton) refreshButton.disabled = true;
+      invoke('getWorkflowSetup', !forceFull && setupCursor ? { since:setupCursor } : {}, function(result) {
+        setupLoading = false;
+        if (refreshButton) refreshButton.disabled = false;
+        if (!result || !result.success) {
+          status.textContent = result && result.message || 'Không tải được cấu hình.';
+          if (window.HAP_handleAuthFailure_(result)) return;
+          toast(result && result.message || 'Không tải được cấu hình workflow.');
+        } else {
+          if (result.incremental) {
+            var byVersion = {};
+            (setup.workflows || []).forEach(function(item) {
+              byVersion[String(item.workflow_version_id)] = item;
+            });
+            (result.workflows || []).forEach(function(item) {
+              byVersion[String(item.workflow_version_id)] = item;
+            });
+            setup.workflows = Object.keys(byVersion).map(function(key) { return byVersion[key]; });
+            setup.permissions = result.permissions || setup.permissions;
+          } else {
+            setup = result;
+          }
+          setupCursor = Number(result.cursor) || Date.now();
+          renderWorkflow(setup.workflows || []);
+          if (!result.incremental) {
+            renderWarehouses();
+            wfwRefreshStepApprovers();
+          }
+          status.textContent = result.employeeAccess === false
+            ? 'Đã đồng bộ; danh sách nhân viên bị giới hạn theo quyền xem HRM_EMP.'
+            : 'Đã đồng bộ.';
+        }
+      }, function(error) {
+        setupLoading = false;
+        if (refreshButton) refreshButton.disabled = false;
+        status.textContent = 'Lỗi kết nối cấu hình.';
+        toast('Không tải được cấu hình workflow: ' + (error && error.message || error));
+      });
+    }
+
+    function reloadWmsWorkflowInbox() {
+      if (!window.HAP_IS_AUTHED || !window.HAP_IS_AUTHED()) return;
+      var status = document.getElementById('wfw-inbox-status');
+      status.textContent = 'Đang tải...';
+      invoke('listMyWorkflowTasks', {}, function(result) {
+        if (!result || !result.success) {
+          renderTasks([]);
+          status.textContent = 'Không tải được.';
+          if (window.HAP_handleAuthFailure_(result)) return;
+          toast(result && result.message || 'Không tải được hộp thư duyệt.');
+        } else {
+          renderTasks(result.list || []);
+          status.textContent = 'Đã đồng bộ.';
+        }
+      }, function(error) {
+        renderTasks([]);
+        status.textContent = 'Lỗi kết nối.';
+        toast('Không tải được hộp thư duyệt: ' + (error && error.message || error));
+      });
+    }
+
+    function wfwRefreshStepApprovers() {
+      document.querySelectorAll('#wfw-steps .wfw-step').forEach(function(row) {
+        var employee = row.querySelector('[data-wfw-step="employee"]');
+        var account = row.querySelector('[data-wfw-step="account"]');
+        var employeeValue = employee.value;
+        var accountValue = account.value;
+        employee.innerHTML = '<option value="">Chọn nhân viên</option>' +
+          (setup.employees || []).map(function(item) {
+            return '<option value="' + safe(item.emp_id) + '">' +
+              safe(item.full_name + ' · ' + item.emp_id) + '</option>';
+          }).join('');
+        account.innerHTML = '<option value="">Chọn tài khoản</option>' +
+          (setup.accounts || []).map(function(item) {
+            return '<option value="' + safe(item.username) + '">' +
+              safe((item.full_name ? item.full_name + ' · ' : '') + item.username) + '</option>';
+          }).join('');
+        employee.value = employeeValue;
+        account.value = accountValue;
+      });
+    }
+
+    function renderWarehouses() {
+      var options = (setup.warehouses || []).map(function(item) {
+        return '<option value="' + safe(item.warehouse_id) + '">' +
+          safe(item.warehouse_code + ' · ' + item.warehouse_name) + '</option>';
+      }).join('');
+      document.getElementById('wfw-warehouse').innerHTML = '<option value="">Tất cả kho</option>' + options;
+    }
+
+    function renderWorkflow(rows) {
+      var body = document.getElementById('wfw-workflow-body');
+      var sorted = rows.slice().reverse();
+      var pageSize = Number(document.getElementById('wfw-page-size').value) || 10;
+      var pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
+      page = Math.min(Math.max(page, 1), pageCount);
+      var shown = sorted.slice((page - 1) * pageSize, page * pageSize);
+      body.innerHTML = shown.length ? shown.map(function(item) {
+        var warehouse = (setup.warehouses || []).find(function(row) {
+          return String(row.warehouse_id) === String(item.warehouse_scope_id);
+        });
+        var docType = item.doc_type === 'PURCHASE_RECEIPT' ? 'Nhập kho' : 'Xuất kho';
+        var steps = (item.steps || []).map(function(step, index) {
+          return '<span><b>' + safe(index + 1) + '</b>' + safe(step.step_name) + ' · ' +
+            safe(step.approver_name_snapshot || step.approver_username) +
+            ' <small class="wfw-step-account">@' + safe(step.approver_username) + '</small></span>';
+        }).join('');
+        return '<tr data-wfw-version="' + safe(item.workflow_version_id) + '"><td><strong>' + safe(item.wf_code) +
+          '</strong><div>' + safe(item.wf_name) + '</div><div class="wfw-muted">v' + safe(item.version_no) + '</div></td><td>' +
+          docType + '<div class="wfw-muted">' +
+          safe(warehouse ? warehouse.warehouse_code + ' · ' + warehouse.warehouse_name : 'Tất cả kho') +
+          '</div></td><td class="wfw-change-reason">' +
+          safe(item.change_reason || '—') + '</td><td>' + safe(item.created_by_username || '—') +
+          '<div class="wfw-created-at">' + safe(formatWorkflowDateTime(item.created_at)) + '</div>' +
+          '</td><td class="wfw-steps-overview">' + (steps || '—') +
+          '</td><td><span class="wfw-badge ' + (item.status === 'ACTIVE' ? 'active' : '') + '">' +
+          safe(item.status) + '</span></td><td><div class="wfw-actions">' +
+          (item.status !== 'ARCHIVED' && setup.permissions.createWorkflow
+            ? '<button class="wfw-btn wfw-icon-btn" type="button" title="Sửa / tạo phiên bản mới" aria-label="Sửa workflow" onclick="wfwEditWorkflow(\'' +
+              safe(item.workflow_version_id) + '\')">' + actionIcon('edit') + '</button>'
+            : '') +
+          ((item.status === 'DRAFT' || item.status === 'INACTIVE') && setup.permissions.updateWorkflow
+            ? '<button class="wfw-btn primary wfw-icon-btn" type="button" title="Kích hoạt" aria-label="Kích hoạt workflow" onclick="wfwActivate(\'' +
+              safe(item.workflow_version_id) + '\')">' + actionIcon('activate') + '</button>'
+            : '') +
+          (item.status === 'ACTIVE' && setup.permissions.updateWorkflow
+            ? '<button class="wfw-btn wfw-icon-btn" type="button" title="Khóa" aria-label="Khóa workflow" onclick="wfwSetWorkflowStatus(\'' +
+              safe(item.workflow_version_id) + '\',\'LOCK\')">' + actionIcon('lock') + '</button>'
+            : '') +
+          (item.status !== 'ARCHIVED' && setup.permissions.deleteWorkflow
+            ? '<button class="wfw-btn danger wfw-icon-btn" type="button" title="Xóa mềm" aria-label="Xóa workflow" onclick="wfwSetWorkflowStatus(\'' +
+              safe(item.workflow_version_id) + '\',\'DELETE\')">' + actionIcon('delete') + '</button>'
+            : '') +
+          '</div></td></tr>';
+      }).join('') : '<tr><td colspan="7" class="wfw-muted">Chưa có workflow.</td></tr>';
+      document.getElementById('wfw-page-info').textContent = sorted.length
+        ? 'Trang ' + page + '/' + pageCount + ' · ' + sorted.length + ' phiên bản'
+        : '0 phiên bản';
+      document.getElementById('wfw-new').disabled = !setup.permissions.createWorkflow;
+    }
+
+    function wfwChangePage(offset) {
+      page += offset;
+      renderWorkflow(setup.workflows || []);
+    }
+
+    function wfwChangePageSize() {
+      page = 1;
+      renderWorkflow(setup.workflows || []);
+    }
+
+    function renderTasks(rows) {
+      document.getElementById('wfw-task-count').textContent = rows.length + ' task đang chờ';
+      var body = document.getElementById('wfw-task-body');
+      body.innerHTML = rows.length ? rows.map(function(item) {
+        var type = item.doc_type === 'PURCHASE_RECEIPT' ? 'Nhập kho' : 'Xuất kho';
+        return '<tr><td><strong>' + safe(item.doc_no) + '</strong></td><td>' + type + '<div class="wfw-muted">' +
+          safe(item.doc_date) + '</div></td><td>' + safe(item.warehouse_id) + '<div class="wfw-muted">' +
+          safe(item.partner_name_snapshot) + '</div></td><td><span class="wfw-badge pending">' +
+          safe(item.step_no + '. ' + item.step_name) + '</span></td><td>' + safe(item.requester_username) +
+          '</td><td><div class="wfw-task-actions"><button class="wfw-btn primary" type="button" ' +
+          (item.can_decide ? '' : 'disabled ') + 'onclick="wfwDecide(\'' +
+          safe(item.task_id) + '\',\'APPROVE\')">Duyệt</button><button class="wfw-btn danger" type="button" ' +
+          (item.can_decide ? '' : 'disabled ') + 'onclick="wfwDecide(\'' +
+          safe(item.task_id) + '\',\'RETURN\')">Trả về</button></div></td></tr>';
+      }).join('') : '<tr><td colspan="6" class="wfw-muted">Không có task chờ bạn duyệt.</td></tr>';
+    }
+
+    function wfwAddStep(step) {
+      var body = document.getElementById('wfw-steps');
+      var index = body.children.length + 1;
+      var row = document.createElement('div');
+      row.className = 'wfw-step';
+      row.innerHTML = '<span class="wfw-step-no">' + index + '</span><input class="wfw-control" data-wfw-step="name" required maxlength="100" placeholder="Tên bước duyệt">' +
+        '<select class="wfw-control" data-wfw-step="employee" required><option value="">Chọn nhân viên</option></select>' +
+        '<select class="wfw-control" data-wfw-step="account" required><option value="">Chọn tài khoản</option></select>' +
+        '<label class="wfw-check"><input type="checkbox" data-wfw-step="self"> Cho phép tự duyệt</label>' +
+        '<label class="wfw-check"><input type="checkbox" data-wfw-step="posting"> Bước ghi sổ tồn kho</label>' +
+        '<button class="wfw-btn danger" type="button" title="Bỏ bước" onclick="wfwRemoveStep(this)">Bỏ</button>';
+      body.appendChild(row);
+      wfwRefreshStepApprovers();
+      if (step) {
+        row.querySelector('[data-wfw-step="name"]').value = step.step_name || '';
+        row.querySelector('[data-wfw-step="employee"]').value = step.approver_emp_id || '';
+        row.querySelector('[data-wfw-step="account"]').value = step.approver_username || '';
+         row.querySelector('[data-wfw-step="self"]').checked = !!step.can_self_approve;
+         row.querySelector('[data-wfw-step="posting"]').checked = !!step.is_stock_posting_step;
+      }
+    }
+
+    function wfwRemoveStep(button) {
+      if (document.getElementById('wfw-steps').children.length <= 1) {
+        toast('Workflow cần ít nhất một bước duyệt.');
+        return;
+      }
+      button.closest('.wfw-step').remove();
+      document.querySelectorAll('#wfw-steps .wfw-step-no').forEach(function(node, index) {
+        node.textContent = index + 1;
+      });
+    }
+
+    function wfwNewWorkflow() {
+      if (!setup.permissions.createWorkflow) return;
+      editorSource = null;
+      document.getElementById('wfw-editor-title').textContent = 'Tạo workflow';
+      document.getElementById('wfw-form').reset();
+      document.getElementById('wfw-form').querySelectorAll('input,select,button').forEach(function(element) {
+        element.disabled = false;
+      });
+      document.getElementById('wfw-editor-card').hidden = false;
+      document.getElementById('wfw-steps').innerHTML = '';
+      wfwAddStep();
+      document.getElementById('wfw-code').focus();
+    }
+
+    function wfwEditWorkflow(versionId) {
+      if (!setup.permissions.createWorkflow) return;
+      var item = (setup.workflows || []).find(function(row) {
+        return String(row.workflow_version_id) === String(versionId);
+      });
+      if (!item || item.status === 'ARCHIVED') return;
+      editorSource = item;
+      document.getElementById('wfw-editor-title').textContent =
+        'Sửa ' + item.wf_code + ' · tạo bản nháp v' + (Number(item.version_no) + 1);
+      document.getElementById('wfw-form').reset();
+      document.getElementById('wfw-code').value = item.wf_code || '';
+      document.getElementById('wfw-name').value = item.wf_name || '';
+      document.getElementById('wfw-doc-type').value = item.doc_type || 'PURCHASE_RECEIPT';
+      document.getElementById('wfw-warehouse').value = item.warehouse_scope_id || '';
+      document.getElementById('wfw-reason').value = '';
+      document.getElementById('wfw-editor-card').hidden = false;
+      document.getElementById('wfw-steps').innerHTML = '';
+      (item.steps || []).forEach(wfwAddStep);
+      if (!item.steps || !item.steps.length) wfwAddStep();
+      document.getElementById('wfw-editor-card').querySelector('[data-wfw-step="name"]').focus();
+    }
+
+    function wfwCancelEdit() {
+      editorSource = null;
+      document.getElementById('wfw-editor-card').hidden = true;
+      document.getElementById('wfw-form').reset();
+      document.getElementById('wfw-steps').innerHTML = '';
+    }
+
+    function wfwSaveWorkflow(event) {
+      event.preventDefault();
+      var button = document.getElementById('wfw-save');
+      var originalLabel = button.textContent;
+      var steps = Array.from(document.querySelectorAll('#wfw-steps .wfw-step')).map(function(row) {
+        return {
+          step_name:row.querySelector('[data-wfw-step="name"]').value,
+          approver_emp_id:row.querySelector('[data-wfw-step="employee"]').value,
+          approver_username:row.querySelector('[data-wfw-step="account"]').value,
+           can_self_approve:row.querySelector('[data-wfw-step="self"]').checked,
+           is_stock_posting_step:row.querySelector('[data-wfw-step="posting"]').checked
+        };
+      });
+      button.disabled = true;
+      button.innerHTML = '<span class="wfw-loading">Đang lưu...</span>';
+      invoke('saveWorkflow', { record:{
+        source_workflow_id:editorSource && editorSource.workflow_id || '',
+        source_workflow_version_id:editorSource && editorSource.workflow_version_id || '',
+        wf_code:document.getElementById('wfw-code').value,
+        wf_name:document.getElementById('wfw-name').value,
+        doc_type:document.getElementById('wfw-doc-type').value,
+        warehouse_scope_id:document.getElementById('wfw-warehouse').value,
+        change_reason:document.getElementById('wfw-reason').value,
+        steps:steps
+      } }, function(result) {
+        button.disabled = false;
+        button.textContent = originalLabel;
+        if (!result || !result.success) { toast(result && result.message || 'Không tạo được workflow.'); return; }
+        toast(result.message, 'success');
+        if (result.workflow) {
+          setup.workflows = [result.workflow].concat(setup.workflows || []);
+          page = 1;
+          renderWorkflow(setup.workflows);
+        }
+        wfwCancelEdit();
+      }, function(error) {
+        button.disabled = false;
+        button.textContent = originalLabel;
+        toast('Lỗi kết nối máy chủ: ' + (error && error.message || error));
+      });
+    }
+
+    function wfwActivate(workflowVersionId) {
+      setWorkflowBusy_(workflowVersionId, true);
+      document.getElementById('wfw-status').textContent = 'Đang kích hoạt...';
+      invoke('activateWorkflow', { workflowVersionId:workflowVersionId }, function(result) {
+        setWorkflowBusy_(workflowVersionId, false);
+        if (!result || !result.success) {
+          document.getElementById('wfw-status').textContent = '';
+          toast(result && result.message || 'Không kích hoạt được workflow.');
+          return;
+        }
+        var target = (setup.workflows || []).find(function(item) {
+          return String(item.workflow_version_id) === String(workflowVersionId);
+        });
+        if (target) {
+          (setup.workflows || []).forEach(function(item) {
+            if (item.doc_type === target.doc_type &&
+                String(item.warehouse_scope_id || '') === String(target.warehouse_scope_id || '') &&
+                item.status === 'ACTIVE') {
+              item.status = 'INACTIVE';
+              item.is_active = false;
+            }
+          });
+          target.status = 'ACTIVE';
+          target.is_active = true;
+          setupCursor = Math.max(0, Date.now() - 1000);
+          renderWorkflow(setup.workflows);
+        }
+        document.getElementById('wfw-status').textContent = 'Đã cập nhật.';
+        toast(result.message, 'success');
+      }, function(error) {
+        setWorkflowBusy_(workflowVersionId, false);
+        document.getElementById('wfw-status').textContent = '';
+        toast('Lỗi kết nối máy chủ: ' + (error && error.message || error));
+      });
+    }
+
+    function setWorkflowBusy_(workflowVersionId, busy) {
+      var row = document.querySelector('[data-wfw-version="' + CSS.escape(String(workflowVersionId)) + '"]');
+      if (row) row.querySelectorAll('button').forEach(function(button) { button.disabled = busy; });
+    }
+
+    function wfwSetWorkflowStatus(workflowVersionId, action) {
+      var item = (setup.workflows || []).find(function(row) {
+        return String(row.workflow_version_id) === String(workflowVersionId);
+      });
+      if (!item) return;
+      if (action === 'LOCK') {
+        setWorkflowBusy_(workflowVersionId, true);
+        document.getElementById('wfw-status').textContent = 'Đang khóa...';
+        invoke('setWorkflowStatus', {
+          workflowVersionId:workflowVersionId, action:action
+        }, function(result) {
+          setWorkflowBusy_(workflowVersionId, false);
+          if (!result || !result.success) {
+            document.getElementById('wfw-status').textContent = '';
+            toast(result && result.message || 'Không khóa được workflow.');
+            return;
+          }
+          item.status = 'INACTIVE';
+          item.is_active = false;
+          setupCursor = Math.max(0, Date.now() - 1000);
+          renderWorkflow(setup.workflows);
+          document.getElementById('wfw-status').textContent = 'Đã cập nhật.';
+          toast(result.message, 'success');
+        }, function(error) {
+          setWorkflowBusy_(workflowVersionId, false);
+          document.getElementById('wfw-status').textContent = '';
+          toast('Lỗi kết nối máy chủ: ' + (error && error.message || error));
+        });
+        return;
+      }
+      document.getElementById('wfw-confirm-title').textContent = 'Xóa mềm workflow';
+      document.getElementById('wfw-confirm-message').textContent =
+        'Xóa ' + item.wf_code + ' và các phiên bản liên quan? Nếu đã có lịch sử sử dụng, hệ thống sẽ từ chối và yêu cầu khóa workflow.';
+      document.getElementById('wfw-confirm').dataset.versionId = workflowVersionId;
+      document.getElementById('wfw-confirm').hidden = false;
+    }
+
+    function wfwCloseConfirm() {
+      document.getElementById('wfw-confirm').hidden = true;
+    }
+
+    function wfwConfirmWorkflowAction() {
+      var dialog = document.getElementById('wfw-confirm');
+      var button = document.getElementById('wfw-confirm-accept');
+      button.disabled = true;
+      document.getElementById('wfw-status').textContent = 'Đang xóa...';
+      invoke('setWorkflowStatus', {
+        workflowVersionId:dialog.dataset.versionId, action:'DELETE'
+      }, function(result) {
+        button.disabled = false;
+        wfwCloseConfirm();
+        if (!result || !result.success) {
+          document.getElementById('wfw-status').textContent = '';
+          toast(result && result.message || 'Không xóa được workflow.');
+          return;
+        }
+        var item = (setup.workflows || []).find(function(row) {
+          return String(row.workflow_version_id) === String(dialog.dataset.versionId);
+        });
+        if (item) {
+          (setup.workflows || []).forEach(function(row) {
+            if (String(row.workflow_id) === String(item.workflow_id)) {
+              row.status = 'ARCHIVED';
+              row.is_active = false;
+            }
+          });
+          setupCursor = Math.max(0, Date.now() - 1000);
+          renderWorkflow(setup.workflows);
+        }
+        document.getElementById('wfw-status').textContent = 'Đã cập nhật.';
+        toast(result.message, 'success');
+      }, function(error) {
+        button.disabled = false;
+        wfwCloseConfirm();
+        document.getElementById('wfw-status').textContent = '';
+        toast('Lỗi kết nối máy chủ: ' + (error && error.message || error));
+      });
+    }
+
+    function wfwDecide(taskId, decision) {
+      var comment = decision === 'RETURN'
+        ? document.getElementById('wfw-return-reason').value.trim() : '';
+      if (decision === 'RETURN' && !comment) {
+        toast('Hãy nhập lý do trả phiếu.');
+        document.getElementById('wfw-return-reason').focus();
+        return;
+      }
+      invoke('decideWorkflowTask', { taskId:taskId, decision:decision, comment:comment }, function(result) {
+        if (!result || !result.success) { toast(result && result.message || 'Không xử lý được task.'); return; }
+        toast(result.message, 'success');
+        if (decision === 'RETURN') document.getElementById('wfw-return-reason').value = '';
+        reloadWmsWorkflowInbox();
+      }, function(error) { toast('Lỗi kết nối máy chủ: ' + (error && error.message || error)); });
+    }
+
+    window.reloadWmsWorkflow = reloadWmsWorkflow;
+    window.reloadWmsWorkflowInbox = reloadWmsWorkflowInbox;
+    window.wfwAddStep = wfwAddStep;
+    window.wfwRemoveStep = wfwRemoveStep;
+    window.wfwNewWorkflow = wfwNewWorkflow;
+    window.wfwEditWorkflow = wfwEditWorkflow;
+    window.wfwCancelEdit = wfwCancelEdit;
+    window.wfwChangePage = wfwChangePage;
+    window.wfwChangePageSize = wfwChangePageSize;
+    window.wfwSaveWorkflow = wfwSaveWorkflow;
+    window.wfwActivate = wfwActivate;
+    window.wfwSetWorkflowStatus = wfwSetWorkflowStatus;
+    window.wfwCloseConfirm = wfwCloseConfirm;
+    window.wfwConfirmWorkflowAction = wfwConfirmWorkflowAction;
+    window.wfwDecide = wfwDecide;
+    document.addEventListener('DOMContentLoaded', function() {
+      if (!viewLoaded) {
+        viewLoaded = true;
+        wfwRefreshStepApprovers();
+      }
+    });
+    if (document.readyState !== 'loading' && !viewLoaded) {
+      viewLoaded = true;
+      wfwRefreshStepApprovers();
+    }
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape') {
+        if (!document.getElementById('wfw-confirm').hidden) wfwCloseConfirm();
+        else if (!document.getElementById('wfw-editor-card').hidden) wfwCancelEdit();
+      }
+    });
+  })();
+</script>

@@ -1,0 +1,601 @@
+<!-- UI_HRM_ORG.html - SƠ ĐỒ TỔ CHỨC PHÂN CẤP NHÂN SỰ -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-org-chart@3.0.1"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-flextree@2.1.2/build/d3-flextree.js"></script>
+
+<style>
+  .org-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    height: 100%;
+  }
+
+  .org-container {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    position: relative;
+    width: 100%;
+    height: calc(100vh - 180px);
+    min-height: 580px;
+    overflow: hidden;
+  }
+
+  #chart-container {
+    width: 100%;
+    height: 100%;
+  }
+
+  .org-icon {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  .org-node-card {
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    border: 1px solid #cbd5e1;
+    padding: 12px;
+    width: 270px;
+    font-family: system-ui, -apple-system, sans-serif;
+    position: relative;
+    transition: all 0.2s ease;
+  }
+  .org-node-card:hover {
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.15);
+    border-color: #2563eb;
+  }
+
+  .org-node-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+  }
+
+  .org-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #2563eb;
+    flex-shrink: 0;
+  }
+
+  .org-name {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .org-emp-id {
+    font-size: 0.72rem;
+    color: #2563eb;
+    font-weight: 600;
+  }
+
+  .org-title {
+    font-size: 0.78rem;
+    color: #334155;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .org-dept {
+    font-size: 0.72rem;
+    color: #64748b;
+  }
+
+  .org-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px dashed #e2e8f0;
+  }
+
+  .btn-view-profile {
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.73rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+  }
+  .btn-view-profile:hover {
+    background: #2563eb;
+    color: #ffffff;
+  }
+
+  .subordinate-badge {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .toolbar-btn {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+  }
+  .toolbar-btn:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  .spinning {
+    animation: spin 0.8s linear infinite;
+  }
+
+  /* SIDE DRAWER CHI TIẾT NHÂN VIÊN */
+  #org-drawer-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(2px);
+    z-index: 99998; opacity: 0; visibility: hidden; transition: all 0.3s ease;
+  }
+  #org-drawer-overlay.active { opacity: 1; visibility: visible; }
+
+  #org-drawer-panel {
+    position: fixed; top: 0; right: -750px; width: 700px; max-width: 95vw; height: 100vh;
+    background: #ffffff; box-shadow: -10px 0 25px rgba(0, 0, 0, 0.15);
+    z-index: 99999; transition: right 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex; flex-direction: column; font-family: system-ui, -apple-system, sans-serif;
+  }
+  #org-drawer-panel.active { right: 0; }
+
+  .drawer-avatar {
+    width: 72px; height: 72px; border-radius: 50%; object-fit: cover;
+    border: 3px solid #ffffff; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  }
+
+  .info-card {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px;
+  }
+  .info-card-title {
+    font-size: 0.78rem; font-weight: 700; color: #2563eb; text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 10px; display: flex; align-items: center; gap: 6px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 6px;
+  }
+  .info-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  .info-item { display: flex; flex-direction: column; gap: 2px; }
+  .info-label { font-size: 0.73rem; color: #64748b; font-weight: 500; }
+  .info-value { font-size: 0.83rem; color: #0f172a; font-weight: 600; word-break: break-word; }
+</style>
+
+<div class="org-wrapper">
+
+  <!-- TOOLBAR -->
+  <div style="background: #ffffff; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+      <input type="text" id="org-search-input" placeholder="Gõ tên hoặc Mã NV..." onkeyup="if(event.key==='Enter') searchAndHighlightOrgNode()" style="padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.83rem; width: 220px; outline: none;">
+      <button onclick="searchAndHighlightOrgNode()" class="toolbar-btn" style="background: #2563eb; color: #fff; border-color: #2563eb;">
+        <svg class="org-icon" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <span>Tìm kiếm</span>
+      </button>
+      
+      <select id="org-dept-filter" onchange="filterOrgByDept(this.value)" style="padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.83rem; outline: none; background: #fff;">
+        <option value="">-- Tất cả Phòng ban --</option>
+      </select>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <button onclick="if(chart) chart.fit()" title="Căn vừa màn hình" class="toolbar-btn">
+        <svg class="org-icon" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm-7 7H3v4c0 1.1.9 2 2 2h4v-2H5v-4zM5 5h4V3H5c-1.1 0-2 .9-2 2v4h2V5zm14-2h-4v2h4v4h2V5c0-1.1-.9-2-2-2zm0 16h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4z"/></svg>
+        <span>Căn vừa</span>
+      </button>
+
+      <button onclick="if(chart) chart.expandAll()" title="Mở rộng toàn bộ" class="toolbar-btn">
+        <svg class="org-icon" viewBox="0 0 24 24"><path d="M12 4l-8 8h6v8h4v-8h6z"/></svg>
+        <span>Mở hết</span>
+      </button>
+
+      <button onclick="if(chart) chart.collapseAll()" title="Thu gọn toàn bộ" class="toolbar-btn">
+        <svg class="org-icon" viewBox="0 0 24 24"><path d="M12 20l8-8h-6V4h-4v8H4z"/></svg>
+        <span>Thu gọn</span>
+      </button>
+
+      <button onclick="if(chart) chart.zoomIn()" title="Phóng to" class="toolbar-btn" style="padding: 7px 10px;">
+        <svg class="org-icon" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      </button>
+
+      <button onclick="if(chart) chart.zoomOut()" title="Thu nhỏ" class="toolbar-btn" style="padding: 7px 10px;">
+        <svg class="org-icon" viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z"/></svg>
+      </button>
+
+      <button id="btn-reload-org" onclick="reloadOrgChartData()" class="toolbar-btn" style="background: #059669; color: #fff; border-color: #059669;">
+        <svg id="icon-reload-spin" class="org-icon" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        <span>Tải lại</span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- CONTAINER CHỨA SƠ ĐỒ D3-ORG-CHART -->
+  <div class="org-container">
+    <div id="chart-container"></div>
+  </div>
+
+</div>
+
+<!-- SIDE DRAWER CHI TIẾT -->
+<div id="org-drawer-overlay" onclick="closeOrgEMPDrawer()"></div>
+
+<div id="org-drawer-panel">
+  <div style="padding: 20px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #ffffff; position: relative;">
+    <button onclick="closeOrgEMPDrawer()" style="position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center;">&times;</button>
+    
+    <div style="display: flex; gap: 16px; align-items: center;">
+      <img id="org-d-avatar" src="" class="drawer-avatar" onerror="this.src='https://ui-avatars.com/api/?name=User&background=2563eb&color=fff'">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h3 id="org-d-full-name" style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #ffffff;">---</h3>
+          <span style="background: #dcfce7; color: #15803d; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">● Đang làm việc</span>
+        </div>
+        <div style="font-size: 0.83rem; color: #94a3b8; display: flex; gap: 10px;">
+          <span>Mã NV: <strong id="org-d-emp-id" style="color: #60a5fa;">---</strong></span>
+          <span>|</span>
+          <span id="org-d-job-title">---</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex: 1; overflow-y: auto; padding: 16px;">
+    <div class="info-card">
+      <div class="info-card-title">1. Thông tin cá nhân & Liên hệ</div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Số CCCD</span><span class="info-value" id="org-d-cccd-no">-</span></div>
+        <div class="info-item"><span class="info-label">Ngày sinh</span><span class="info-value" id="org-d-dob">-</span></div>
+        <div class="info-item"><span class="info-label">Giới tính</span><span class="info-value" id="org-d-gender">-</span></div>
+        <div class="info-item"><span class="info-label">Trình độ học vấn</span><span class="info-value" id="org-d-academic-level">-</span></div>
+        <div class="info-item"><span class="info-label">Số điện thoại</span><span class="info-value" id="org-d-phone" style="color:#2563eb;">-</span></div>
+        <div class="info-item"><span class="info-label">Email công việc</span><span class="info-value" id="org-d-email">-</span></div>
+      </div>
+      <div class="info-item" style="margin-top: 10px;"><span class="info-label">Địa chỉ hiện tại</span><span class="info-value" id="org-d-curr-addr">-</span></div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">2. Tổ chức & Công việc</div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Mã Công ty</span><span class="info-value" id="org-d-company-code">-</span></div>
+        <div class="info-item"><span class="info-label">Mã Đơn vị</span><span class="info-value" id="org-d-unit-code">-</span></div>
+        <div class="info-item"><span class="info-label">Phòng ban</span><span class="info-value" id="org-d-dept-code">-</span></div>
+        <div class="info-item"><span class="info-label">Quản lý trực tiếp</span><span class="info-value" id="org-d-manager-id">-</span></div>
+        <div class="info-item"><span class="info-label">Địa điểm làm việc</span><span class="info-value" id="org-d-work-location">-</span></div>
+        <div class="info-item"><span class="info-label">Ngày vào làm</span><span class="info-value" id="org-d-join-date">-</span></div>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">3. Hợp đồng lao động</div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Số hợp đồng</span><span class="info-value" id="org-d-contract-no">-</span></div>
+        <div class="info-item"><span class="info-label">Loại hợp đồng</span><span class="info-value" id="org-d-contract-type">-</span></div>
+        <div class="info-item"><span class="info-label">Ngày BĐ hợp đồng</span><span class="info-value" id="org-d-contract-start-date">-</span></div>
+        <div class="info-item"><span class="info-label">Ngày KT hợp đồng</span><span class="info-value" id="org-d-contract-end-date">-</span></div>
+        <div class="info-item"><span class="info-label">Trạng thái HĐ</span><span class="info-value" id="org-d-contract-status">-</span></div>
+        <div class="info-item"><span class="info-label">Ngày nghỉ việc</span><span class="info-value" id="org-d-resign-date" style="color:#be123c;">-</span></div>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">4. Lương, Bảo hiểm & Ngân hàng</div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Lương cơ bản</span><span class="info-value" id="org-d-base-salary" style="color:#059669;">-</span></div>
+        <div class="info-item"><span class="info-label">Ngạch lương</span><span class="info-value" id="org-d-salary-grade">-</span></div>
+        <div class="info-item"><span class="info-label">Mã số thuế</span><span class="info-value" id="org-d-tax-code">-</span></div>
+        <div class="info-item"><span class="info-label">Số sổ BHXH</span><span class="info-value" id="org-d-social-insurance-no">-</span></div>
+        <div class="info-item"><span class="info-label">Số tài khoản</span><span class="info-value" id="org-d-bank-account-no">-</span></div>
+        <div class="info-item"><span class="info-label">Ngân hàng</span><span class="info-value" id="org-d-bank-name">-</span></div>
+      </div>
+      <div class="info-item" style="margin-top: 10px;"><span class="info-label">Chủ tài khoản</span><span class="info-value" id="org-d-bank-account-holder">-</span></div>
+    </div>
+  </div>
+
+  <div style="padding: 12px 16px; border-top: 1px solid #e2e8f0; background: #f8fafc; display: flex; justify-content: flex-end;">
+    <button onclick="closeOrgEMPDrawer()" style="background: #2563eb; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; font-weight: 600; cursor: pointer;">Đóng</button>
+  </div>
+</div>
+
+<script>
+window.chart = null;
+window.orgRawData = [];
+
+// 1. TẢI DỮ LIỆU CHUẨN
+window.reloadOrgChartData = function() {
+  if (!window.HAP_IS_AUTHED || !window.HAP_IS_AUTHED()) return;
+  var spinIcon = document.getElementById('icon-reload-spin');
+  if (spinIcon) spinIcon.classList.add('spinning');
+
+  var processData = function(list) {
+    if (spinIcon) spinIcon.classList.remove('spinning');
+    window.orgRawData = (list || []).filter(function(i) { 
+      return i.work_status === 'Đang làm việc' || !i.work_status; 
+    });
+    
+    window.populateDeptFilterOptions(window.orgRawData);
+    
+    setTimeout(function() {
+      window.renderOrgChart(window.orgRawData);
+    }, 150);
+  };
+
+  if (typeof google !== 'undefined' && google.script && google.script.run && typeof google.script.run.fetchHRMEMPListPaginated === 'function') {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.success) {
+          processData(res.list || []);
+        } else {
+          if (spinIcon) spinIcon.classList.remove('spinning');
+        }
+      })
+      .fetchHRMEMPListPaginated(HAP_TOKEN(), 1, 1000);
+  } else if (window.rawEMPData && window.rawEMPData.length > 0) {
+    processData(window.rawEMPData);
+  } else {
+    if (spinIcon) spinIcon.classList.remove('spinning');
+  }
+};
+
+window.populateDeptFilterOptions = function(data) {
+  var deptSelect = document.getElementById('org-dept-filter');
+  if (!deptSelect) return;
+
+  var currentSelected = deptSelect.value;
+  var depts = new Set();
+  data.forEach(function(i) { if (i.dept_code) depts.add(i.dept_code); });
+
+  deptSelect.innerHTML = '<option value="">-- Tất cả Phòng ban --</option>';
+  depts.forEach(function(d) {
+    var opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = d;
+    deptSelect.appendChild(opt);
+  });
+
+  deptSelect.value = currentSelected;
+};
+
+// 2. CHUẨN HÓA CẤU TRÚC PHÂN CẤP (ÉP KIỂU STRING AN TOÀN TRÁNH LỖI MANAGER_ID)
+window.prepareOrgChartData = function(dataList) {
+  var empMap = new Map();
+  dataList.forEach(function(item) { 
+    var empIdStr = String(item.emp_id || '').trim();
+    if (empIdStr) empMap.set(empIdStr, item); 
+  });
+
+  var formattedNodes = [];
+
+  dataList.forEach(function(item) {
+    var empIdStr = String(item.emp_id || '').trim();
+    var parentId = String(item.manager_id || '').trim();
+    
+    if (!parentId || parentId === empIdStr || !empMap.has(parentId)) {
+      parentId = "ROOT_BOARD";
+    }
+
+    formattedNodes.push({
+      id: empIdStr,
+      parentId: parentId,
+      name: item.full_name || 'N/A',
+      title: item.job_title || 'Chưa cập nhật',
+      dept: item.dept_code || 'N/A',
+      avatar: item.avatar_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(item.full_name || 'User') + '&background=2563eb&color=fff'),
+      raw: item
+    });
+  });
+
+  formattedNodes.unshift({
+    id: "ROOT_BOARD",
+    parentId: "",
+    name: "HAP HOLDING",
+    title: "Ban Điều Hành Tập Đoàn",
+    dept: "EXECUTIVE BOARD",
+    avatar: "https://lh3.googleusercontent.com/d/1f4pu_IXo9UA_TQIBYbcsCBBdLESQCCkW",
+    raw: null
+  });
+
+  return formattedNodes;
+};
+
+// 3. VẼ SƠ ĐỒ VÀ FIT MÀN HÌNH
+window.renderOrgChart = function(dataList) {
+  var container = document.getElementById('chart-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!dataList || dataList.length === 0) {
+    container.innerHTML = '<div style="text-align:center; padding: 50px; color: #94a3b8;">Không có dữ liệu nhân viên để hiển thị sơ đồ.</div>';
+    return;
+  }
+
+  var formattedData = window.prepareOrgChartData(dataList);
+
+  window.chart = new d3.OrgChart()
+    .container('#chart-container')
+    .data(formattedData)
+    .nodeWidth(function() { return 280; })
+    .nodeHeight(function() { return 140; })
+    .childrenMargin(function() { return 45; })
+    .compactMarginBetween(function() { return 30; })
+    .nodeContent(function(d) {
+      if (d.data.id === "ROOT_BOARD") {
+        return '<div class="org-node-card" style="background: linear-gradient(135deg, #020617 0%, #0f172a 100%); color: #fff; border: 1px solid #1e293b; padding: 14px;">' +
+          '<div style="display: flex; align-items: center; gap: 14px;">' +
+            '<img src="' + d.data.avatar + '" style="width: 48px; height: 48px; object-fit: contain; background: #fff; border-radius: 8px; padding: 4px; border: 2px solid #38bdf8;">' +
+            '<div>' +
+              '<div style="font-weight: 800; font-size: 1.05rem; color: #38bdf8; letter-spacing: 0.5px;">' + d.data.name + '</div>' +
+              '<div style="font-size: 0.78rem; color: #94a3b8; font-weight: 500; margin-top: 2px;">' + d.data.title + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }
+
+      var totalSubordinates = d.data._directSubordinates || 0;
+
+      return '<div class="org-node-card">' +
+        '<div class="org-node-header">' +
+          '<img src="' + d.data.avatar + '" class="org-avatar" onerror="this.src=\'https://ui-avatars.com/api/?name=User&background=2563eb&color=fff\'">' +
+          '<div style="flex: 1; min-width: 0;">' +
+            '<div class="org-emp-id">' + d.data.id + ' <span style="color:#16a34a;">●</span></div>' +
+            '<div class="org-name" title="' + d.data.name + '">' + d.data.name + '</div>' +
+            '<div class="org-dept">' + d.data.dept + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="org-title">' + d.data.title + '</div>' +
+        '<div class="org-footer">' +
+          '<button class="btn-view-profile" onclick="event.stopPropagation(); openOrgEMPDrawer(\'' + d.data.id + '\')">' +
+            '<svg class="org-icon" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>' +
+            '<span>Xem Hồ Sơ</span>' +
+          '</button>' +
+          '<span class="subordinate-badge">' +
+            '<svg class="org-icon" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>' +
+            '<span>Cấp dưới: ' + totalSubordinates + '</span>' +
+          '</span>' +
+        '</div>' +
+      '</div>';
+    })
+    .render();
+
+  window.chart.fit();
+};
+
+// 4. BỘ LỌC PHÒNG BAN CHUẨN
+window.filterOrgByDept = function(deptCode) {
+  if (!deptCode || deptCode.trim() === "") {
+    window.renderOrgChart(window.orgRawData);
+    return;
+  }
+
+  var deptEmpMap = new Map();
+  window.orgRawData.forEach(function(emp) {
+    if (emp.dept_code === deptCode) {
+      deptEmpMap.set(String(emp.emp_id || '').trim(), emp);
+    }
+  });
+
+  deptEmpMap.forEach(function(emp) {
+    var currentMgrId = String(emp.manager_id || '').trim();
+    while (currentMgrId) {
+      var mgr = window.orgRawData.find(function(i) { return String(i.emp_id || '').trim() === currentMgrId; });
+      if (mgr && !deptEmpMap.has(String(mgr.emp_id || '').trim())) {
+        deptEmpMap.set(String(mgr.emp_id || '').trim(), mgr);
+        currentMgrId = String(mgr.manager_id || '').trim();
+      } else {
+        break;
+      }
+    }
+  });
+
+  var filteredList = Array.from(deptEmpMap.values());
+  window.renderOrgChart(filteredList);
+};
+
+// 5. SIDE DRAWER
+window.openOrgEMPDrawer = function(empId) {
+  var targetId = String(empId || '').trim();
+  var item = window.orgRawData.find(function(i) { return String(i.emp_id || '').trim() === targetId; });
+  if (!item) return;
+
+  document.getElementById('org-d-full-name').textContent = item.full_name || 'N/A';
+  document.getElementById('org-d-emp-id').textContent = item.emp_id || 'N/A';
+  document.getElementById('org-d-job-title').textContent = item.job_title || 'Chưa cập nhật';
+  document.getElementById('org-d-avatar').src = item.avatar_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(item.full_name || 'User') + '&background=2563eb&color=fff');
+
+  document.getElementById('org-d-cccd-no').textContent = item.cccd_no || '-';
+  document.getElementById('org-d-dob').textContent = item.dob || '-';
+  document.getElementById('org-d-gender').textContent = item.gender || '-';
+  document.getElementById('org-d-academic-level').textContent = item.academic_level || '-';
+  document.getElementById('org-d-phone').textContent = item.phone || '-';
+  document.getElementById('org-d-email').textContent = item.email || '-';
+  document.getElementById('org-d-curr-addr').textContent = item.curr_addr || '-';
+
+  document.getElementById('org-d-company-code').textContent = item.company_code || '-';
+  document.getElementById('org-d-unit-code').textContent = item.unit_code || '-';
+  document.getElementById('org-d-dept-code').textContent = item.dept_code || '-';
+  document.getElementById('org-d-manager-id').textContent = item.manager_id || '-';
+  document.getElementById('org-d-work-location').textContent = item.work_location || '-';
+  document.getElementById('org-d-join-date').textContent = item.join_date || '-';
+
+  document.getElementById('org-d-contract-no').textContent = item.contract_no || '-';
+  document.getElementById('org-d-contract-type').textContent = item.contract_type || '-';
+  document.getElementById('org-d-contract-start-date').textContent = item.contract_start_date || '-';
+  document.getElementById('org-d-contract-end-date').textContent = item.contract_end_date || '-';
+  document.getElementById('org-d-contract-status').textContent = item.contract_status || '-';
+  document.getElementById('org-d-resign-date').textContent = item.resign_date || '-';
+
+  document.getElementById('org-d-base-salary').textContent = Number(item.base_salary || 0).toLocaleString('vi-VN') + ' VNĐ';
+  document.getElementById('org-d-salary-grade').textContent = item.salary_grade || '-';
+  document.getElementById('org-d-tax-code').textContent = item.tax_code || '-';
+  document.getElementById('org-d-social-insurance-no').textContent = item.social_insurance_no || '-';
+  document.getElementById('org-d-bank-account-no').textContent = item.bank_account_no || '-';
+  document.getElementById('org-d-bank-name').textContent = item.bank_name || '-';
+  document.getElementById('org-d-bank-account-holder').textContent = item.bank_account_holder || '-';
+
+  document.getElementById('org-drawer-overlay').classList.add('active');
+  document.getElementById('org-drawer-panel').classList.add('active');
+};
+
+window.closeOrgEMPDrawer = function() {
+  document.getElementById('org-drawer-overlay').classList.remove('active');
+  document.getElementById('org-drawer-panel').classList.remove('active');
+};
+
+window.searchAndHighlightOrgNode = function() {
+  var q = (document.getElementById('org-search-input').value || '').trim().toLowerCase();
+  if (!q || !window.chart) return;
+
+  var matchedNode = window.chart.data().find(function(node) {
+    return (node.name && node.name.toLowerCase().indexOf(q) !== -1) ||
+           (node.id && node.id.toLowerCase().indexOf(q) !== -1);
+  });
+
+  if (matchedNode) {
+    window.chart.setHighlighted(matchedNode.id).render();
+    window.chart.setExpanded(matchedNode.id).render();
+    window.chart.zoomToNode(matchedNode.id);
+  }
+};
+
+// Sơ đồ được nạp khi bấm vào menu 'Sơ đồ Tổ chức' (sau khi đã đăng nhập)
+</script>

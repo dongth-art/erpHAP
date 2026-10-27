@@ -1,0 +1,2846 @@
+<!-- UI_SYS_USR.html - HAP HOLDING ERP SYSTEM (Giao diện Quản lý Tài khoản & Phân quyền Hệ thống Master-Detail) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  /* PAGINATION STYLES */
+  .pagination-btn {
+    background: #ffffff;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.83rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .pagination-btn:hover:not(:disabled) {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+  }
+  .pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .pagination-btn.active {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+  }
+
+  /* CUSTOM TOAST NOTIFICATION */
+  #toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 999999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+  }
+  .toast-card {
+    pointer-events: auto;
+    min-width: 300px;
+    max-width: 420px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #ffffff;
+    animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .toast-card.success { background: #059669; }
+  .toast-card.error { background: #dc2626; }
+  .toast-card.warning { background: #d97706; }
+  .toast-card.info { background: #2563eb; }
+
+  .sys-matrix-modal {
+    width: min(900px, calc(100vw - 32px));
+    height: min(90vh, 860px);
+    max-height: calc(100vh - 32px);
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid #dbe3ef;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+    animation: modalIn 0.18s ease-out;
+  }
+  #modal-sys-matrix[hidden] {
+    display: none !important;
+  }
+  #modal-sys-matrix footer[hidden] {
+    display: none !important;
+  }
+  .sys-matrix-modal > header,
+  .sys-matrix-modal > footer {
+    flex: 0 0 auto;
+  }
+  .sys-matrix-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 22px 24px;
+  }
+  .sys-matrix-label {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    color: #475569;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .sys-matrix-select,
+  .sys-matrix-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #0f172a;
+    font: inherit;
+  }
+  .sys-matrix-permission-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-height: 64px;
+    padding: 13px;
+    border: 1px solid #e2e8f0;
+    border-radius: 9px;
+    background: #ffffff;
+    color: #334155;
+    font-size: 0.84rem;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+  .sys-matrix-permission-card input,
+  .sys-matrix-action-option input {
+    width: 16px;
+    height: 16px;
+    margin: 1px 0 0;
+    accent-color: #2563eb;
+    flex: 0 0 auto;
+  }
+  .sys-matrix-action-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #334155;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  /* Chọn giá trị điều kiện: trigger + listbox xổ xuống (không tràn, không bị modal cắt) */
+  .sys-matrix-value-select {
+    position: relative;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .sys-matrix-value-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 40px;
+    padding: 9px 11px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #0f172a;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .sys-matrix-value-trigger:hover {
+    border-color: #93c5fd;
+  }
+  .sys-matrix-value-trigger:focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 1px;
+  }
+  .sys-matrix-value-select.is-open .sys-matrix-value-trigger {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+  }
+  .sys-matrix-value-summary {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.82rem;
+  }
+  .sys-matrix-value-summary.is-placeholder {
+    color: #94a3b8;
+  }
+  .sys-matrix-value-caret {
+    flex: 0 0 auto;
+    font-size: 0.7rem;
+    line-height: 1;
+    color: #64748b;
+    transition: transform 0.15s;
+  }
+  .sys-matrix-value-select.is-open .sys-matrix-value-caret {
+    transform: rotate(180deg);
+  }
+  .sys-matrix-value-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 10050;
+    display: flex;
+    box-sizing: border-box;
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 6px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.22);
+  }
+  .sys-matrix-value-panel[hidden] {
+    display: none !important;
+  }
+  .sys-matrix-value-option {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex: 0 0 auto;
+    padding: 5px 7px;
+    border-radius: 6px;
+    color: #334155;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    cursor: pointer;
+  }
+  .sys-matrix-value-option:hover {
+    background: #f1f5f9;
+  }
+  .sys-matrix-value-option input {
+    flex: 0 0 auto;
+    margin: 0;
+    width: 15px;
+    height: 15px;
+    accent-color: #2563eb;
+  }
+  .sys-matrix-value-option > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sys-matrix-value-option.is-all {
+    margin-bottom: 2px;
+    border-bottom: 1px solid #e2e8f0;
+    border-radius: 6px 6px 0 0;
+    color: #1d4ed8;
+    font-weight: 650;
+  }
+  .sys-matrix-rule-remove {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 24px;
+    width: 24px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+  }
+  .sys-matrix-rule-remove:hover {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+  .sys-matrix-rule-remove:focus-visible {
+    outline: 2px solid #fca5a5;
+    outline-offset: 1px;
+  }
+  .sys-matrix-rule-remove svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+  }
+  .sys-matrix-value-empty {
+    margin: 2px 0;
+    padding: 4px 7px;
+    color: #94a3b8;
+    font-size: 0.78rem;
+  }
+  .sys-row-action {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #475569;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  }
+  .sys-row-action:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+  .sys-row-action:focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
+  }
+  .sys-row-action svg {
+    width: 17px;
+    height: 17px;
+    fill: currentColor;
+  }
+  @media (max-width: 640px) {
+    .sys-matrix-modal-body { padding: 16px; }
+    .sys-matrix-condition-row { grid-template-columns: 1fr 1fr !important; }
+  }
+
+  @keyframes toastIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+</style>
+
+<!-- CONTAINER CHỨA TOAST NOTIFICATION -->
+<div id="toast-container"></div>
+
+<div style="display: flex; flex-direction: column; gap: 16px;">
+
+  <!-- THANH CÔNG CỤ TRÊN (ACTION BAR) -->
+  <div style="background: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    
+    <!-- NHÓM BỘ LỌC VÀ TÌM KIẾM -->
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1;">
+      <input type="text" id="sys-usr-search-input" placeholder="Tìm theo Username, Họ tên, CCCD..." onkeyup="filterSysUsrTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; width: 280px; outline: none;">
+      
+      <select id="sys-usr-role-filter" onchange="filterSysUsrTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; outline: none; background: #fff;">
+        <option value="">-- Tất cả Vai trò --</option>
+        <option value="SUPERADMIN">SuperAdmin / Quản trị cao nhất</option>
+        <option value="ADMIN">Admin / Quản trị hệ thống</option>
+        <option value="DIRECTOR">Giám đốc</option>
+        <option value="DEPARTMENT_MANAGER">Trưởng phòng</option>
+        <option value="EMPLOYEE">Nhân viên</option>
+      </select>
+
+      <select id="sys-usr-status-filter" onchange="filterSysUsrTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; outline: none; background: #fff;">
+        <option value="">-- Tất cả Trạng thái --</option>
+        <option value="ACTIVE">Hoạt động (ACTIVE)</option>
+        <option value="LOCKED">Bị khóa (LOCKED)</option>
+      </select>
+    </div>
+
+    <!-- NHÓM NÚT THAO TÁC -->
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; position: relative;">
+      
+      <!-- NÚT TÙY CHỈNH ẨN/HIỆN CỘT -->
+      <div style="position: relative;">
+        <button onclick="toggleSysColumnDropdown()" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+          <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+          <span>Ẩn/Hiện Cột</span>
+        </button>
+
+        <div id="sys-col-toggle-dropdown" style="display: none; position: absolute; right: 0; top: 105%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); width: 230px; z-index: 100; padding: 10px; max-height: 320px; overflow-y: auto;">
+          <div style="font-weight: 600; font-size: 0.8rem; color: #64748b; margin-bottom: 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">CHỌN CỘT HIỂN THỊ</div>
+          <div id="sys-col-checkboxes-container" style="display: flex; flex-direction: column; gap: 6px;"></div>
+        </div>
+      </div>
+
+      <!-- NÚT TẢI LẠI -->
+      <button onclick="reloadSysUsrData()" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        <span>Tải lại</span>
+      </button>
+
+      <!-- NÚT XUẤT EXCEL -->
+      <button id="btn-sys-export-excel" onclick="exportAllSysUsrToExcel()" style="background: #047857; color: #ffffff; border: none; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        <span>Xuất Excel</span>
+      </button>
+
+      <!-- NÚT THÊM MỚI TÀI KHOẢN -->
+      <button onclick="openSysUsrModal('CREATE')" style="background: #2563eb; color: #ffffff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        <span>Thêm tài khoản</span>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- BẢNG HIỂN THỊ DỮ LIỆU MASTER -->
+  <div style="background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; overflow-x: auto;">
+    <table id="table-sys-usr" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+      <thead>
+        <tr style="background: #f8fafc; color: #475569; border-bottom: 2px solid #e2e8f0; font-weight: 600;">
+          <th style="padding: 12px 10px; width: 40px; text-align: center;">STT</th>
+          <th data-col="username" style="padding: 12px; white-space: nowrap;">Tên Đăng Nhập</th>
+          <th data-col="full_name" style="padding: 12px; white-space: nowrap;">Họ và Tên</th>
+          <th data-col="cccd_no" style="padding: 12px; white-space: nowrap;">Số CCCD</th>
+          <th data-col="role" style="padding: 12px; white-space: nowrap;">Vai Trò</th>
+          <th data-col="status" style="padding: 12px; white-space: nowrap;">Trạng Thái</th>
+          <th data-col="last_login" style="padding: 12px; white-space: nowrap;">Đăng Nhập Cuối</th>
+          <th data-col="created_info" style="padding: 12px; white-space: nowrap;">Người Tạo (Username)</th>
+          <th style="padding: 12px; text-align: center; white-space: nowrap;">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-sys-usr">
+        <tr>
+          <td colspan="9" style="text-align: center; padding: 24px; color: #94a3b8;">
+            Đang tải danh sách tài khoản người dùng...
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="modal-sys-matrix" hidden role="dialog" aria-modal="true" aria-labelledby="sys-matrix-title" onclick="if (event.target === this) closeSysMatrixModal()" style="display: none; position: fixed; inset: 0; z-index: 10000; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; background: rgba(15, 23, 42, 0.62);">
+    <section class="sys-matrix-modal">
+      <header style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 20px 24px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
+        <div style="display: flex; align-items: flex-start; gap: 13px;">
+          <div style="display: grid; place-items: center; width: 42px; height: 42px; flex: 0 0 auto; border-radius: 11px; background: #dbeafe; color: #1d4ed8;">
+            <svg viewBox="0 0 24 24" aria-hidden="true" style="width: 23px; height: 23px; fill: currentColor;"><path d="M12 1 3 5v6c0 5.25 3.84 10.17 9 12 5.16-1.83 9-6.75 9-12V5l-9-4zm0 4.18 5 2.22V11c0 3.66-2.45 7.26-5 8.6-2.55-1.34-5-4.94-5-8.6V7.4l5-2.22zm-1 3.32v6h2v-6h-2zm0 7v2h2v-2h-2z"/></svg>
+          </div>
+          <div>
+            <h2 id="sys-matrix-title" style="margin: 0; color: #0f172a; font-size: 1.08rem; font-weight: 750;">PHÂN QUYỀN MA TRẬN</h2>
+            <p style="margin: 5px 0 0; color: #64748b; font-size: 0.82rem;">Cấu hình quyền menu, dữ liệu và hành động riêng cho từng tài khoản.</p>
+            <div style="display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; padding: 5px 9px; border: 1px solid #bfdbfe; border-radius: 6px; background: #eff6ff; color: #1d4ed8; font-size: 0.82rem; font-weight: 700;">
+              <svg viewBox="0 0 24 24" aria-hidden="true" style="width: 15px; height: 15px; fill: currentColor;"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+              <span id="txt-sys-matrix-username"></span>
+            </div>
+          </div>
+        </div>
+        <button type="button" aria-label="Đóng cửa sổ" onclick="closeSysMatrixModal()" style="display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff; color: #64748b; cursor: pointer;">
+          <svg viewBox="0 0 24 24" aria-hidden="true" style="width: 19px; height: 19px; fill: currentColor;"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </header>
+
+      <div class="sys-matrix-modal-body">
+        <div style="padding: 12px 14px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; color: #1e40af; font-size: 0.82rem; line-height: 1.5;">
+          Quyền truy cập bên dưới quyết định mục nào xuất hiện trên menu. Quyền xem/sửa/xóa dữ liệu vẫn được kiểm tra riêng ở ma trận và máy chủ.
+        </div>
+
+        <section aria-labelledby="sys-nav-permission-heading" style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 10px; background: #ffffff;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+            <div>
+              <h3 id="sys-nav-permission-heading" style="margin: 0; color: #0f172a; font-size: 0.93rem;">1. Quyền truy cập chức năng</h3>
+              <p style="margin: 5px 0 0; color: #64748b; font-size: 0.8rem;">Danh sách tự lấy từ menu hiện tại; thêm mục vào menu sẽ tự xuất hiện tại đây.</p>
+            </div>
+            <div style="display: flex; gap: 7px;">
+              <button type="button" onclick="setAllSysNavigationPermissions(true)" style="padding: 6px 10px; border: 1px solid #bfdbfe; border-radius: 6px; background: #eff6ff; color: #1d4ed8; font-size: 0.78rem; font-weight: 650; cursor: pointer;">Chọn tất cả</button>
+              <button type="button" onclick="setAllSysNavigationPermissions(false)" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; color: #475569; font-size: 0.78rem; font-weight: 650; cursor: pointer;">Bỏ chọn tất cả</button>
+            </div>
+          </div>
+          <div id="sys-nav-permission-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px;">
+            <p style="grid-column: 1/-1; margin: 0; color: #64748b; font-size: 0.82rem;">Đang đọc danh sách chức năng từ menu...</p>
+          </div>
+          <p id="sys-nav-permission-status" role="status" aria-live="polite" style="margin: 0; color: #64748b; font-size: 0.8rem;"></p>
+          <div style="display: flex; justify-content: flex-end; gap:8px; padding-top: 3px;">
+            <button id="btn-save-sys-nav-access" type="button" onclick="saveSysNavigationAccess()" style="padding: 8px 13px; border: 1px solid #2563eb; border-radius: 7px; background: #ffffff; color: #1d4ed8; font-size: 0.81rem; font-weight: 700; cursor: pointer;">Lưu quyền menu</button>
+          </div>
+        </section>
+
+        <div style="height: 1px; background: #e2e8f0;"></div>
+        <div>
+          <h3 style="margin: 0; color: #0f172a; font-size: 0.93rem;">2. Quyền dữ liệu và hành động</h3>
+          <p style="margin: 5px 0 0; color: #64748b; font-size: 0.8rem;">Bảng bên dưới hiển thị toàn bộ quyền của tài khoản. Chọn bảng trong phần Thêm quy tắc để nạp cấu hình và bổ sung quyền.</p>
+        </div>
+          <section aria-labelledby="sys-matrix-existing-heading" style="display:flex; flex-direction:column; gap:10px; padding:14px; border:1px solid #e2e8f0; border-radius:9px; background:#fff;">
+            <div>
+              <h3 id="sys-matrix-existing-heading" style="margin:0; color:#0f172a; font-size:.9rem;">Quyền đã cấu hình</h3>
+              <p style="margin:4px 0 0; color:#64748b; font-size:.78rem;">Toàn bộ quy tắc đã lưu cho tài khoản, sắp xếp theo tên bảng. Có thể chọn nhiều dòng hoặc dùng biểu tượng thùng rác để xóa cấu hình.</p>
+              <button id="btn-delete-sys-matrix-selected" type="button" onclick="deleteSelectedSysMatrixRules()" disabled style="margin-top:8px; padding:6px 10px; border:1px solid #fecaca; border-radius:6px; background:#fff; color:#b91c1c; font-size:.78rem; font-weight:650; cursor:not-allowed; opacity:.55;">Xóa đã chọn (0)</button>
+            </div>
+            <div style="overflow-x:auto;">
+              <table style="width:100%; border-collapse:collapse; font-size:.78rem;">
+                <thead>
+                  <tr style="background:#f1f5f9; color:#334155; text-align:left;">
+                    <th style="padding:9px; border:1px solid #e2e8f0; text-align:center;"><input id="sys-matrix-select-all-existing" type="checkbox" aria-label="Chọn tất cả quyền đã cấu hình" onchange="toggleAllSysMatrixExistingRules(this.checked)" style="width:15px; height:15px; accent-color:#2563eb;"></th>
+                    <th style="padding:9px; border:1px solid #e2e8f0;">#</th>
+                    <th style="padding:9px; border:1px solid #e2e8f0;">Bảng dữ liệu</th>
+                    <th style="padding:9px; border:1px solid #e2e8f0;">Điều kiện phạm vi</th>
+                    <th style="padding:9px; border:1px solid #e2e8f0;">Quyền dữ liệu</th>
+                    <th style="padding:9px; border:1px solid #e2e8f0;">Quyền chức năng</th>
+                    <th style="padding:9px; border:1px solid #e2e8f0; text-align:center;">Xóa</th>
+                  </tr>
+                </thead>
+                <tbody id="sys-matrix-existing-rules">
+                  <tr><td colspan="7" style="padding:10px; border:1px solid #e2e8f0; color:#64748b;">Đang tải các quyền đã cấu hình cho tài khoản.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section aria-labelledby="sys-matrix-add-heading" style="display:flex; flex-direction:column; gap:10px; padding:14px; border:1px solid #bfdbfe; border-radius:9px; background:#f8fafc;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+              <div>
+                <h3 id="sys-matrix-add-heading" style="margin:0; color:#0f172a; font-size:.9rem;">Thêm quy tắc</h3>
+                <p style="margin:4px 0 0; color:#64748b; font-size:.78rem;">Mỗi dòng là một cấu hình quyền với một điều kiện; các dòng cùng bảng được kết hợp OR riêng cho từng quyền. Chọn “Tất cả” để bao gồm cả giá trị phát sinh sau này. Không khớp dòng nào thì bị từ chối.</p>
+              </div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+              <p id="sys-matrix-rule-status" role="status" aria-live="polite" style="margin:0; min-height:20px; color:#475569; font-size:.82rem;">Thêm các quy tắc vào bảng bên dưới rồi lưu một lần.</p>
+              <button id="btn-refresh-sys-matrix-schema" type="button" onclick="loadSysMatrixSchema()" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:7px; background:#fff; color:#334155; font-size:.78rem; font-weight:650; cursor:pointer; white-space:nowrap;">Quét lại bảng</button>
+            </div>
+            <div style="overflow-x:auto;">
+              <table style="width:100%; min-width:1120px; border-collapse:collapse; font-size:.78rem; table-layout:fixed;">
+                <colgroup>
+                  <col style="width:17%;">
+                  <col style="width:15%;">
+                  <col style="width:24%;">
+                  <col style="width:18%;">
+                  <col style="width:26%;">
+                </colgroup>
+                <thead>
+                  <tr style="background:#eff6ff; color:#334155; text-align:left;">
+                    <th style="padding:8px; border:1px solid #dbeafe;">Bảng</th>
+                    <th style="padding:8px; border:1px solid #dbeafe;">Quyền dữ liệu</th>
+                    <th style="padding:8px; border:1px solid #dbeafe;">Điều kiện</th>
+                    <th style="padding:8px; border:1px solid #dbeafe;">Giá trị</th>
+                    <th style="padding:8px; border:1px solid #dbeafe;">Quyền chức năng</th>
+                  </tr>
+                </thead>
+                <tbody id="sys-matrix-rules">
+                  <tr class="sys-matrix-empty-draft"><td colspan="5" style="padding:10px; border:1px solid #e2e8f0; color:#64748b;">Nhấn “Thêm dòng” để tạo quy tắc.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <button id="btn-add-sys-matrix-rule" type="button" onclick="addSysMatrixRule()" disabled style="padding:7px 11px; border:1px solid #2563eb; border-radius:7px; background:#fff; color:#1d4ed8; font-size:.8rem; font-weight:700; cursor:pointer; opacity:.55;">+ Thêm cấu hình</button>
+            </div>
+          </section>
+
+      </div>
+
+      <footer hidden style="display: flex; justify-content: flex-end; gap: 9px; padding: 14px 24px; border-top: 1px solid #e2e8f0; background: #f8fafc;">
+        <button type="button" onclick="closeSysMatrixModal()" style="padding: 9px 16px; border: 1px solid #cbd5e1; border-radius: 7px; background: #ffffff; color: #334155; font-weight: 650; cursor: pointer;">Đóng</button>
+        <button id="btn-save-sys-matrix" type="button" onclick="saveSysMatrixRule()" disabled aria-disabled="true" title="Lưu toàn bộ quy tắc đang nhập trong bảng." style="padding: 9px 17px; border: 0; border-radius: 7px; background: #2563eb; color: #ffffff; font-weight: 700; cursor: not-allowed; opacity: 0.55;">Lưu toàn bộ quy tắc</button>
+      </footer>
+    </section>
+  </div>
+
+  <!-- THANH PHÂN TRANG -->
+  <div style="background: #ffffff; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span id="txt-sys-page-info" style="font-size: 0.83rem; color: #64748b;">Hiển thị 0 - 0 trong tổng số 0 tài khoản</span>
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 0.83rem; color: #64748b;">
+        <span>Hiển thị:</span>
+        <select id="select-sys-page-size" onchange="changeSysPageSize(this.value)" style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem; background: #fff;">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <button id="btn-sys-prev-page" class="pagination-btn" onclick="goToSysPage(sysCurrentPage - 1)" title="Trang trước">
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+      <div id="sys-pagination-numbers" style="display: flex; gap: 4px;"></div>
+      <button id="btn-sys-next-page" class="pagination-btn" onclick="goToSysPage(sysCurrentPage + 1)" title="Trang sau">
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- CUSTOM CONFIRMATION MODAL -->
+<div id="modal-sys-custom-confirm" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); z-index: 99999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 440px; max-width: 90%; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); padding: 20px; display: flex; flex-direction: column; gap: 16px; animation: modalIn 0.2s ease-out;">
+    <div style="display: flex; align-items: flex-start; gap: 12px;">
+      <div id="sys-confirm-icon-box" style="background: #fef2f2; color: #dc2626; width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px;">
+        <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: currentColor;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v4z"/></svg>
+      </div>
+      <div>
+        <h4 id="sys-custom-confirm-title" style="margin: 0; font-size: 1rem; font-weight: 700; color: #0f172a;">Xác nhận Thao Tác</h4>
+        <p id="sys-custom-confirm-message" style="margin: 6px 0 0 0; font-size: 0.85rem; color: #475569; line-height: 1.5;"></p>
+      </div>
+    </div>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+      <button onclick="closeSysCustomConfirm(false)" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer;">Hủy bỏ</button>
+      <button id="btn-sys-custom-confirm-ok" style="background: #dc2626; color: #ffffff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer;">Xác nhận</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL THÊM / SỬA TÀI KHOẢN -->
+<div id="modal-sys-usr" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); z-index: 999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 600px; max-width: 95%; max-height: 90vh; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); overflow-y: auto; display: flex; flex-direction: column;">
+    <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+      <h3 id="modal-sys-usr-title" style="font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0;">THÊM MỚI TÀI KHOẢN NGƯỜI DÙNG</h3>
+      <button onclick="closeSysUsrModal()" style="background: transparent; border: none; cursor: pointer; color: #64748b;">
+        <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <form id="form-sys-usr" onsubmit="submitSysUsrForm(event)" style="padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+      <input type="hidden" id="form-sys-mode" value="CREATE">
+      <div id="sys-usr-form-status" role="status" aria-live="polite" style="display:none; padding:10px 12px; border-radius:7px; font-size:.83rem; line-height:1.45;"></div>
+
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Tên đăng nhập (*)</label>
+        <input type="text" id="form-sys-username" required minlength="3" maxlength="100" pattern="[A-Za-z0-9._@-]{3,100}" title="Chỉ dùng chữ, số, dấu chấm, gạch dưới, @ hoặc gạch ngang." placeholder="Ví dụ: dong.th" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; outline: none;">
+      </div>
+
+      <div id="sys-pass-container">
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Mật khẩu <span id="form-sys-pass-req" style="color:#dc2626;">(*)</span></label>
+        <div style="position: relative;">
+          <input type="password" id="form-sys-password" minlength="8" placeholder="Nhập mật khẩu..." style="width: 100%; padding: 8px 36px 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; outline: none;">
+          <button type="button" onclick="toggleSysPasswordVisibility()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748b;">
+            <svg id="svg-pass-icon" viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+          </button>
+        </div>
+        <p id="form-sys-pass-hint" style="font-size: 0.75rem; color: #94a3b8; margin: 4px 0 0 0; display: none;">Bỏ trống nếu không muốn thay đổi mật khẩu hiện tại</p>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Số CCCD Liên Kết (*)</label>
+          <input type="text" id="form-sys-cccd" required placeholder="08909..." style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; outline: none;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Họ và Tên (*)</label>
+          <input type="text" id="form-sys-fullname" required placeholder="Trần Hà Đông" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; outline: none;">
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Vai Trò (Role) (*)</label>
+          <select id="form-sys-role" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; outline: none; background: #fff;">
+            <option value="EMPLOYEE">Nhân viên</option>
+            <option value="DEPARTMENT_MANAGER">Trưởng phòng</option>
+            <option value="DIRECTOR">Giám đốc</option>
+            <option value="ADMIN" data-privileged-role>Admin (Quản trị hệ thống)</option>
+            <option value="SuperAdmin" data-privileged-role>SuperAdmin (Quản trị cao nhất)</option>
+          </select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Trạng Thái (*)</label>
+          <select id="form-sys-status" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; outline: none; background: #fff;">
+            <option value="ACTIVE">Hoạt động (ACTIVE)</option>
+            <option value="LOCKED">Khóa tài khoản (LOCKED)</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="padding-top: 12px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+        <button type="button" onclick="closeSysUsrModal()" style="background: #e2e8f0; color: #334155; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">Hủy</button>
+        <button type="submit" id="btn-save-sys-usr" style="background: #2563eb; color: #ffffff; border: none; padding: 8px 18px; border-radius: 6px; font-weight: 600; cursor: pointer;">Lưu Tài Khoản</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL LỊCH SỬ ĐĂNG NHẬP / ĐĂNG XUẤT (10 LẦN GẦN NHẤT) -->
+<div id="modal-sys-login-logs" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); z-index: 9999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 700px; max-width: 95%; max-height: 85vh; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); overflow: hidden; display: flex; flex-direction: column;">
+    <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+      <div>
+        <h3 id="txt-log-modal-title" style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0;">LỊCH SỬ DỰ KIỆN PHIÊN ĐĂNG NHẬP / ĐĂNG XUẤT</h3>
+        <p id="txt-login-log-subtitle" style="font-size: 0.78rem; color: #64748b; margin-top: 2px;">Tối đa 10 lần đăng nhập/đăng xuất gần nhất. Địa chỉ IP và thiết bị không được ứng dụng hiện tại thu thập.</p>
+      </div>
+      <button onclick="closeSysLoginLogsModal()" style="background: transparent; border: none; cursor: pointer; color: #64748b;">
+        <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: currentColor;"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+
+    <div style="padding: 16px; flex: 1; overflow-y: auto;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; text-align: left;">
+        <thead>
+          <tr style="background: #f1f5f9; color: #475569; font-weight: 600;">
+            <th style="padding: 10px; width: 40px; text-align: center;">STT</th>
+            <th style="padding: 10px; white-space: nowrap;">Thời Gian</th>
+            <th style="padding: 10px; white-space: nowrap;">Thao Tác</th>
+            <th style="padding: 10px; white-space: nowrap;">Địa Chỉ IP</th>
+            <th style="padding: 10px;">Thiết Bị / Trình Duyệt</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-sys-login-logs">
+          <tr>
+            <td colspan="5" style="text-align: center; padding: 20px; color: #94a3b8;">Đang tải lịch sử...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="padding: 12px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; background: #f8fafc;">
+      <button onclick="closeSysLoginLogsModal()" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer;">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let rawSysUsrData = [];
+  let sysCurrentPage = 1;
+  let sysPageSize = 20;
+  let sysTotalServerRows = 0;
+  let sysTotalPages = 1;
+  let sysUserListRequestId = 0;
+  let sysUserDataLastFetchedAt = 0;
+  let sysUserListLoading = false;
+  let sysUserDataLoaded = false;
+  let sysUserDataCacheToken = '';
+  let sysPendingConfirmCallback = null;
+  let sysMatrixSchema = [];
+  let sysMatrixSchemaLoaded = false;
+  let sysMatrixCurrentUsername = '';
+  let sysMatrixRequestId = 0;
+  let sysMatrixAllConfiguredRules = [];
+  let sysMatrixConfiguredActionsBySheet = {};
+  let sysMatrixConfiguredLoaded = false;
+  let sysNavigationCatalog = [];
+  const SYS_ROLE_LABELS = {
+    SUPERADMIN: 'SuperAdmin',
+    ADMIN: 'Admin',
+    DIRECTOR: 'Giám đốc',
+    DEPARTMENT_MANAGER: 'Trưởng phòng',
+    EMPLOYEE: 'Nhân viên'
+  };
+
+  function normalizeSysRoleCode(role) {
+    const value = String(role || '').trim().toUpperCase();
+    if (value === 'USER') return 'EMPLOYEE';
+    if (value === 'MANAGER') return 'DEPARTMENT_MANAGER';
+    return value;
+  }
+
+  function getSysRoleLabel(role) {
+    const code = normalizeSysRoleCode(role);
+    return SYS_ROLE_LABELS[code] || code || 'Nhân viên';
+  }
+
+  const SYS_USR_COL_GROUPS = [
+    { key: "username", label: "Tên Đăng Nhập" },
+    { key: "full_name", label: "Họ và Tên" },
+    { key: "cccd_no", label: "Số CCCD" },
+    { key: "role", label: "Vai Trò" },
+    { key: "status", label: "Trạng Thái" },
+    { key: "last_login", label: "Đăng Nhập Cuối" },
+    { key: "created_info", label: "Người Tạo (Username)" }
+  ];
+
+  /* LẤY THÔNG TIN SESSION CHUẨN TỪ LOCALSTORAGE HAP_USER_SESSION */
+  function getHapSessionUser() {
+    try {
+      return JSON.parse(localStorage.getItem('HAP_USER_SESSION') || '{}');
+    } catch(e) {
+      return {};
+    }
+  }
+
+  function getCurrentLoggedInUsername() {
+    const s = getHapSessionUser();
+    return s.username || s.user_id || "admin";
+  }
+
+  function getSystemAuthToken() {
+    const s = getHapSessionUser();
+    return s.token || "";
+  }
+
+  function canManageSysPermissions_() {
+    const role = String(getHapSessionUser().role || '').trim().toUpperCase();
+    return role === 'ADMIN' || role === 'SUPERADMIN';
+  }
+
+  function isCurrentSysSuperAdmin_() {
+    return String(getHapSessionUser().role || '').trim().toLowerCase() === 'superadmin';
+  }
+
+  function setSysUsrFormStatus(message, isError) {
+    const status = document.getElementById('sys-usr-form-status');
+    status.textContent = message || '';
+    status.style.display = message ? 'block' : 'none';
+    status.style.color = isError ? '#b91c1c' : '#047857';
+    status.style.background = isError ? '#fef2f2' : '#ecfdf5';
+    status.style.border = '1px solid ' + (isError ? '#fecaca' : '#a7f3d0');
+  }
+
+  function sysEscapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function(c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function getSysNavigationCatalog() {
+    const links = Array.from(document.querySelectorAll('#sidebar [onclick*="switchView("]'));
+    const entries = links.map(function(link) {
+      const handler = link.getAttribute('onclick') || '';
+      const match = handler.match(/switchView\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]/);
+      if (!match) return null;
+      const menuItem = link.closest('.menu-item');
+      const groupText = menuItem && menuItem.querySelector('.menu-link .menu-text');
+      return {
+        viewId: match[1],
+        moduleCode: match[2],
+        label: match[3],
+        superOnly: !!link.closest('.super-only'),
+        groupLabel: groupText ? groupText.textContent.trim() : match[2]
+      };
+    }).filter(function(item) { return !!item; });
+
+    const countByView = {};
+    entries.forEach(function(item) {
+      countByView[item.viewId] = (countByView[item.viewId] || 0) + 1;
+    });
+    const seen = {};
+    return entries.map(function(item) {
+      let key = item.viewId;
+      if (countByView[item.viewId] > 1) {
+        const labelKey = item.label.toLowerCase()
+          .replace(/đ/g, 'd')
+          .normalize('NFD').replace(/\p{M}/gu, '')
+          .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        key += '-' + labelKey;
+      }
+      if (seen[key]) return null;
+      seen[key] = true;
+      item.key = key;
+      return item;
+    }).filter(function(item) { return !!item; });
+  }
+
+  function renderSysNavigationPermissions(user) {
+    sysNavigationCatalog = getSysNavigationCatalog();
+    const container = document.getElementById('sys-nav-permission-list');
+    if (!sysNavigationCatalog.length) {
+      container.innerHTML = '<p style="grid-column:1/-1; margin:0; color:#dc2626; font-size:.82rem;">Không tìm thấy chức năng trong thanh điều hướng.</p>';
+      return;
+    }
+
+    const targetRole = normalizeSysRoleCode(user.role);
+    const targetIsPermissionAdmin = targetRole === 'ADMIN' || targetRole === 'SUPERADMIN';
+    const targetIsSuperAdmin = targetRole === 'SUPERADMIN';
+    const canManagePermissions = canManageSysPermissions_();
+    const hasPermissions = user.nav_access !== null && user.nav_access !== undefined &&
+      String(user.nav_access).trim() !== '';
+    const permittedViews = hasPermissions
+      ? String(user.nav_access || '').split(',').map(function(viewId) { return viewId.trim().toLowerCase(); })
+      : [];
+    const grouped = {};
+    sysNavigationCatalog.forEach(function(item) {
+      if (!grouped[item.groupLabel]) grouped[item.groupLabel] = [];
+      grouped[item.groupLabel].push(item);
+    });
+
+    container.innerHTML = Object.keys(grouped).map(function(groupLabel, groupIndex) {
+      const options = grouped[groupLabel].map(function(item) {
+        const allowed = targetIsSuperAdmin ||
+          (!item.superOnly && (targetIsPermissionAdmin || (hasPermissions &&
+            (permittedViews.indexOf('all') !== -1 || permittedViews.indexOf(item.key.toLowerCase()) !== -1))));
+        const cannotAssignTarget = item.superOnly && !targetIsSuperAdmin;
+        return '<label style="display:flex; align-items:flex-start; gap:9px; padding:9px 10px; border:1px solid #e2e8f0; border-radius:7px; background:#fff; color:#334155; font-size:.81rem; cursor:' + (targetIsPermissionAdmin ? 'not-allowed' : 'pointer') + '; opacity:' + (targetIsPermissionAdmin ? '.75' : '1') + ';">' +
+          '<input type="checkbox" class="sys-nav-permission" data-view-key="' + sysEscapeHtml(item.key) + '"' +
+          (allowed ? ' checked' : '') + (targetIsPermissionAdmin || cannotAssignTarget || !canManagePermissions ? ' disabled' : '') +
+          ' style="width:16px; height:16px; margin:1px 0 0; flex:0 0 auto; accent-color:#2563eb;">' +
+          '<span>' + sysEscapeHtml(item.label) + (cannotAssignTarget ? ' (chỉ SuperAdmin)' : '') + '</span></label>';
+      }).join('');
+      return '<section style="display:flex; flex-direction:column; gap:7px; padding:11px; border:1px solid #e2e8f0; border-radius:9px; background:#f8fafc;">' +
+        '<h4 style="margin:0; color:#334155; font-size:.82rem;">' + sysEscapeHtml(groupLabel) + '</h4>' +
+        '<div style="display:flex; flex-direction:column; gap:6px;">' + options + '</div></section>';
+    }).join('');
+
+    const status = document.getElementById('sys-nav-permission-status');
+    if (!canManagePermissions) {
+      status.textContent = 'Phiên hiện tại có vai trò "' + (getHapSessionUser().role || 'không xác định') +
+        '". Chỉ ADMIN hoặc SuperAdmin được lưu quyền menu.';
+      status.style.color = '#b91c1c';
+    } else if (targetIsPermissionAdmin) {
+      status.textContent = 'Admin có quyền truy cập menu quản trị mặc định; các mục chỉ dành cho SuperAdmin vẫn bị giới hạn.';
+      status.style.color = '#475569';
+    } else if (!hasPermissions) {
+      status.textContent = 'Tài khoản chưa được cấp quyền menu; tất cả chức năng sẽ bị ẩn cho đến khi lưu quyền.';
+      status.style.color = '#475569';
+    } else {
+      status.textContent = 'Các chức năng không được chọn sẽ bị ẩn hoàn toàn khỏi menu.';
+      status.style.color = '#475569';
+    }
+    const saveButton = document.getElementById('btn-save-sys-nav-access');
+    saveButton.disabled = !canManagePermissions || targetIsPermissionAdmin;
+    saveButton.textContent = 'Lưu quyền menu riêng';
+    saveButton.title = !canManagePermissions
+      ? 'Chỉ ADMIN hoặc SuperAdmin được lưu quyền menu.'
+      : targetIsPermissionAdmin ? 'Role ADMIN và SuperAdmin không cần cấu hình quyền menu.' : '';
+  }
+
+  function setAllSysNavigationPermissions(checked) {
+    document.querySelectorAll('.sys-nav-permission:not(:disabled)').forEach(function(input) {
+      input.checked = checked;
+    });
+  }
+
+  function saveSysNavigationAccess() {
+    if (!canManageSysPermissions_()) {
+      const message = 'Chỉ ADMIN hoặc SuperAdmin được lưu quyền menu.';
+      const status = document.getElementById('sys-nav-permission-status');
+      status.textContent = message;
+      status.style.color = '#b91c1c';
+      showSysToast(message, 'error');
+      return;
+    }
+    if (!sysMatrixCurrentUsername) {
+      showSysToast('Không xác định được tài khoản cần phân quyền.', 'error');
+      return;
+    }
+    const targetValue = sysMatrixCurrentUsername;
+    const requestId = sysMatrixRequestId;
+    const button = document.getElementById('btn-save-sys-nav-access');
+    const status = document.getElementById('sys-nav-permission-status');
+    const viewIds = Array.from(document.querySelectorAll('.sys-nav-permission:checked')).map(function(input) {
+      return input.getAttribute('data-view-key');
+    }).filter(function(viewId) { return !!viewId; });
+    button.disabled = true;
+    button.textContent = 'Đang lưu...';
+    status.textContent = 'Đang lưu quyền menu riêng cho tài khoản...';
+    status.style.color = '#1d4ed8';
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (requestId === sysMatrixRequestId) {
+          button.disabled = false;
+          button.textContent = 'Lưu quyền menu riêng';
+        }
+        if (!res || !res.success) {
+          const message = res && res.message ? res.message : 'Máy chủ không xác nhận lưu quyền menu.';
+          if (requestId === sysMatrixRequestId) {
+            status.textContent = message;
+            status.style.color = '#b91c1c';
+          }
+          showSysToast(message, 'error');
+          return;
+        }
+        const account = rawSysUsrData.find(function(item) {
+          return String(item.username).toLowerCase() === targetValue.toLowerCase();
+        });
+        if (account) account.nav_access = res.navAccess;
+        sysUserDataCacheToken = getSystemAuthToken();
+        sysUserDataLastFetchedAt = Date.now();
+        const currentUser = getHapSessionUser();
+        if (String(currentUser.username || '').toLowerCase() === targetValue.toLowerCase()) {
+          currentUser.navAccess = res.navAccess;
+          localStorage.setItem('HAP_USER_SESSION', JSON.stringify(currentUser));
+        }
+        if (account) renderSysNavigationPermissions({
+          role: account.role,
+          nav_access: res.navAccess
+        });
+        if (requestId === sysMatrixRequestId) {
+          status.textContent = 'Đã lưu menu riêng cho tài khoản.';
+          status.style.color = '#047857';
+        }
+        showSysToast(res.message || 'Đã lưu quyền truy cập chức năng.', 'success');
+      })
+      .withFailureHandler(function(err) {
+        if (requestId === sysMatrixRequestId) {
+          button.disabled = false;
+          button.textContent = 'Lưu quyền menu riêng';
+          status.textContent = 'Lỗi máy chủ khi lưu quyền menu: ' + (err && err.message ? err.message : err);
+          status.style.color = '#b91c1c';
+        }
+        showSysToast('Lỗi lưu quyền truy cập chức năng: ' + (err && err.message ? err.message : err), 'error');
+      })
+      .handleApiRoute('SYS', 'saveUserNavigationAccess', {
+        token: getSystemAuthToken(), username: targetValue, viewIds: viewIds
+      });
+  }
+
+  function openSysMatrixForUser(username) {
+    if (!username) {
+      showSysToast('Không xác định được tài khoản cần phân quyền.', 'error');
+      return;
+    }
+
+    sysMatrixCurrentUsername = String(username);
+    sysMatrixRequestId++;
+    sysMatrixAllConfiguredRules = [];
+    sysMatrixConfiguredActionsBySheet = {};
+    sysMatrixConfiguredLoaded = false;
+    resetSysMatrixForm();
+    renderSysMatrixExistingRules([]);
+    const navSaveButton = document.getElementById('btn-save-sys-nav-access');
+    navSaveButton.disabled = false;
+    navSaveButton.textContent = 'Lưu quyền menu riêng';
+    document.getElementById('txt-sys-matrix-username').textContent = sysMatrixCurrentUsername;
+    setSysMatrixStatus('Thêm các quy tắc vào bảng bên dưới rồi lưu một lần.', 'info');
+    document.getElementById('sys-nav-permission-status').textContent = '';
+    document.getElementById('sys-nav-permission-list').innerHTML =
+      '<p style="grid-column:1/-1; margin:0; color:#64748b; font-size:.82rem;">Đang tải quyền menu...</p>';
+    setSysMatrixSaveEnabled(false);
+    setSysMatrixAddEnabled(false);
+    ensureSysMatrixModalStructure_(true);
+    const matrixModal = document.getElementById('modal-sys-matrix');
+    matrixModal.hidden = false;
+    matrixModal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    const account = rawSysUsrData.find(function(item) {
+      return String(item.username).toLowerCase() === sysMatrixCurrentUsername.toLowerCase();
+    });
+    if (account) renderSysNavigationPermissions({
+      role: account.role,
+      nav_access: account.nav_access || ''
+    });
+    else document.getElementById('sys-nav-permission-list').innerHTML =
+      '<p style="grid-column:1/-1; margin:0; color:#dc2626; font-size:.82rem;">Không tìm thấy thông tin tài khoản.</p>';
+
+    const requestId = sysMatrixRequestId;
+    if (canManageSysPermissions_()) {
+      loadSysMatrixAllConfiguredRules(requestId, sysMatrixCurrentUsername);
+    } else {
+      document.getElementById('sys-matrix-existing-rules').innerHTML =
+        '<tr><td colspan="7" style="padding:10px; border:1px solid #e2e8f0; color:#b91c1c;">Chỉ ADMIN hoặc SuperAdmin được xem cấu hình ma trận.</td></tr>';
+    }
+    if (sysMatrixSchemaLoaded) renderSysMatrixSheets();
+    else loadSysMatrixSchema();
+  }
+
+  function closeSysMatrixModal() {
+    sysMatrixRequestId++;
+    sysMatrixCurrentUsername = '';
+    closeSysMatrixValuePanels_();
+    const matrixModal = document.getElementById('modal-sys-matrix');
+    ensureSysMatrixModalStructure_(false);
+    matrixModal.hidden = true;
+    matrixModal.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  function ensureSysMatrixModalStructure_(isOpen) {
+    const matrixModal = document.getElementById('modal-sys-matrix');
+    const modalPanel = matrixModal.querySelector('.sys-matrix-modal');
+    const modalFooter = matrixModal.querySelector('.sys-matrix-modal > footer') ||
+      document.getElementById('btn-save-sys-matrix').closest('footer');
+    if (modalFooter && modalFooter.parentElement !== modalPanel) {
+      modalPanel.appendChild(modalFooter);
+    }
+    if (modalFooter) modalFooter.hidden = !isOpen;
+    if (matrixModal.parentElement !== document.body) {
+      document.body.appendChild(matrixModal);
+    }
+  }
+
+  function resetSysMatrixForm() {
+    closeSysMatrixValuePanels_();
+    document.getElementById('sys-matrix-rules').innerHTML =
+      '<tr class="sys-matrix-empty-draft"><td colspan="5" style="padding:10px; border:1px solid #e2e8f0; color:#64748b;">Nhấn “Thêm dòng” để tạo quy tắc.</td></tr>';
+    setSysMatrixAddEnabled(false);
+  }
+
+  function renderSysMatrixExistingRules(rules) {
+    const tbody = document.getElementById('sys-matrix-existing-rules');
+    const list = Array.isArray(rules) ? rules.slice() : [];
+    tbody.innerHTML = '';
+    const selectAll = document.getElementById('sys-matrix-select-all-existing');
+    if (selectAll) {
+      selectAll.checked = false;
+      selectAll.indeterminate = false;
+    }
+    const configuredActions = sysMatrixConfiguredActionsBySheet || {};
+    const representedSheets = {};
+    list.forEach(function(rule) {
+      const name = String(rule.sheetName || '').trim();
+      if (name) representedSheets[name] = true;
+    });
+    Object.keys(configuredActions).forEach(function(sheetName) {
+      if (!representedSheets[sheetName] && configuredActions[sheetName].length) {
+        list.push({ sheetName: sheetName, conditions: [], _actionsOnly: true });
+      }
+    });
+    list.sort(function(a, b) {
+      const sheetOrder = String(a.sheetName || '').localeCompare(String(b.sheetName || ''), 'vi', { sensitivity: 'base' });
+      return sheetOrder || (a._actionsOnly ? 1 : b._actionsOnly ? -1 : 0);
+    });
+    if (!list.length) {
+      const row = tbody.insertRow();
+      const cell = row.insertCell();
+      cell.colSpan = 7;
+      cell.style.cssText = 'padding:10px; border:1px solid #e2e8f0; color:#64748b;';
+      cell.textContent = 'Tài khoản chưa có quyền ma trận nào được cấu hình.';
+      updateSysMatrixExistingSelection_();
+      return;
+    }
+
+    const permissionLabels = [
+      ['canRead', 'Xem'],
+      ['canCreate', 'Thêm'],
+      ['canEdit', 'Sửa'],
+      ['canDelete', 'Xóa']
+    ];
+    const actionRowsRendered = {};
+    list.forEach(function(rule, index) {
+      const sheetName = String(rule.sheetName || '').trim();
+      const row = tbody.insertRow();
+      const selectCell = row.insertCell();
+      selectCell.style.cssText = 'padding:9px; border:1px solid #e2e8f0; text-align:center; vertical-align:top;';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'sys-matrix-existing-rule-select';
+      checkbox.setAttribute('aria-label', 'Chọn quyền dòng ' + (index + 1));
+      checkbox.style.cssText = 'width:15px; height:15px; accent-color:#2563eb;';
+      checkbox.addEventListener('change', updateSysMatrixExistingSelection_);
+      selectCell.appendChild(checkbox);
+      [index + 1, sheetName, '', '', ''].forEach(function(value) {
+        const cell = row.insertCell();
+        cell.style.cssText = 'padding:9px; border:1px solid #e2e8f0; vertical-align:top;';
+        cell.textContent = String(value);
+      });
+      const conditionCell = row.cells[3];
+      const conditions = Array.isArray(rule.conditions) ? rule.conditions : [];
+      if (!conditions.length) {
+        conditionCell.textContent = 'Không có điều kiện';
+      } else {
+        const listElement = document.createElement('ul');
+        listElement.style.cssText = 'margin:0; padding-left:18px;';
+        conditions.forEach(function(condition) {
+          const item = document.createElement('li');
+          const operatorLabels = {
+            equals: 'bằng',
+            not_equals: 'khác',
+            contains: 'có chứa',
+            one_of: 'nằm trong danh sách'
+          };
+          const value = condition.allValues === true || !String(condition.value || '').trim()
+            ? 'Tất cả giá trị (kể cả phát sinh mới)'
+            : String(condition.value).split(',').map(function(part) { return part.trim(); }).filter(Boolean).join(', ');
+          item.textContent = String(condition.columnName || ('Cột ' + (Number(condition.columnIndex) + 1))) +
+            ' ' + (operatorLabels[String(condition.operator || '').toLowerCase()] || String(condition.operator || '')) +
+            ' ' + value;
+          listElement.appendChild(item);
+        });
+        conditionCell.appendChild(listElement);
+      }
+      const permissions = permissionLabels.filter(function(entry) { return rule[entry[0]] === true; })
+        .map(function(entry) { return entry[1]; });
+      row.cells[4].textContent = permissions.length ? permissions.join(', ') : 'Không cấp quyền dữ liệu';
+      if (sheetName && !actionRowsRendered[sheetName]) {
+        row.cells[5].textContent = (configuredActions[sheetName] || []).join(', ') || '—';
+        actionRowsRendered[sheetName] = true;
+      }
+      row._sysMatrixDeleteItem = rule._actionsOnly
+        ? { sheetName: sheetName, actionsOnly: true }
+        : {
+            sheetName: sheetName,
+            conditions: conditions.map(function(condition) {
+              return {
+                columnIndex: condition.columnIndex,
+                columnName: condition.columnName,
+                operator: condition.operator,
+                value: condition.value,
+                allValues: condition.allValues === true
+              };
+            }),
+            canRead: rule.canRead === true,
+            canCreate: rule.canCreate === true,
+            canEdit: rule.canEdit === true,
+            canDelete: rule.canDelete === true
+          };
+       const removeCell = row.insertCell();
+       removeCell.style.cssText = 'padding:6px; border:1px solid #e2e8f0; text-align:center; vertical-align:top;';
+       const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'sys-matrix-rule-remove';
+      removeButton.title = 'Xóa cấu hình này';
+      removeButton.setAttribute('aria-label', 'Xóa quyền dòng ' + (index + 1));
+      removeButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6m4-6v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg>';
+      removeButton.addEventListener('click', function() {
+        deleteSysMatrixConfiguredRules([row], 'Xóa quyền đã cấu hình này?');
+      });
+      removeCell.appendChild(removeButton);
+    });
+    list.forEach(function(rule, index) {
+      if (!rule._actionsOnly) return;
+      const row = tbody.rows[index];
+      if (row) {
+        row.cells[3].textContent = '—';
+        row.cells[4].textContent = '—';
+        row.cells[5].textContent = (configuredActions[rule.sheetName] || []).join(', ');
+      }
+    });
+    updateSysMatrixExistingSelection_();
+  }
+
+  function toggleAllSysMatrixExistingRules(checked) {
+    document.querySelectorAll('#sys-matrix-existing-rules .sys-matrix-existing-rule-select').forEach(function(input) {
+      input.checked = checked;
+    });
+    updateSysMatrixExistingSelection_();
+  }
+
+  function updateSysMatrixExistingSelection_() {
+    const checkboxes = Array.from(document.querySelectorAll('#sys-matrix-existing-rules .sys-matrix-existing-rule-select'));
+    const selectedCount = checkboxes.filter(function(input) { return input.checked; }).length;
+    const button = document.getElementById('btn-delete-sys-matrix-selected');
+    const selectAll = document.getElementById('sys-matrix-select-all-existing');
+    if (button) {
+      button.disabled = selectedCount === 0;
+      button.textContent = 'Xóa đã chọn (' + selectedCount + ')';
+      button.style.cursor = selectedCount ? 'pointer' : 'not-allowed';
+      button.style.opacity = selectedCount ? '1' : '.55';
+    }
+    if (selectAll) {
+      selectAll.checked = checkboxes.length > 0 && selectedCount === checkboxes.length;
+      selectAll.indeterminate = selectedCount > 0 && selectedCount < checkboxes.length;
+    }
+  }
+
+  function deleteSelectedSysMatrixRules() {
+    const selectedRows = Array.from(document.querySelectorAll('#sys-matrix-existing-rules .sys-matrix-existing-rule-select:checked'))
+      .map(function(input) { return input.closest('tr'); })
+      .filter(Boolean);
+    if (!selectedRows.length) return;
+    deleteSysMatrixConfiguredRules(selectedRows,
+      'Bạn có chắc muốn xóa ' + selectedRows.length + ' quyền đã chọn?');
+  }
+
+   function deleteSysMatrixConfiguredRules(rows, confirmMessage) {
+    if (!canManageSysPermissions_()) {
+      showSysToast('Chỉ ADMIN hoặc SuperAdmin được xóa quyền ma trận.', 'error');
+      return;
+    }
+    if (!sysMatrixCurrentUsername || !sysMatrixConfiguredLoaded) {
+      showSysToast('Quyền cấu hình chưa tải xong; chưa thể xóa.', 'warning');
+      return;
+    }
+    if (typeof window.confirm === 'function' && !window.confirm(confirmMessage)) return;
+    const deletions = rows.map(function(row) { return row._sysMatrixDeleteItem; }).filter(Boolean);
+    if (!deletions.length) {
+      showSysToast('Không tìm thấy quyền cần xóa.', 'error');
+      return;
+    }
+    const targetValue = sysMatrixCurrentUsername;
+    const requestId = sysMatrixRequestId;
+    const buttons = Array.from(document.querySelectorAll('#sys-matrix-existing-rules .sys-matrix-rule-remove, #btn-delete-sys-matrix-selected'));
+    buttons.forEach(function(button) { button.disabled = true; });
+    setSysMatrixStatus('Đang xóa ' + deletions.length + ' quyền đã chọn...', 'loading');
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (requestId !== sysMatrixRequestId || targetValue !== sysMatrixCurrentUsername) return;
+        if (!res || !res.success) {
+          const message = res && res.message ? res.message : 'Không xóa được quyền đã cấu hình.';
+          setSysMatrixStatus(message, 'error');
+          buttons.forEach(function(button) { button.disabled = false; });
+          updateSysMatrixExistingSelection_();
+          showSysToast(message, 'error');
+          return;
+        }
+        sysMatrixConfiguredLoaded = false;
+        document.getElementById('sys-matrix-select-all-existing').checked = false;
+        loadSysMatrixAllConfiguredRules(requestId, targetValue);
+        setSysMatrixStatus(res.message || 'Đã xóa quyền đã cấu hình.', 'success');
+        showSysToast(res.message || 'Đã xóa quyền đã cấu hình.', 'success');
+      })
+      .withFailureHandler(function(error) {
+        if (requestId !== sysMatrixRequestId || targetValue !== sysMatrixCurrentUsername) return;
+        const message = 'Lỗi xóa quyền đã cấu hình: ' + (error && error.message ? error.message : error);
+        setSysMatrixStatus(message, 'error');
+        buttons.forEach(function(button) { button.disabled = false; });
+        updateSysMatrixExistingSelection_();
+        showSysToast(message, 'error');
+      })
+      .handleApiRoute('SYS', 'deletePermissionRules', {
+        token: getSystemAuthToken(),
+        targetValue: targetValue,
+        deletions: deletions
+      });
+  }
+
+  function loadSysMatrixAllConfiguredRules(requestId, targetValue) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (requestId !== sysMatrixRequestId || targetValue !== sysMatrixCurrentUsername) return;
+        if (!res || !res.success) {
+          const message = res && res.message ? res.message : 'Không tải được quyền đã cấu hình.';
+          document.getElementById('sys-matrix-existing-rules').innerHTML =
+            '<tr><td colspan="7" style="padding:10px; border:1px solid #e2e8f0; color:#b91c1c;">' +
+            sysEscapeHtml(message) + '</td></tr>';
+          sysMatrixConfiguredLoaded = false;
+          setSysMatrixAddEnabled(false);
+          setSysMatrixSaveEnabled(false);
+          showSysToast(message, 'error');
+          return;
+        }
+        const config = res.rule || {};
+        sysMatrixAllConfiguredRules = Array.isArray(config.rules) ? config.rules : [];
+        sysMatrixConfiguredActionsBySheet = config.customActionsBySheet || {};
+        sysMatrixConfiguredLoaded = true;
+        renderSysMatrixExistingRules(sysMatrixAllConfiguredRules);
+        setSysMatrixAddEnabled(sysMatrixSchemaLoaded);
+        setSysMatrixSaveEnabled(sysMatrixSchemaLoaded);
+      })
+      .withFailureHandler(function(err) {
+        if (requestId !== sysMatrixRequestId || targetValue !== sysMatrixCurrentUsername) return;
+        const message = 'Lỗi tải quyền đã cấu hình: ' + (err && err.message ? err.message : err);
+        document.getElementById('sys-matrix-existing-rules').innerHTML =
+          '<tr><td colspan="7" style="padding:10px; border:1px solid #e2e8f0; color:#b91c1c;">' +
+          sysEscapeHtml(message) + '</td></tr>';
+        sysMatrixConfiguredLoaded = false;
+        setSysMatrixAddEnabled(false);
+        setSysMatrixSaveEnabled(false);
+        showSysToast(message, 'error');
+      })
+      .handleApiRoute('SYS', 'getPermissionRule', {
+        token: getSystemAuthToken(), targetType: 'USER', targetValue: targetValue, sheetName: ''
+      });
+  }
+
+  function setSysMatrixSaveEnabled(enabled) {
+    const button = document.getElementById('btn-save-sys-matrix');
+    const canManage = canManageSysPermissions_();
+    button.disabled = !enabled || !canManage;
+    button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
+    button.title = !canManage
+      ? 'Chỉ ADMIN hoặc SuperAdmin được lưu ma trận quyền.'
+      : enabled
+      ? 'Lưu ma trận quyền dữ liệu cho tài khoản và bảng dữ liệu đã chọn.'
+      : 'Chọn bảng dữ liệu và chờ tải cấu hình quyền hiện tại.';
+    button.style.opacity = button.disabled ? '0.55' : '1';
+    button.style.cursor = button.disabled ? 'not-allowed' : 'pointer';
+  }
+
+  function setSysMatrixAddEnabled(enabled) {
+    const button = document.getElementById('btn-add-sys-matrix-rule');
+    button.disabled = !enabled || !canManageSysPermissions_();
+    button.style.opacity = button.disabled ? '0.55' : '1';
+    button.style.cursor = button.disabled ? 'not-allowed' : 'pointer';
+  }
+
+  function setSysMatrixStatus(message, state) {
+    const status = document.getElementById('sys-matrix-rule-status');
+    status.textContent = message;
+    status.style.color = state === 'error' ? '#b91c1c' :
+      state === 'success' ? '#047857' :
+      state === 'loading' ? '#1d4ed8' : '#475569';
+    status.style.background = state === 'error' ? '#fef2f2' :
+      state === 'success' ? '#ecfdf5' :
+      state === 'loading' ? '#eff6ff' : '#f1f5f9';
+  }
+
+  function renderSysMatrixSheets() {
+    document.querySelectorAll('#sys-matrix-rules .sys-matrix-rule-sheet').forEach(function(select) {
+      const selectedSheet = select.value;
+      select.innerHTML = '<option value="">-- Chọn bảng --</option>' +
+        sysMatrixSchema.map(function(item) {
+          return '<option value="' + sysEscapeHtml(item.sheetName) + '">' +
+            sysEscapeHtml(item.sheetName) + '</option>';
+        }).join('');
+      select.disabled = sysMatrixSchema.length === 0;
+      if (selectedSheet && sysMatrixSchema.some(function(item) { return item.sheetName === selectedSheet; })) {
+        select.value = selectedSheet;
+      }
+    });
+  }
+
+  function getSelectedSysMatrixSchema(sheetName) {
+    sheetName = sheetName || '';
+    return sysMatrixSchema.find(function(item) { return item.sheetName === sheetName; }) || null;
+  }
+
+  function addSysMatrixRule() {
+    if (!sysMatrixSchemaLoaded || !sysMatrixSchema.length) {
+      showSysToast('Hãy tải danh sách bảng dữ liệu trước khi thêm quy tắc.', 'warning');
+      return;
+    }
+    const rulesContainer = document.getElementById('sys-matrix-rules');
+    const draftRows = rulesContainer.querySelectorAll('.sys-matrix-rule-row').length;
+    if (sysMatrixAllConfiguredRules.length + draftRows >= 100) {
+      showSysToast('Tối đa 100 quy tắc cho mỗi lần cấu hình tài khoản.', 'warning');
+      return;
+    }
+    const emptyMessage = rulesContainer.querySelector('.sys-matrix-empty-draft');
+    if (emptyMessage) emptyMessage.remove();
+    const row = rulesContainer.insertRow();
+    row.className = 'sys-matrix-rule-row';
+    row.style.background = '#fff';
+    for (let i = 0; i < 5; i++) {
+      const cell = row.insertCell();
+      cell.style.cssText = 'padding:6px; border:1px solid #e2e8f0; vertical-align:middle;';
+    }
+
+    const sheetSelect = document.createElement('select');
+    sheetSelect.className = 'sys-matrix-input sys-matrix-rule-sheet';
+    sheetSelect.style.width = '100%';
+    sheetSelect.innerHTML = '<option value="">-- Chọn bảng --</option>' +
+      sysMatrixSchema.map(function(item) {
+        return '<option value="' + sysEscapeHtml(item.sheetName) + '">' + sysEscapeHtml(item.sheetName) + '</option>';
+      }).join('');
+    sheetSelect.addEventListener('change', function() {
+      loadSysMatrixRuleRow_(row, sheetSelect.value, null);
+    });
+    const sheetCellContent = document.createElement('div');
+    sheetCellContent.style.cssText = 'display:flex; align-items:center; gap:5px;';
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'sys-matrix-rule-remove';
+    remove.title = 'Xóa cấu hình này';
+    remove.setAttribute('aria-label', 'Xóa cấu hình này');
+    remove.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6m4-6v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg>';
+    remove.addEventListener('click', function() {
+      row.remove();
+      updateSysMatrixRuleTitles();
+    });
+    sheetSelect.style.flex = '1 1 auto';
+    sheetCellContent.appendChild(remove);
+    sheetCellContent.appendChild(sheetSelect);
+    row.cells[0].appendChild(sheetCellContent);
+
+    const permissionWrap = document.createElement('div');
+    permissionWrap.className = 'sys-matrix-value-select sys-matrix-permission-select';
+    const permissionTrigger = document.createElement('button');
+    permissionTrigger.type = 'button';
+    permissionTrigger.className = 'sys-matrix-value-trigger';
+    permissionTrigger.setAttribute('aria-haspopup', 'true');
+    permissionTrigger.setAttribute('aria-expanded', 'false');
+    permissionTrigger.setAttribute('aria-label', 'Quyền dữ liệu');
+    permissionTrigger.innerHTML = '<span class="sys-matrix-value-summary is-placeholder">Chọn quyền</span><span class="sys-matrix-value-caret" aria-hidden="true">▼</span>';
+    const permissionPanel = document.createElement('div');
+    permissionPanel.className = 'sys-matrix-value-panel';
+    permissionPanel.setAttribute('role', 'group');
+    permissionPanel.setAttribute('aria-label', 'Quyền dữ liệu');
+    permissionPanel.hidden = true;
+    permissionWrap.appendChild(permissionTrigger);
+    permissionWrap.appendChild(permissionPanel);
+    [['canRead','Xem'],['canCreate','Thêm'],['canEdit','Sửa'],['canDelete','Xóa']].forEach(function(item) {
+      const label = document.createElement('label');
+      label.className = 'sys-matrix-value-option';
+      label.innerHTML = '<input class="sys-matrix-rule-' + item[0] + '" type="checkbox" value="' + item[0] + '" data-label="' + item[1] + '"><span>' + item[1] + '</span>';
+      permissionPanel.appendChild(label);
+    });
+    row.cells[1].appendChild(permissionWrap);
+    permissionWrap.onchange = function() { syncSysMatrixPermissionSummary_(permissionWrap, 'Chọn quyền'); };
+    permissionTrigger.onclick = function(event) {
+      event.stopPropagation();
+      if (permissionWrap.classList.contains('is-open')) closeSysMatrixValuePanels_();
+      else openSysMatrixValuePanel_(permissionWrap);
+    };
+
+    const columnSelect = document.createElement('select');
+    columnSelect.className = 'sys-matrix-input sys-matrix-condition-column';
+    columnSelect.setAttribute('aria-label', 'Cột điều kiện');
+    const operatorSelect = document.createElement('select');
+    operatorSelect.className = 'sys-matrix-input sys-matrix-condition-operator';
+    operatorSelect.setAttribute('aria-label', 'Phép so sánh');
+    operatorSelect.innerHTML = '<option value="equals">Bằng</option><option value="not_equals">Khác</option><option value="contains">Có chứa</option><option value="one_of">Nằm trong danh sách</option>';
+    const conditionWrap = document.createElement('div');
+    conditionWrap.style.cssText = 'display:grid; grid-template-columns:minmax(0,1.2fr) minmax(100px,.8fr); gap:5px;';
+    conditionWrap.appendChild(columnSelect);
+    conditionWrap.appendChild(operatorSelect);
+    row.cells[2].appendChild(conditionWrap);
+
+    const actions = document.createElement('div');
+    actions.className = 'sys-matrix-rule-actions sys-matrix-value-select sys-matrix-permission-select';
+    const actionTrigger = document.createElement('button');
+    actionTrigger.type = 'button';
+    actionTrigger.className = 'sys-matrix-value-trigger';
+    actionTrigger.setAttribute('aria-haspopup', 'true');
+    actionTrigger.setAttribute('aria-expanded', 'false');
+    actionTrigger.setAttribute('aria-label', 'Quyền chức năng');
+    actionTrigger.innerHTML = '<span class="sys-matrix-value-summary is-placeholder">Chọn quyền</span><span class="sys-matrix-value-caret" aria-hidden="true">▼</span>';
+    const actionPanel = document.createElement('div');
+    actionPanel.className = 'sys-matrix-value-panel sys-matrix-action-panel';
+    actionPanel.setAttribute('role', 'group');
+    actionPanel.setAttribute('aria-label', 'Quyền chức năng');
+    actionPanel.hidden = true;
+    actions.appendChild(actionTrigger);
+    actions.appendChild(actionPanel);
+    actions.onchange = function() { syncSysMatrixPermissionSummary_(actions, 'Chọn quyền'); };
+    actionTrigger.onclick = function(event) {
+      event.stopPropagation();
+      if (actions.classList.contains('is-open')) closeSysMatrixValuePanels_();
+      else openSysMatrixValuePanel_(actions);
+    };
+    row.cells[4].appendChild(actions);
+    const valueBox = document.createElement('div');
+    valueBox.className = 'sys-matrix-condition-value sys-matrix-value-select';
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'sys-matrix-value-trigger';
+    trigger.setAttribute('aria-haspopup', 'true');
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.setAttribute('aria-label', 'Giá trị điều kiện');
+    trigger.innerHTML = '<span class="sys-matrix-value-summary is-placeholder">Chọn giá trị</span><span class="sys-matrix-value-caret" aria-hidden="true">▼</span>';
+    const valuePanel = document.createElement('div');
+    valuePanel.className = 'sys-matrix-value-panel';
+    valuePanel.setAttribute('role', 'group');
+    valuePanel.hidden = true;
+    valuePanel.innerHTML = sysMatrixValueListHtml_([], false);
+    valueBox.appendChild(trigger);
+    valueBox.appendChild(valuePanel);
+    row.cells[3].appendChild(valueBox);
+
+    updateSysMatrixRuleTitles();
+  }
+
+  function updateSysMatrixRuleTitles() {
+    document.querySelectorAll('#sys-matrix-rules .sys-matrix-rule-row').forEach(function(row, index) {
+      row.cells[0].querySelector('.sys-matrix-rule-sheet').setAttribute('aria-label', 'Bảng dữ liệu cho quy tắc ' + (index + 1));
+    });
+  }
+
+  // --- Dropdown chọn giá trị điều kiện ---
+  // Panel dùng position:fixed để không bị .sys-matrix-modal (overflow:hidden) cắt mất.
+  var SYS_MATRIX_VALUE_GLOBALS_ATTR_ = 'data-sys-matrix-value-globals';
+
+  function sysMatrixValueListHtml_(values, allChecked, emptyMessage) {
+    var html = '<label class="sys-matrix-value-option is-all"><input type="checkbox" value="__ALL__"' +
+      (allChecked ? ' checked' : '') + '><span>Tất cả</span></label>';
+    var list = Array.isArray(values) ? values : [];
+    if (!list.length) {
+      if (emptyMessage) html += '<p class="sys-matrix-value-empty">' + sysEscapeHtml(emptyMessage) + '</p>';
+      return html;
+    }
+    list.forEach(function(value) {
+      var text = String(value == null ? '' : value);
+      html += '<label class="sys-matrix-value-option"><input type="checkbox" value="' +
+        sysEscapeHtml(text) + '"' + (allChecked ? ' checked' : '') + '><span>' + sysEscapeHtml(text) + '</span></label>';
+    });
+    return html;
+  }
+
+  function sysMatrixValueInputs_(box) {
+    return Array.from(box.querySelectorAll('.sys-matrix-value-panel input[type="checkbox"]'));
+  }
+
+  function sysMatrixRealValueInputs_(box) {
+    return sysMatrixValueInputs_(box).filter(function(cb) { return cb.value !== '__ALL__'; });
+  }
+
+  function syncSysMatrixPermissionSummary_(box, placeholder) {
+    var summary = box.querySelector('.sys-matrix-value-summary');
+    if (!summary) return;
+    var checked = Array.from(box.querySelectorAll('.sys-matrix-value-panel input[type="checkbox"]:checked'));
+    summary.classList.toggle('is-placeholder', checked.length === 0);
+    if (!checked.length) {
+      summary.textContent = placeholder;
+    } else if (checked.length === 1) {
+      summary.textContent = checked[0].getAttribute('data-label') || checked[0].value;
+    } else {
+      summary.textContent = checked.length + ' quyền đã chọn';
+    }
+  }
+
+  // Tích "Tất cả" đồng nghĩa wildcard, bao gồm cả các giá trị phát sinh về sau.
+  function applySysMatrixSelectAll_(box, checked) {
+    sysMatrixRealValueInputs_(box).forEach(function(cb) { cb.checked = checked; });
+    var allCb = box.querySelector('.sys-matrix-value-panel input[value="__ALL__"]');
+    if (allCb) allCb.checked = checked;
+  }
+
+  function syncSysMatrixAllState_(box) {
+    var real = sysMatrixRealValueInputs_(box);
+    var checkedCount = real.filter(function(cb) { return cb.checked; }).length;
+    var allCb = box.querySelector('.sys-matrix-value-panel input[value="__ALL__"]');
+    if (allCb) {
+      allCb.checked = real.length === 0 ? allCb.checked : checkedCount === real.length;
+      allCb.indeterminate = checkedCount > 0 && checkedCount < real.length;
+    }
+    return { total: real.length, checked: checkedCount };
+  }
+
+  function syncSysMatrixValueSummary_(box) {
+    var summary = box.querySelector('.sys-matrix-value-summary');
+    if (!summary) return;
+    var state = syncSysMatrixAllState_(box);
+    var checkedInputs = sysMatrixRealValueInputs_(box).filter(function(cb) { return cb.checked; });
+    summary.classList.remove('is-placeholder');
+    if (state.checked === 0) {
+      summary.textContent = 'Chưa chọn giá trị';
+      summary.classList.add('is-placeholder');
+      return;
+    }
+    if (state.checked === state.total) {
+      summary.textContent = 'Tất cả';
+      return;
+    }
+    if (state.checked === 1) {
+      summary.textContent = checkedInputs[0].value;
+      return;
+    }
+    summary.textContent = state.checked + ' giá trị đã chọn';
+  }
+
+  function applySysMatrixValueRestore_(box, vals) {
+    var values = (Array.isArray(vals) ? vals : [])
+      .map(function(value) { return String(value == null ? '' : value).trim(); })
+      .filter(Boolean);
+    if (!values.length) {
+      applySysMatrixSelectAll_(box, true);
+      return;
+    }
+    sysMatrixRealValueInputs_(box).forEach(function(cb) {
+      cb.checked = values.indexOf(cb.value) !== -1;
+    });
+    syncSysMatrixAllState_(box);
+  }
+
+  function positionSysMatrixValuePanel_(box) {
+    var panel = box.querySelector('.sys-matrix-value-panel');
+    var trigger = box.querySelector('.sys-matrix-value-trigger');
+    if (!panel || !trigger || panel.hidden) return;
+    var margin = 8;
+    var rect = trigger.getBoundingClientRect();
+    var maxWidth = Math.max(120, window.innerWidth - margin * 2);
+    var width = Math.min(Math.max(rect.width, 180), maxWidth);
+    panel.style.width = width + 'px';
+    panel.style.left = Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin)) + 'px';
+    var spaceBelow = window.innerHeight - rect.bottom - margin;
+    var spaceAbove = rect.top - margin;
+    var limit = Math.max(120, Math.min(260, window.innerHeight - margin * 2));
+    panel.style.maxHeight = Math.min(limit, Math.max(spaceBelow, spaceAbove)) + 'px';
+    var height = panel.offsetHeight;
+    panel.style.top = (height > spaceBelow && spaceAbove > spaceBelow)
+      ? Math.max(margin, rect.top - height - 4) + 'px'
+      : (rect.bottom + 4) + 'px';
+  }
+
+  function closeSysMatrixValuePanels_(exceptBox) {
+    Array.from(document.querySelectorAll('.sys-matrix-value-select.is-open')).forEach(function(box) {
+      if (box === exceptBox) return;
+      box.classList.remove('is-open');
+      var panel = box.querySelector('.sys-matrix-value-panel');
+      if (panel) panel.hidden = true;
+      var trigger = box.querySelector('.sys-matrix-value-trigger');
+      if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  function openSysMatrixValuePanel_(box) {
+    closeSysMatrixValuePanels_(box);
+    var panel = box.querySelector('.sys-matrix-value-panel');
+    var trigger = box.querySelector('.sys-matrix-value-trigger');
+    if (!panel || !trigger) return;
+    box.classList.add('is-open');
+    panel.hidden = false;
+    trigger.setAttribute('aria-expanded', 'true');
+    positionSysMatrixValuePanel_(box);
+  }
+
+  function bindSysMatrixValuePanelGlobals_() {
+    if (document.body.getAttribute(SYS_MATRIX_VALUE_GLOBALS_ATTR_) === '1') return;
+    document.body.setAttribute(SYS_MATRIX_VALUE_GLOBALS_ATTR_, '1');
+    document.addEventListener('click', function(event) {
+      var target = event.target;
+      if (target && typeof target.closest === 'function' && target.closest('.sys-matrix-value-select')) return;
+      if (target && target.parentElement && target.parentElement.closest &&
+          target.parentElement.closest('.sys-matrix-value-select')) return;
+      closeSysMatrixValuePanels_();
+    });
+    var reposition = function() {
+      var openBox = document.querySelector('.sys-matrix-value-select.is-open');
+      if (openBox) positionSysMatrixValuePanel_(openBox);
+    };
+    window.addEventListener('resize', reposition);
+    document.addEventListener('scroll', reposition, true);
+  }
+
+  function addSysMatrixConditionRow(condition, container) {
+    const ruleRow = container && container.closest('.sys-matrix-rule-row');
+    const selectedSheet = ruleRow && ruleRow.querySelector('.sys-matrix-rule-sheet');
+    const schema = getSelectedSysMatrixSchema(selectedSheet ? selectedSheet.value : '');
+    if (!container || !schema) return;
+    if (container.children.length >= 12) {
+      showSysToast('Mỗi quy tắc được thêm tối đa 12 điều kiện.', 'warning');
+      return;
+    }
+    const row = document.createElement('div');
+    row.className = 'sys-matrix-condition-row';
+    row.style.cssText = 'display:grid; grid-template-columns:minmax(140px,1.2fr) minmax(110px,.8fr) minmax(140px,1fr) auto; gap:7px; align-items:center;';
+
+    const columnSelect = document.createElement('select');
+    columnSelect.className = 'sys-matrix-input sys-matrix-condition-column';
+    columnSelect.setAttribute('aria-label', 'Cột điều kiện');
+    var columnLabelMap = {
+      username:'Tên đăng nhập', password_hash:'Mật khẩu mã hóa', cccd_no:'Số CCCD', full_name:'Họ tên', role:'Vai trò', module_access:'Phân hệ', is_active:'Trạng thái', last_login:'Đăng nhập cuối', created_by:'Người tạo', created_at:'Ngày tạo', nav_access:'Quyền menu',
+      emp_id:'Mã NV', dob:'Ngày sinh', gender:'Giới tính', curr_addr:'Địa chỉ hiện tại', avatar_url:'Ảnh đại diện', phone:'Số điện thoại', email:'Email', company_code:'Mã công ty', unit_code:'Đơn vị', job_title:'Chức danh', work_location:'Nơi làm việc', manager_id:'Quản lý', join_date:'Ngày vào làm', contract_type:'Loại hợp đồng', contract_no:'Số hợp đồng', contract_start_date:'Ngày bắt đầu HĐ', contract_end_date:'Ngày kết thúc HĐ', contract_status:'Trạng thái HĐ', work_status:'Trạng thái làm việc', resign_date:'Ngày nghỉ việc', salary_grade:'Bậc lương', base_salary:'Lương cơ bản', social_insurance_no:'Số BHXH', tax_code:'Mã số thuế', bank_account_no:'Số tài khoản', bank_name:'Ngân hàng', bank_account_holder:'Chủ tài khoản', academic_level:'Trình độ',
+      att_id:'Mã chấm công', work_date:'Ngày làm việc', work_month:'Tháng', work_shift:'Ca làm', att_type:'Loại', work_day_value:'Giá trị ngày công', check_in:'Giờ vào', check_out:'Giờ ra', meal_qty:'Số suất ăn', location_latlong:'Vị trí', selfie_img:'Ảnh selfie', leave_reason:'Lý do nghỉ', reject_reason:'Lý do từ chối', approval_status:'Trạng thái duyệt', approval_chain:'Chuỗi duyệt', approval_step:'Bước duyệt', approval_due_at:'Hạn duyệt', is_auto_approved:'Tự duyệt',
+      warehouse_id:'Mã kho', warehouse_code:'Mã kho', warehouse_name:'Tên kho', address:'Địa chỉ', warehouse_purpose:'Mục đích', storage_mode:'Chế độ bảo quản', temperature_min_c:'Nhiệt độ min', temperature_max_c:'Nhiệt độ max',
+      location_id:'Mã vị trí', location_code:'Mã vị trí', location_name:'Tên vị trí', location_type:'Loại vị trí', parent_location_id:'Vị trí cha', status:'Trạng thái',
+      sku_id:'Mã SKU', sku_code:'Mã SKU', sku_name:'Tên hàng', short_name:'Tên ngắn', category_code:'Nhóm hàng', uom_base:'ĐVT cơ bản', uom_pack:'ĐVT đóng gói', pack_ratio:'Tỷ lệ đóng gói', is_batch_managed:'Quản lý lô', is_expiry_managed:'Quản lý HSD', qc_inspection_req:'Yêu cầu QC', min_stock:'Tồn tối thiểu', max_stock:'Tồn tối đa',
+      doc_id:'Mã phiếu', doc_no:'Số phiếu', doc_type:'Loại phiếu', doc_date:'Ngày phiếu', partner_name_snapshot:'Đối tác', warehouse_scope_id:'Kho áp dụng', workflow_version_id:'Phiên bản WF', wf_code:'Mã WF', wf_name:'Tên WF', version_no:'Phiên bản', change_reason:'Lý do thay đổi', doc_status:'Trạng thái phiếu', posting_status:'Trạng thái ghi sổ', is_deleted:'Đã xóa', deleted_by:'Người xóa', deleted_at:'Ngày xóa',
+      perm_id:'Mã quyền', target_type:'Loại đối tượng', target_value:'Đối tượng', sheet_name:'Bảng', scope_owner:'Phạm vi', dept_filter:'Lọc bộ phận', status_filter:'Lọc trạng thái', can_read:'Đọc', can_edit:'Sửa', can_delete:'Xóa', custom_actions:'Hành động mở rộng',
+      comment_id:'Mã bình luận', comment_type:'Loại bình luận', content:'Nội dung', resolution_status:'Trạng thái xử lý', version_tag:'Phiên bản', change_log:'Nhật ký thay đổi'
+    };
+    columnSelect.innerHTML = '<option value="">-- Chọn cột --</option>' + schema.columns.map(function(column) {
+      var label = columnLabelMap[column.name] || column.name;
+      return '<option value="' + Number(column.index) + '">' + sysEscapeHtml(label) + '</option>';
+    }).join('');
+
+    const operatorSelect = document.createElement('select');
+    operatorSelect.className = 'sys-matrix-input sys-matrix-condition-operator';
+    operatorSelect.setAttribute('aria-label', 'Phép so sánh');
+    operatorSelect.innerHTML = '<option value="equals">Bằng</option><option value="not_equals">Khác</option><option value="contains">Có chứa</option><option value="one_of">Nằm trong danh sách</option>';
+
+    const valueBox = document.createElement('div');
+    valueBox.className = 'sys-matrix-condition-value sys-matrix-value-select';
+    // Trigger + panel: panel dùng position:fixed nên không bị modal cắt/tràn khung.
+    const valueTrigger = document.createElement('button');
+    valueTrigger.type = 'button';
+    valueTrigger.className = 'sys-matrix-value-trigger';
+    valueTrigger.setAttribute('aria-haspopup', 'true');
+    valueTrigger.setAttribute('aria-expanded', 'false');
+    valueTrigger.setAttribute('aria-label', 'Giá trị điều kiện');
+    valueTrigger.innerHTML = '<span class="sys-matrix-value-summary is-placeholder">Tất cả</span>' +
+      '<span class="sys-matrix-value-caret" aria-hidden="true">▼</span>';
+    const valuePanel = document.createElement('div');
+    valuePanel.className = 'sys-matrix-value-panel';
+    valuePanel.setAttribute('role', 'group');
+    valuePanel.setAttribute('aria-label', 'Danh sách giá trị điều kiện');
+    valuePanel.hidden = true;
+    valuePanel.innerHTML = sysMatrixValueListHtml_([], true);
+    valueBox.appendChild(valueTrigger);
+    valueBox.appendChild(valuePanel);
+
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.textContent = 'Xóa';
+    removeButton.style.cssText = 'padding:7px 9px; border:1px solid #fecaca; border-radius:7px; background:#fff; color:#b91c1c; font-size:.78rem; font-weight:650; cursor:pointer;';
+    removeButton.addEventListener('click', function() { row.remove(); });
+
+    row.appendChild(columnSelect);
+    row.appendChild(operatorSelect);
+    row.appendChild(valueBox);
+    row.appendChild(removeButton);
+    container.appendChild(row);
+
+    // Giá trị cần khôi phục khi sửa quy tắc sẵn có (chờ danh sách giá trị của cột trả về mới tích được).
+    var pendingValues = null;
+
+    valueBox.addEventListener('change', function(e) {
+      if (!e.target || e.target.type !== 'checkbox') return;
+      pendingValues = null;
+      if (e.target.value === '__ALL__') {
+        applySysMatrixSelectAll_(valueBox, e.target.checked);
+      }
+      syncSysMatrixValueSummary_(valueBox);
+    });
+
+    valueTrigger.addEventListener('click', function(event) {
+      event.stopPropagation();
+      if (valueBox.classList.contains('is-open')) {
+        closeSysMatrixValuePanels_();
+        return;
+      }
+      openSysMatrixValuePanel_(valueBox);
+    });
+
+    // Hiển thị tạm giá trị sẽ khôi phục trong khi chờ danh sách giá trị của cột.
+    function refreshValueSummary_() {
+      var summary = valueBox.querySelector('.sys-matrix-value-summary');
+      if (pendingValues && summary) {
+        var preview = pendingValues.filter(function(value) { return value !== ''; });
+        summary.textContent = preview.length === 0 ? 'Tất cả'
+          : preview.length === 1 ? preview[0] : preview.length + ' giá trị đã chọn';
+        summary.classList.remove('is-placeholder');
+        return;
+      }
+      syncSysMatrixValueSummary_(valueBox);
+    }
+
+    columnSelect.addEventListener('change', function() {
+      const idx = Number(columnSelect.value);
+      if (isNaN(idx) || idx < 0) return;
+      const sheetName = selectedSheet ? selectedSheet.value : '';
+      google.script.run.withSuccessHandler(function(res) {
+        if (!res || !res.success) {
+          pendingValues = null;
+          valuePanel.innerHTML = sysMatrixValueListHtml_([], true);
+          refreshValueSummary_();
+          return;
+        }
+        valuePanel.innerHTML = sysMatrixValueListHtml_(res.values, !pendingValues, 'Cột này chưa có giá trị nào.');
+        if (pendingValues) {
+          applySysMatrixValueRestore_(valueBox, pendingValues);
+          pendingValues = null;
+        }
+        refreshValueSummary_();
+        positionSysMatrixValuePanel_(valueBox);
+      }).handleApiRoute('SYS', 'getDistinctColumnValues', { token: getSystemAuthToken(), sheetName: sheetName, columnIndex: idx });
+    });
+
+    if (condition) {
+      var vals = String(condition.value || '').split(',').map(function(v){return v.trim();});
+      pendingValues = vals;
+      columnSelect.value = String(condition.columnIndex);
+      operatorSelect.value = condition.operator || 'equals';
+      refreshValueSummary_();
+      columnSelect.dispatchEvent(new Event('change'));
+    }
+  }
+
+  function loadSysMatrixRuleRow_(row, sheetName, draft) {
+    const schema = getSelectedSysMatrixSchema(sheetName);
+    const columnSelect = row.querySelector('.sys-matrix-condition-column');
+    const valueBox = row.querySelector('.sys-matrix-condition-value');
+    const valuePanel = valueBox.querySelector('.sys-matrix-value-panel');
+    const valueSummary = valueBox.querySelector('.sys-matrix-value-summary');
+    const operatorSelect = row.querySelector('.sys-matrix-condition-operator');
+    const actions = row.querySelector('.sys-matrix-rule-actions');
+    const actionPanel = actions.querySelector('.sys-matrix-action-panel');
+    actionPanel.innerHTML = '';
+    row.dataset.sheetName = sheetName || '';
+    columnSelect.innerHTML = '<option value="">-- Chọn cột --</option>';
+    valuePanel.innerHTML = sysMatrixValueListHtml_([], false);
+    valueSummary.textContent = 'Chọn cột trước';
+    valueSummary.classList.add('is-placeholder');
+    ['canRead', 'canCreate', 'canEdit', 'canDelete'].forEach(function(key) {
+      row.querySelector('.sys-matrix-rule-' + key).checked = false;
+    });
+    syncSysMatrixPermissionSummary_(row.querySelector('.sys-matrix-permission-select'), 'Chọn quyền');
+    if (!schema) return;
+
+    schema.columns.forEach(function(column) {
+      const option = document.createElement('option');
+      option.value = String(column.index);
+      option.textContent = column.name;
+      columnSelect.appendChild(option);
+    });
+
+    const siblingRow = Array.from(document.querySelectorAll('#sys-matrix-rules .sys-matrix-rule-row')).find(function(candidate) {
+      return candidate !== row && candidate.dataset.sheetName === sheetName;
+    });
+    const enabledActions = siblingRow
+      ? Array.from(siblingRow.querySelectorAll('.sys-matrix-rule-action:checked')).map(function(input) { return input.value; })
+      : (sysMatrixConfiguredActionsBySheet[sheetName] || []);
+    (schema.actions || []).forEach(function(action) {
+      const id = String(action.id || '').trim().toUpperCase();
+      const label = document.createElement('label');
+      label.className = 'sys-matrix-value-option';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'sys-matrix-rule-action';
+      checkbox.value = id;
+      checkbox.setAttribute('data-label', action.label || id);
+      checkbox.checked = enabledActions.indexOf(id) !== -1;
+      checkbox.addEventListener('change', function() {
+        document.querySelectorAll('#sys-matrix-rules .sys-matrix-rule-row').forEach(function(candidate) {
+          if (candidate.dataset.sheetName !== sheetName || candidate === row) return;
+          const siblingAction = Array.from(candidate.querySelectorAll('.sys-matrix-rule-action'))
+            .find(function(input) { return input.value === id; });
+          if (siblingAction) {
+            siblingAction.checked = checkbox.checked;
+            syncSysMatrixPermissionSummary_(candidate.querySelector('.sys-matrix-rule-actions'), 'Chọn quyền');
+          }
+        });
+        syncSysMatrixPermissionSummary_(actions, 'Chọn quyền');
+      });
+      const text = document.createElement('span');
+      text.textContent = action.label || id;
+      label.appendChild(checkbox);
+      label.appendChild(text);
+      actionPanel.appendChild(label);
+    });
+    if (!schema.actions || !schema.actions.length) {
+      const note = document.createElement('span');
+      note.className = 'sys-matrix-value-empty';
+      note.textContent = 'Không có quyền chức năng riêng';
+      actionPanel.appendChild(note);
+    }
+    syncSysMatrixPermissionSummary_(actions, 'Chọn quyền');
+
+    const loadValues = function() {
+      const selectedColumnValue = columnSelect.value;
+      const columnIndex = selectedColumnValue === '' ? -1 : Number(selectedColumnValue);
+      const loadId = Number(row.dataset.valueLoadId || 0) + 1;
+      row.dataset.valueLoadId = String(loadId);
+      valuePanel.innerHTML = sysMatrixValueListHtml_([], false);
+      if (!isFinite(columnIndex) || columnIndex < 0) {
+        valueSummary.textContent = 'Chọn cột trước';
+        valueSummary.classList.add('is-placeholder');
+        return;
+      }
+      valueSummary.textContent = 'Đang tải giá trị...';
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!row.isConnected || row.dataset.valueLoadId !== String(loadId) ||
+              row.dataset.sheetName !== schema.sheetName || columnSelect.value !== selectedColumnValue) return;
+          if (!res || !res.success) {
+            showSysToast(res && res.message ? res.message : 'Không tải được giá trị của cột.', 'error');
+            valueSummary.textContent = 'Không tải được giá trị';
+            valueSummary.classList.add('is-placeholder');
+            return;
+          }
+          valuePanel.innerHTML = sysMatrixValueListHtml_(res.values || [], false,
+            'Cột chưa có giá trị; chọn Tất cả để bao quát giá trị mới.');
+          syncSysMatrixValueSummary_(valueBox);
+          positionSysMatrixValuePanel_(valueBox);
+        })
+        .withFailureHandler(function(error) {
+          if (!row.isConnected || row.dataset.valueLoadId !== String(loadId)) return;
+          valueSummary.textContent = 'Lỗi tải giá trị';
+          valueSummary.classList.add('is-placeholder');
+          showSysToast('Lỗi tải giá trị cột: ' + (error && error.message ? error.message : error), 'error');
+        })
+        .handleApiRoute('SYS', 'getDistinctColumnValues', {
+          token: getSystemAuthToken(), sheetName: schema.sheetName, columnIndex: columnIndex
+        });
+    };
+    columnSelect.onchange = function() {
+      valueBox.querySelectorAll('input[type="checkbox"]').forEach(function(input) { input.checked = false; });
+      loadValues();
+    };
+    valueBox.onchange = function(event) {
+      if (!event.target || event.target.type !== 'checkbox') return;
+      if (event.target.value === '__ALL__') applySysMatrixSelectAll_(valueBox, event.target.checked);
+      syncSysMatrixValueSummary_(valueBox);
+    };
+    const trigger = valueBox.querySelector('.sys-matrix-value-trigger');
+    trigger.onclick = function(event) {
+      event.stopPropagation();
+      if (valueBox.classList.contains('is-open')) closeSysMatrixValuePanels_();
+      else openSysMatrixValuePanel_(valueBox);
+    };
+    if (draft && draft.condition) {
+      columnSelect.value = String(draft.condition.columnIndex);
+      operatorSelect.value = draft.condition.operator || 'equals';
+      loadValues();
+    }
+  }
+
+  function addSysMatrixGridCondition_(ruleRow, condition, schema) {
+    const conditions = ruleRow.querySelector('.sys-matrix-grid-conditions');
+    const values = ruleRow.querySelector('.sys-matrix-grid-values');
+    if (conditions.children.length >= 12) {
+      showSysToast('Mỗi quy tắc được thêm tối đa 12 điều kiện.', 'warning');
+      return;
+    }
+
+    const conditionBox = document.createElement('div');
+    conditionBox.className = 'sys-matrix-grid-condition';
+    conditionBox.style.cssText = 'display:flex; flex-direction:column; gap:4px;';
+    const columnSelect = document.createElement('select');
+    columnSelect.className = 'sys-matrix-input sys-matrix-condition-column';
+    columnSelect.innerHTML = '<option value="">-- Chọn cột --</option>' +
+      schema.columns.map(function(column) {
+        return '<option value="' + Number(column.index) + '">' + sysEscapeHtml(column.name) + '</option>';
+      }).join('');
+    const operatorSelect = document.createElement('select');
+    operatorSelect.className = 'sys-matrix-input sys-matrix-condition-operator';
+    operatorSelect.innerHTML = '<option value="equals">Bằng</option><option value="not_equals">Khác</option><option value="contains">Có chứa</option><option value="one_of">Nằm trong danh sách</option>';
+    conditionBox.appendChild(columnSelect);
+    conditionBox.appendChild(operatorSelect);
+    const removeCondition = document.createElement('button');
+    removeCondition.type = 'button';
+    removeCondition.textContent = 'Xóa điều kiện';
+    removeCondition.style.cssText = 'align-self:flex-start; padding:2px 5px; border:1px solid #fecaca; border-radius:4px; background:#fff; color:#b91c1c; font-size:.68rem; cursor:pointer;';
+    removeCondition.addEventListener('click', function() {
+      const pairIndex = Array.prototype.indexOf.call(conditions.children, conditionBox);
+      conditionBox.remove();
+      if (values.children[pairIndex]) values.children[pairIndex].remove();
+    });
+    conditionBox.appendChild(removeCondition);
+    conditions.appendChild(conditionBox);
+
+    const valueBox = document.createElement('div');
+    valueBox.className = 'sys-matrix-condition-value sys-matrix-value-select';
+    valueBox.style.marginBottom = '4px';
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'sys-matrix-value-trigger';
+    trigger.setAttribute('aria-haspopup', 'true');
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.innerHTML = '<span class="sys-matrix-value-summary is-placeholder">Chọn giá trị</span><span class="sys-matrix-value-caret" aria-hidden="true">▼</span>';
+    const panel = document.createElement('div');
+    panel.className = 'sys-matrix-value-panel';
+    panel.setAttribute('role', 'group');
+    panel.hidden = true;
+    panel.innerHTML = sysMatrixValueListHtml_([], false);
+    valueBox.appendChild(trigger);
+    valueBox.appendChild(panel);
+    values.appendChild(valueBox);
+
+    const valueState = { pending: condition ? String(condition.value || '').split(',').map(function(value) { return value.trim(); }) : null };
+    valueBox.addEventListener('change', function(event) {
+      if (!event.target || event.target.type !== 'checkbox') return;
+      valueState.pending = null;
+      if (event.target.value === '__ALL__') applySysMatrixSelectAll_(valueBox, event.target.checked);
+      syncSysMatrixValueSummary_(valueBox);
+    });
+    trigger.addEventListener('click', function(event) {
+      event.stopPropagation();
+      if (valueBox.classList.contains('is-open')) closeSysMatrixValuePanels_();
+      else openSysMatrixValuePanel_(valueBox);
+    });
+    columnSelect.addEventListener('change', function() {
+      const columnIndex = Number(columnSelect.value);
+      if (!isFinite(columnIndex) || columnIndex < 0) return;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!ruleRow.isConnected || ruleRow.dataset.sheetName !== schema.sheetName) return;
+          if (!res || !res.success) {
+            showSysToast(res && res.message ? res.message : 'Không tải được giá trị của cột.', 'error');
+            return;
+          }
+          panel.innerHTML = sysMatrixValueListHtml_(res.values || [], false,
+            'Cột chưa có giá trị; chọn Tất cả để bao quát giá trị mới.');
+          if (valueState.pending) {
+            if (!valueState.pending.length || (condition && condition.allValues === true)) {
+              applySysMatrixSelectAll_(valueBox, true);
+            } else {
+              sysMatrixRealValueInputs_(valueBox).forEach(function(input) {
+                input.checked = valueState.pending.indexOf(input.value) !== -1;
+              });
+            }
+            valueState.pending = null;
+          }
+          syncSysMatrixValueSummary_(valueBox);
+          positionSysMatrixValuePanel_(valueBox);
+        })
+        .withFailureHandler(function(error) {
+          if (ruleRow.isConnected) showSysToast('Lỗi tải giá trị cột: ' + (error && error.message ? error.message : error), 'error');
+        })
+        .handleApiRoute('SYS', 'getDistinctColumnValues', {
+          token: getSystemAuthToken(), sheetName: schema.sheetName, columnIndex: columnIndex
+        });
+    });
+    if (condition) {
+      columnSelect.value = String(condition.columnIndex);
+      operatorSelect.value = condition.operator || 'equals';
+      columnSelect.dispatchEvent(new Event('change'));
+    }
+  }
+
+  function loadSysMatrixSchema() {
+    const refreshButton = document.getElementById('btn-refresh-sys-matrix-schema');
+    refreshButton.disabled = true;
+    refreshButton.style.opacity = '0.6';
+    setSysMatrixAddEnabled(false);
+    setSysMatrixSaveEnabled(false);
+    google.script.run
+      .withSuccessHandler(function(res) {
+        refreshButton.disabled = false;
+        refreshButton.style.opacity = '1';
+        if (!res || !res.success) {
+          sysMatrixSchemaLoaded = false;
+          setSysMatrixAddEnabled(false);
+          setSysMatrixStatus('Không thể tải danh sách bảng dữ liệu: ' + (res && res.message ? res.message : 'Máy chủ không trả về danh sách.'), 'error');
+          showSysToast(res && res.message ? res.message : 'Không tải được danh sách bảng dữ liệu.', 'error');
+          return;
+        }
+        sysMatrixSchema = res.schema || [];
+        sysMatrixSchemaLoaded = true;
+        renderSysMatrixSheets();
+        setSysMatrixAddEnabled(sysMatrixConfiguredLoaded && sysMatrixSchema.length > 0);
+        setSysMatrixSaveEnabled(sysMatrixConfiguredLoaded);
+        setSysMatrixStatus(sysMatrixSchema.length
+          ? 'Đã tải ' + sysMatrixSchema.length + ' bảng dữ liệu. Thêm nhiều quy tắc rồi lưu một lần.'
+          : 'Không tìm thấy bảng dữ liệu để phân quyền.', sysMatrixSchema.length ? 'info' : 'error');
+      })
+      .withFailureHandler(function(err) {
+        refreshButton.disabled = false;
+        refreshButton.style.opacity = '1';
+        sysMatrixSchemaLoaded = false;
+        setSysMatrixAddEnabled(false);
+        setSysMatrixSaveEnabled(false);
+        setSysMatrixStatus('Không thể kết nối để tải danh sách bảng dữ liệu: ' + (err && err.message ? err.message : err), 'error');
+        showSysToast('Lỗi quét danh sách bảng dữ liệu: ' + (err && err.message ? err.message : err), 'error');
+      })
+      .handleApiRoute('SYS', 'getSystemSchema', { token: getSystemAuthToken() });
+  }
+
+  function saveSysMatrixRule() {
+    if (!canManageSysPermissions_()) {
+      const message = 'Chỉ ADMIN hoặc SuperAdmin được lưu ma trận quyền.';
+      setSysMatrixStatus(message, 'error');
+      showSysToast(message, 'error');
+      return;
+    }
+    const targetValue = sysMatrixCurrentUsername;
+    if (!targetValue || !sysMatrixSchemaLoaded || !sysMatrixConfiguredLoaded) {
+      showSysToast('Danh sách bảng và quyền hiện có chưa tải xong.', 'warning');
+      return;
+    }
+
+    const groupedRules = {};
+    const groupedActions = {};
+    const actionsOverridden = {};
+    try {
+      sysMatrixAllConfiguredRules.forEach(function(rule) {
+        const sheetName = String(rule.sheetName || '').trim();
+        if (!sheetName) return;
+        if (!groupedRules[sheetName]) groupedRules[sheetName] = [];
+        const copy = Object.assign({}, rule);
+        delete copy.sheetName;
+        groupedRules[sheetName].push(copy);
+      });
+      Object.keys(sysMatrixConfiguredActionsBySheet).forEach(function(sheetName) {
+        groupedActions[sheetName] = (sysMatrixConfiguredActionsBySheet[sheetName] || []).slice();
+      });
+
+      const draftRows = Array.from(document.querySelectorAll('#sys-matrix-rules .sys-matrix-rule-row'));
+      if (!draftRows.length) throw new Error('Thêm ít nhất một quy tắc trước khi lưu.');
+      draftRows.forEach(function(row, ruleIndex) {
+        const sheetName = String(row.querySelector('.sys-matrix-rule-sheet').value || '').trim();
+        const schema = getSelectedSysMatrixSchema(sheetName);
+        if (!schema) throw new Error('Quy tắc ' + (ruleIndex + 1) + ' cần chọn bảng dữ liệu.');
+        const selectedColumnIndex = row.querySelector('.sys-matrix-condition-column').value;
+        const columnIndex = selectedColumnIndex === '' ? -1 : Number(selectedColumnIndex);
+        const column = schema.columns.find(function(item) { return Number(item.index) === columnIndex; });
+        const valueBox = row.querySelector('.sys-matrix-condition-value');
+        const allCheckbox = valueBox.querySelector('.sys-matrix-value-panel input[value="__ALL__"]');
+        const allValues = !!(allCheckbox && allCheckbox.checked);
+        const value = allValues ? '' : Array.from(valueBox.querySelectorAll('input[type="checkbox"]:checked'))
+          .map(function(input) { return input.value; })
+          .filter(function(value) { return value !== '__ALL__'; })
+          .join(',');
+        if (!column || (!allValues && !value)) {
+          throw new Error('Quy tắc ' + (ruleIndex + 1) + ' cần chọn cột điều kiện và giá trị.');
+        }
+        const conditions = [{
+          columnIndex: columnIndex,
+          columnName: column.name,
+          operator: row.querySelector('.sys-matrix-condition-operator').value,
+          allValues: allValues,
+          value: value
+        }];
+        if (!groupedRules[sheetName]) groupedRules[sheetName] = [];
+        groupedRules[sheetName].push({
+          conditions: conditions,
+          canRead: row.querySelector('.sys-matrix-rule-canRead').checked,
+          canCreate: row.querySelector('.sys-matrix-rule-canCreate').checked,
+          canEdit: row.querySelector('.sys-matrix-rule-canEdit').checked,
+          canDelete: row.querySelector('.sys-matrix-rule-canDelete').checked
+        });
+        if (!actionsOverridden[sheetName]) {
+          groupedActions[sheetName] = [];
+          actionsOverridden[sheetName] = true;
+        }
+        Array.from(row.querySelectorAll('.sys-matrix-rule-action:checked')).forEach(function(input) {
+          if (groupedActions[sheetName].indexOf(input.value) === -1) groupedActions[sheetName].push(input.value);
+        });
+      });
+
+      const entries = Object.keys(actionsOverridden).map(function(sheetName) {
+        const rules = groupedRules[sheetName] || [];
+        if (rules.length > 20) throw new Error('Bảng ' + sheetName + ' vượt quá giới hạn 20 quy tắc.');
+        return {
+          targetValue: targetValue,
+          sheetName: sheetName,
+          rules: rules,
+          customActions: (groupedActions[sheetName] || []).join(',')
+        };
+      });
+      if (!entries.length) throw new Error('Không tìm thấy bảng dữ liệu cần lưu.');
+      var batchEntries = entries;
+    } catch (err) {
+      showSysToast(err && err.message ? err.message : 'Cấu hình quy tắc không hợp lệ.', 'warning');
+      return;
+    }
+    const requestId = sysMatrixRequestId;
+    setSysMatrixSaveEnabled(false);
+    setSysMatrixStatus('Đang lưu ' + batchEntries.length + ' bảng trong một lần...', 'loading');
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (targetValue !== sysMatrixCurrentUsername || requestId !== sysMatrixRequestId) {
+          if (res && res.success) showSysToast(res.message || 'Đã lưu quyền ma trận.', 'success');
+          return;
+        }
+        if (res && res.success) {
+          sysMatrixConfiguredLoaded = false;
+          resetSysMatrixForm();
+          loadSysMatrixAllConfiguredRules(requestId, targetValue);
+          setSysMatrixStatus(res.message || 'Đã lưu cấu hình quyền.', 'success');
+          showSysToast(res.message || 'Đã lưu quyền ma trận.', 'success');
+        } else {
+          const message = res && res.message ? res.message : 'Không lưu được cấu hình quyền.';
+          setSysMatrixStatus(message, 'error');
+          sysMatrixConfiguredLoaded = false;
+          setSysMatrixSaveEnabled(false);
+          loadSysMatrixAllConfiguredRules(requestId, targetValue);
+          showSysToast(message, 'error');
+        }
+      })
+      .withFailureHandler(function(err) {
+        if (targetValue === sysMatrixCurrentUsername && requestId === sysMatrixRequestId) {
+          setSysMatrixStatus('Lỗi lưu cấu hình quyền: ' + (err && err.message ? err.message : err), 'error');
+          sysMatrixConfiguredLoaded = false;
+          setSysMatrixSaveEnabled(false);
+          loadSysMatrixAllConfiguredRules(requestId, targetValue);
+        }
+        showSysToast('Lỗi lưu quyền ma trận: ' + (err && err.message ? err.message : err), 'error');
+      })
+      .handleApiRoute('SYS', 'savePermissionRulesBatch', { token: getSystemAuthToken(), rules: batchEntries });
+  }
+
+  /* 1. TOAST NOTIFICATION */
+  function showSysToast(message, type = 'info') {
+    if (window.HAP_shouldSuppressAuthToast_ && window.HAP_shouldSuppressAuthToast_(message)) return;
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast-card ${type}`;
+    toast.innerHTML = `
+      <span style="flex:1;"></span>
+      <button onclick="this.parentElement.remove()" style="background:none; border:none; color:#fff; cursor:pointer; font-weight:bold; font-size:1.1rem; padding:0 4px;">&times;</button>
+    `;
+    toast.querySelector('span').textContent = String(message == null ? '' : message);
+
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(100%)';
+      toast.style.transition = 'all 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
+  }
+
+  /* 2. CUSTOM CONFIRM MODAL */
+  function showSysCustomConfirm(message, onConfirm, isDanger = true, title = "Xác nhận Thao Tác", okText = "Xác nhận") {
+    document.getElementById('sys-custom-confirm-title').textContent = title;
+    document.getElementById('sys-custom-confirm-message').textContent = message;
+    
+    const iconBox = document.getElementById('sys-confirm-icon-box');
+    const okBtn = document.getElementById('btn-sys-custom-confirm-ok');
+
+    if (isDanger) {
+      iconBox.style.background = '#fef2f2';
+      iconBox.style.color = '#dc2626';
+      okBtn.style.background = '#dc2626';
+      okBtn.textContent = okText || "Xác nhận Khóa";
+    } else {
+      iconBox.style.background = '#ecfdf5';
+      iconBox.style.color = '#059669';
+      okBtn.style.background = '#059669';
+      okBtn.textContent = okText || "Xác nhận Thực hiện";
+    }
+
+    sysPendingConfirmCallback = onConfirm;
+    document.getElementById('modal-sys-custom-confirm').style.display = 'flex';
+  }
+
+  function closeSysCustomConfirm(isSuccess) {
+    document.getElementById('modal-sys-custom-confirm').style.display = 'none';
+    if (isSuccess && typeof sysPendingConfirmCallback === 'function') {
+      sysPendingConfirmCallback();
+    }
+    sysPendingConfirmCallback = null;
+  }
+
+  document.getElementById('btn-sys-custom-confirm-ok').onclick = function() {
+    closeSysCustomConfirm(true);
+  };
+
+  /* QUẢN LÝ CỘT HIỂN THỊ */
+  function getSysColumnVisibilityState() {
+    const saved = localStorage.getItem('HAP_SYS_USR_COLS');
+    if (saved) {
+      try { return JSON.parse(saved); } catch(e) {}
+    }
+    let initial = {};
+    SYS_USR_COL_GROUPS.forEach(c => initial[c.key] = true);
+    return initial;
+  }
+
+  function initSysColumnDropdown() {
+    const container = document.getElementById('sys-col-checkboxes-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const visibilityState = getSysColumnVisibilityState();
+
+    SYS_USR_COL_GROUPS.forEach(col => {
+      const isChecked = visibilityState[col.key] !== false;
+      const label = document.createElement('label');
+      label.style.cssText = "display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: #334155; cursor: pointer;";
+      label.innerHTML = `
+        <input type="checkbox" data-col-key="${col.key}" ${isChecked ? 'checked' : ''} onchange="toggleSysColumnVisibility('${col.key}', this.checked)">
+        <span>${col.label}</span>
+      `;
+      container.appendChild(label);
+    });
+  }
+
+  function toggleSysColumnDropdown() {
+    const dropdown = document.getElementById('sys-col-toggle-dropdown');
+    dropdown.style.display = (dropdown.style.display === 'none' || !dropdown.style.display) ? 'block' : 'none';
+  }
+
+  document.addEventListener('click', function(e) {
+    const dropdown = document.getElementById('sys-col-toggle-dropdown');
+    const btn = e.target.closest('button');
+    if (dropdown && dropdown.style.display === 'block') {
+      if (!dropdown.contains(e.target) && (!btn || !btn.getAttribute('onclick')?.includes('toggleSysColumnDropdown'))) {
+        dropdown.style.display = 'none';
+      }
+    }
+  });
+
+  function toggleSysColumnVisibility(colKey, isVisible) {
+    let state = getSysColumnVisibilityState();
+    state[colKey] = isVisible;
+    localStorage.setItem('HAP_SYS_USR_COLS', JSON.stringify(state));
+    applySysColumnVisibility();
+  }
+
+  function applySysColumnVisibility() {
+    const state = getSysColumnVisibilityState();
+
+    SYS_USR_COL_GROUPS.forEach(col => {
+      const isVisible = state[col.key] !== false;
+      const displayStyle = isVisible ? '' : 'none';
+
+      const ths = document.querySelectorAll(`#table-sys-usr th[data-col="${col.key}"]`);
+      ths.forEach(th => th.style.display = displayStyle);
+
+      const tds = document.querySelectorAll(`#table-sys-usr td[data-col="${col.key}"]`);
+      tds.forEach(td => td.style.display = displayStyle);
+    });
+  }
+
+  function reloadSysUsrData() {
+    sysCurrentPage = 1;
+    fetchSysUsrData({ force: true });
+  }
+
+  function ensureSysUsrData() {
+    // Chưa đăng nhập thì không gọi server (tránh lỗi AUTH khi vừa tải trang).
+    if (!getSystemAuthToken()) return;
+    const cacheIsFresh = sysUserDataLoaded &&
+      sysUserDataCacheToken === getSystemAuthToken() &&
+      Date.now() - sysUserDataLastFetchedAt < 30000;
+    if (!cacheIsFresh && !sysUserListLoading) {
+      fetchSysUsrData({ quiet: rawSysUsrData.length > 0 });
+    }
+  }
+
+  function changeSysPageSize(val) {
+    sysPageSize = parseInt(val, 10);
+    sysCurrentPage = 1;
+    renderSysUsrTableWithPagination();
+  }
+
+  function goToSysPage(page) {
+    if (page < 1 || page > sysTotalPages || page === sysCurrentPage) return;
+    sysCurrentPage = page;
+    renderSysUsrTableWithPagination();
+  }
+
+  function fetchSysUsrData(options) {
+    options = options || {};
+    if (!getSystemAuthToken()) return;
+    if (sysUserListLoading && !options.force) return;
+    const tbody = document.getElementById('tbody-sys-usr');
+    const requestId = ++sysUserListRequestId;
+    sysUserListLoading = true;
+    if (!options.quiet) {
+      tbody.innerHTML = '<tr>    <td colspan="9" style="text-align: center; padding: 24px; color: #94a3b8;">Đang tải danh sách tài khoản...</td></tr>';
+    }
+
+    var token = getSystemAuthToken();
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (requestId !== sysUserListRequestId) return;
+        sysUserListLoading = false;
+        if (token !== getSystemAuthToken()) {
+          ensureSysUsrData();
+          return;
+        }
+        if (res && res.success) {
+          rawSysUsrData = (res.list || []).map(normalizeSysUsrListItem);
+          sysUserDataLoaded = true;
+          sysUserDataCacheToken = token;
+          sysUserDataLastFetchedAt = Date.now();
+          
+          sysTotalServerRows = rawSysUsrData.length;
+          renderSysUsrTableWithPagination();
+          if (Number(res.migratedRoleCount) > 0) {
+            showSysToast('Đã ánh xạ ' + res.migratedRoleCount + ' tài khoản từ role cũ sang nhóm quyền mới.', 'success');
+          }
+        } else {
+          if (!options.quiet) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #dc2626; padding: 24px;">Không thể tải dữ liệu. Vui lòng thử lại.</td></tr>';
+          }
+          if (window.HAP_handleAuthFailure_(res)) return;
+          showSysToast(res ? res.message : "Lỗi tải dữ liệu", 'error');
+        }
+      })
+      .withFailureHandler(function(err) {
+        if (requestId !== sysUserListRequestId) return;
+        sysUserListLoading = false;
+        if (token !== getSystemAuthToken()) {
+          ensureSysUsrData();
+          return;
+        }
+        if (!options.quiet) {
+          tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #dc2626; padding: 24px;">Lỗi kết nối máy chủ.</td></tr>';
+        }
+        showSysToast("Lỗi tải danh sách tài khoản: " + (err && err.message ? err.message : err), 'error');
+      })
+      .handleApiRoute("SYS", "getSysUsersList", { token: token });
+  }
+
+  function renderSysUsrTableWithPagination() {
+    const filtered = getFilteredSysUsrData();
+    sysTotalServerRows = filtered.length;
+    sysTotalPages = Math.ceil(sysTotalServerRows / sysPageSize) || 1;
+
+    if (sysCurrentPage > sysTotalPages) sysCurrentPage = sysTotalPages;
+
+    const startIdx = (sysCurrentPage - 1) * sysPageSize;
+    const pageData = filtered.slice(startIdx, startIdx + sysPageSize);
+
+    renderSysUsrTable(pageData, startIdx);
+    renderSysPaginationControls();
+  }
+
+  function normalizeSysUsrListItem(item) {
+    var normalizedStatus = String(item.status || '').trim().toUpperCase();
+    var activeValue = item.is_active;
+    var activeFlag = normalizedStatus
+      ? normalizedStatus === 'ACTIVE'
+      : (activeValue === true || String(activeValue).trim().toUpperCase() === 'TRUE' ||
+         String(activeValue).trim() === '1' || String(activeValue).trim().toUpperCase() === 'ACTIVE');
+    return {
+      username: item.username || '',
+      full_name: item.full_name || item.fullname || '',
+      cccd_no: item.cccd_no || item.cccd || '',
+      role: normalizeSysRoleCode(item.role) || 'EMPLOYEE',
+      nav_access: item.nav_access == null ? '' : String(item.nav_access),
+      status: activeFlag ? 'ACTIVE' : 'LOCKED',
+      last_login: item.last_login || '',
+      created_by: item.created_by || '',
+      created_at: item.created_at || ''
+    };
+  }
+
+  function getFilteredSysUsrData() {
+    const q = document.getElementById('sys-usr-search-input').value.toLowerCase().trim();
+    const role = document.getElementById('sys-usr-role-filter').value;
+    const status = document.getElementById('sys-usr-status-filter').value;
+
+    return rawSysUsrData.filter(item => {
+      const matchText = !q || (
+        (item.username && item.username.toLowerCase().includes(q)) ||
+        (item.full_name && item.full_name.toLowerCase().includes(q)) ||
+        (item.cccd_no && item.cccd_no.toLowerCase().includes(q))
+      );
+      const matchRole = !role || (item.role && item.role.toUpperCase() === role);
+      const matchStatus = !status || (item.status === status);
+
+      return matchText && matchRole && matchStatus;
+    });
+  }
+
+  function filterSysUsrTable() {
+    sysCurrentPage = 1;
+    renderSysUsrTableWithPagination();
+  }
+
+  function renderSysPaginationControls() {
+    const startIdx = sysTotalServerRows > 0 ? (sysCurrentPage - 1) * sysPageSize + 1 : 0;
+    const endIdx = Math.min(sysCurrentPage * sysPageSize, sysTotalServerRows);
+    
+    document.getElementById('txt-sys-page-info').textContent = `Hiển thị ${startIdx} - ${endIdx} trong tổng số ${sysTotalServerRows} tài khoản`;
+
+    document.getElementById('btn-sys-prev-page').disabled = (sysCurrentPage === 1);
+    document.getElementById('btn-sys-next-page').disabled = (sysCurrentPage === sysTotalPages || sysTotalPages === 0);
+
+    const container = document.getElementById('sys-pagination-numbers');
+    container.innerHTML = '';
+
+    let pagesToRender = [];
+    if (sysTotalPages <= 5) {
+      for (let i = 1; i <= sysTotalPages; i++) pagesToRender.push(i);
+    } else {
+      if (sysCurrentPage <= 3) {
+        pagesToRender = [1, 2, 3, 4, '...', sysTotalPages];
+      } else if (sysCurrentPage >= sysTotalPages - 2) {
+        pagesToRender = [1, '...', sysTotalPages - 3, sysTotalPages - 2, sysTotalPages - 1, sysTotalPages];
+      } else {
+        pagesToRender = [1, '...', sysCurrentPage - 1, sysCurrentPage, sysCurrentPage + 1, '...', sysTotalPages];
+      }
+    }
+
+    pagesToRender.forEach(p => {
+      if (p === '...') {
+        const dots = document.createElement('span');
+        dots.style.cssText = "padding: 4px 6px; color: #94a3b8; font-size: 0.83rem;";
+        dots.textContent = '...';
+        container.appendChild(dots);
+      } else {
+        const btn = document.createElement('button');
+        btn.className = `pagination-btn ${p === sysCurrentPage ? 'active' : ''}`;
+        btn.textContent = p;
+        btn.onclick = () => goToSysPage(p);
+        container.appendChild(btn);
+      }
+    });
+  }
+
+  function renderSysUsrTable(data, startNumber) {
+    const tbody = document.getElementById('tbody-sys-usr');
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 24px; color: #64748b;">Chưa có tài khoản nào phù hợp.</td></tr>';
+      return;
+    }
+
+    let html = '';
+    const canManagePrivilegedAccounts = isCurrentSysSuperAdmin_();
+    data.forEach((item, idx) => {
+      const isActive = (item.status === 'ACTIVE');
+      const normalizedRole = normalizeSysRoleCode(item.role);
+      const targetIsPrivileged = ['ADMIN', 'SUPERADMIN'].indexOf(normalizedRole) !== -1;
+      const accountActionsDisabled = targetIsPrivileged && !canManagePrivilegedAccounts;
+      const statusBadge = isActive 
+        ? `<span style="display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:600; background:#ecfdf5; color:#047857; border:1px solid #a7f3d0;"><span style="width:6px; height:6px; border-radius:50%; background:#10b981;"></span>ACTIVE</span>`
+        : `<span style="display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:600; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca;"><span style="width:6px; height:6px; border-radius:50%; background:#ef4444;"></span>LOCKED</span>`;
+
+      const roleBadge = `<span style="padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:600; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;">${sysEscapeHtml(getSysRoleLabel(item.role))}</span>`;
+
+      const createdHtml = `
+        <div style="font-weight: 700; color: #0f172a; font-family: monospace;">${sysEscapeHtml(item.created_by || '-')}</div>
+        <div style="font-size: 0.75rem; color: #94a3b8;">${sysEscapeHtml(item.created_at || '')}</div>
+      `;
+
+      html += `
+        <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#ffffff'">
+          <td style="padding: 10px; text-align: center; color: #64748b;">${startNumber + idx + 1}</td>
+          <td data-col="username" style="padding: 10px; font-weight: 700; color: #0f172a;">${sysEscapeHtml(item.username)}</td>
+          <td data-col="full_name" style="padding: 10px; font-weight: 600; color: #2563eb;">${sysEscapeHtml(item.full_name || '-')}</td>
+          <td data-col="cccd_no" style="padding: 10px; font-family: monospace; font-size: 0.8rem; color: #475569;">${sysEscapeHtml(item.cccd_no || '-')}</td>
+          <td data-col="role" style="padding: 10px;">${roleBadge}</td>
+          <td data-col="status" style="padding: 10px;">${statusBadge}</td>
+          <td data-col="last_login" style="padding: 10px; font-size: 0.78rem; color: #64748b;">${sysEscapeHtml(item.last_login || 'Chưa từng')}</td>
+          <td data-col="created_info" style="padding: 10px; white-space: nowrap;">${createdHtml}</td>
+          <td style="padding: 10px; text-align: center; white-space: nowrap;">
+            <div style="display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+              <button type="button" class="sys-row-action" data-sys-action="edit" data-username="${sysEscapeHtml(item.username)}" title="${accountActionsDisabled ? 'Chỉ SuperAdmin được sửa tài khoản ADMIN/SuperAdmin' : 'Chỉnh sửa tài khoản'}" aria-label="Chỉnh sửa tài khoản ${sysEscapeHtml(item.username)}" ${accountActionsDisabled ? 'disabled style="opacity:.45;cursor:not-allowed;"' : ''}>
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.04a1 1 0 0 0 0-1.41l-2.51-2.51a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 2-1.66z"/></svg>
+              </button>
+              <button type="button" class="sys-row-action" data-sys-action="permissions" data-username="${sysEscapeHtml(item.username)}" title="Phân quyền phân hệ và ma trận" aria-label="Phân quyền phân hệ và ma trận cho ${sysEscapeHtml(item.username)}" style="color: #2563eb;">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 1 3 5v6c0 5.25 3.84 10.17 9 12 5.16-1.83 9-6.75 9-12V5l-9-4zm0 4.18 5 2.22V11c0 3.66-2.45 7.26-5 8.6-2.55-1.34-5-4.94-5-8.6V7.4l5-2.22z"/></svg>
+              </button>
+              <button type="button" class="sys-row-action" data-sys-action="logs" data-username="${sysEscapeHtml(item.username)}" title="Xem lịch sử đăng nhập / đăng xuất" aria-label="Xem lịch sử đăng nhập và đăng xuất của ${sysEscapeHtml(item.username)}">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 3a9 9 0 1 0 8.95 10h-2.02A7 7 0 1 1 13 5v4l5-5-5-5v4zm-1 5v5l4.25 2.52 1.03-1.71L14 12V8h-2z"/></svg>
+              </button>
+              <button type="button" class="sys-row-action" data-sys-action="toggle" data-username="${sysEscapeHtml(item.username)}" data-status="${isActive ? 'ACTIVE' : 'LOCKED'}" title="${accountActionsDisabled ? 'Chỉ SuperAdmin được khóa/mở tài khoản ADMIN/SuperAdmin' : (isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản')}" aria-label="${isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'} ${sysEscapeHtml(item.username)}" ${accountActionsDisabled ? 'disabled style="opacity:.45;cursor:not-allowed;"' : `style="color: ${isActive ? '#dc2626' : '#059669'}; border-color: ${isActive ? '#fecaca' : '#a7f3d0'}; background: ${isActive ? '#fef2f2' : '#ecfdf5'};"`}>
+                ${isActive
+                  ? '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 8h-1V6a5 5 0 0 0-10 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zM9 6a3 3 0 0 1 6 0v2H9V6zm3 11a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>'
+                  : '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 8h-1V6a5 5 0 0 0-9.9-1h2.07A3 3 0 0 1 15 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-6 9a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>'}
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = html;
+    tbody.querySelectorAll('[data-sys-action]').forEach(function(button) {
+      button.addEventListener('click', function() {
+        const username = button.getAttribute('data-username');
+        const action = button.getAttribute('data-sys-action');
+        if (action === 'edit') openSysUsrModal('EDIT', username);
+        else if (action === 'permissions') openSysMatrixForUser(username);
+        else if (action === 'logs') openSysUserLoginLogs(username);
+        else if (action === 'toggle') toggleSysUserLock(username, button.getAttribute('data-status'));
+      });
+    });
+
+    applySysColumnVisibility();
+  }
+
+  /* MODAL QUẢN LÝ TÀI KHOẢN */
+  function openSysUsrModal(mode, username) {
+    document.getElementById('form-sys-mode').value = mode;
+    const modal = document.getElementById('modal-sys-usr');
+    const title = document.getElementById('modal-sys-usr-title');
+    const userInput = document.getElementById('form-sys-username');
+    const passwordInput = document.getElementById('form-sys-password');
+    const passReq = document.getElementById('form-sys-pass-req');
+    const passHint = document.getElementById('form-sys-pass-hint');
+    const roleSelect = document.getElementById('form-sys-role');
+    const canManagePrivilegedAccounts = isCurrentSysSuperAdmin_();
+    roleSelect.querySelectorAll('[data-privileged-role]').forEach(function(option) {
+      option.hidden = !canManagePrivilegedAccounts;
+      option.disabled = !canManagePrivilegedAccounts;
+    });
+    setSysUsrFormStatus('', false);
+
+    if (mode === 'CREATE') {
+      title.textContent = "THÊM MỚI TÀI KHOẢN NGƯỜI DÙNG";
+      userInput.readOnly = false;
+      userInput.style.background = "#ffffff";
+      passReq.style.display = "inline";
+      passHint.style.display = "none";
+      document.getElementById('form-sys-usr').reset();
+      passwordInput.required = true;
+      passwordInput.minLength = 8;
+      roleSelect.value = 'EMPLOYEE';
+    } else {
+      title.textContent = `CẬP NHẬT TÀI KHOẢN [${username}]`;
+      userInput.readOnly = true;
+      userInput.style.background = "#f1f5f9";
+      passReq.style.display = "none";
+      passHint.style.display = "block";
+      passwordInput.required = false;
+      passwordInput.minLength = 0;
+
+      const userObj = rawSysUsrData.find(u => u.username === username);
+      if (userObj) {
+        document.getElementById('form-sys-username').value = userObj.username;
+        document.getElementById('form-sys-password').value = '';
+        document.getElementById('form-sys-cccd').value = userObj.cccd_no || '';
+        document.getElementById('form-sys-fullname').value = userObj.full_name || '';
+        roleSelect.value = normalizeSysRoleCode(userObj.role) || 'EMPLOYEE';
+        document.getElementById('form-sys-status').value = userObj.status || 'ACTIVE';
+      }
+    }
+
+    modal.style.display = 'flex';
+  }
+
+  function closeSysUsrModal() {
+    document.getElementById('modal-sys-usr').style.display = 'none';
+  }
+
+  function exportAllSysUsrToExcel() {
+    if (!Array.isArray(rawSysUsrData) || rawSysUsrData.length === 0) {
+      showSysToast('Không có dữ liệu tài khoản để xuất.', 'warning');
+      return;
+    }
+    if (typeof XLSX === 'undefined') {
+      showSysToast('Không tải được thư viện xuất Excel. Vui lòng kiểm tra kết nối mạng rồi thử lại.', 'error');
+      return;
+    }
+
+    try {
+      const rows = rawSysUsrData.map(function(user) {
+        return {
+          'Tên đăng nhập': user.username || '',
+          'Họ và tên': user.full_name || '',
+          'Số CCCD': user.cccd_no || '',
+          'Vai trò': getSysRoleLabel(user.role),
+          'Trạng thái': user.status || '',
+          'Đăng nhập cuối': user.last_login || '',
+          'Người tạo': user.created_by || '',
+          'Ngày tạo': user.created_at || ''
+        };
+      });
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Tai_khoan');
+      XLSX.writeFile(workbook, 'Danh_sach_tai_khoan_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+    } catch (err) {
+      showSysToast('Xuất Excel thất bại: ' + (err && err.message ? err.message : err), 'error');
+    }
+  }
+
+  function toggleSysPasswordVisibility() {
+    const passInput = document.getElementById('form-sys-password');
+    const passIcon = document.getElementById('svg-pass-icon');
+
+    if (passInput.type === 'password') {
+      passInput.type = 'text';
+      passIcon.innerHTML = `<path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.44-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.17c0-1.66-1.34-3-3-3l-.17.02z"/>`;
+    } else {
+      passInput.type = 'password';
+      passIcon.innerHTML = `<path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>`;
+    }
+  }
+
+  function submitSysUsrForm(e) {
+    e.preventDefault();
+
+    const mode = document.getElementById('form-sys-mode').value;
+    const activeCreatorUsername = getCurrentLoggedInUsername();
+    const token = getSystemAuthToken();
+
+    const payload = {
+      token: token,
+      mode: mode,
+      username: document.getElementById('form-sys-username').value.trim(),
+      password: document.getElementById('form-sys-password').value,
+      cccd_no: document.getElementById('form-sys-cccd').value.trim(),
+      full_name: document.getElementById('form-sys-fullname').value.trim(),
+      role: document.getElementById('form-sys-role').value,
+      status: document.getElementById('form-sys-status').value,
+      is_active: document.getElementById('form-sys-status').value === 'ACTIVE',
+      created_by: activeCreatorUsername
+    };
+
+    if (mode === 'CREATE' && !payload.password) {
+      setSysUsrFormStatus("Vui lòng nhập mật khẩu cho tài khoản mới.", true);
+      return;
+    }
+    if (payload.password && payload.password.trim().length < 8) {
+      setSysUsrFormStatus("Mật khẩu phải có ít nhất 8 ký tự.", true);
+      return;
+    }
+
+    const btnSave = document.getElementById('btn-save-sys-usr');
+    btnSave.disabled = true;
+    btnSave.textContent = "Đang lưu...";
+    setSysUsrFormStatus("Đang lưu tài khoản...", false);
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        btnSave.disabled = false;
+        btnSave.textContent = "Lưu Tài Khoản";
+
+        if (res && res.success) {
+          setSysUsrFormStatus(res.message || "Lưu tài khoản thành công.", false);
+          showSysToast(res.message || "Lưu tài khoản thành công!", 'success');
+          closeSysUsrModal();
+          if (res.account) {
+            const account = normalizeSysUsrListItem(res.account);
+            const existingIndex = rawSysUsrData.findIndex(function(item) {
+              return item.username.toLowerCase() === account.username.toLowerCase();
+            });
+            if (existingIndex >= 0) rawSysUsrData[existingIndex] = account;
+            else rawSysUsrData.push(account);
+            sysUserDataLoaded = true;
+            sysUserDataCacheToken = token;
+            sysUserDataLastFetchedAt = Date.now();
+            renderSysUsrTableWithPagination();
+          } else {
+            reloadSysUsrData();
+          }
+        } else {
+          const message = res && res.message ? res.message : "Máy chủ không xác nhận lưu tài khoản.";
+          setSysUsrFormStatus(message, true);
+          showSysToast(message, 'error');
+        }
+      })
+      .withFailureHandler(function(err) {
+        btnSave.disabled = false;
+        btnSave.textContent = "Lưu Tài Khoản";
+        const message = "Lỗi kết nối máy chủ: " + (err && err.message ? err.message : err);
+        setSysUsrFormStatus(message, true);
+        showSysToast(message, 'error');
+      })
+      .handleApiRoute("SYS", "saveSysUser", payload);
+  }
+
+  /* KHÓA / MỞ KHÓA TÀI KHOẢN */
+  function toggleSysUserLock(username, currentStatus) {
+    const newStatus = (currentStatus === 'ACTIVE') ? 'LOCKED' : 'ACTIVE';
+    const isLocking = (newStatus === 'LOCKED');
+    const token = getSystemAuthToken();
+
+    showSysCustomConfirm(
+      `Bạn có chắc chắn muốn ${isLocking ? 'KHÓA' : 'MỞ KHÓA'} tài khoản [${username}] không?`,
+      function() {
+        google.script.run
+          .withSuccessHandler(function(res) {
+            if (res && res.success) {
+              const user = rawSysUsrData.find(function(item) {
+                return String(item.username).toLowerCase() === String(username).toLowerCase();
+              });
+              if (user) user.status = newStatus;
+              sysUserDataCacheToken = token;
+              showSysToast(res.message || "Đã cập nhật trạng thái!", 'success');
+              sysUserDataLastFetchedAt = Date.now();
+              renderSysUsrTableWithPagination();
+            } else {
+              showSysToast(res && res.message ? res.message : "Không thể đổi trạng thái", 'error');
+            }
+          })
+          .withFailureHandler(function(err) {
+            showSysToast("Lỗi máy chủ khi đổi trạng thái: " + (err && err.message ? err.message : err), 'error');
+          })
+          .handleApiRoute("SYS", "updateSysUserStatus", { token: token, username: username, status: newStatus });
+      },
+      isLocking,
+      `Xác nhận ${isLocking ? 'Khóa' : 'Mở khóa'} Tài khoản`,
+      isLocking ? "Xác nhận Khóa" : "Xác nhận Mở"
+    );
+  }
+
+  function openSysUserLoginLogs(username) {
+    const modal = document.getElementById('modal-sys-login-logs');
+    const tbody = document.getElementById('tbody-sys-login-logs');
+    document.getElementById('txt-log-modal-title').textContent = 'LỊCH SỬ ĐĂNG NHẬP / ĐĂNG XUẤT — ' + username;
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#64748b;">Đang tải lịch sử...</td></tr>';
+    modal.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (!res || !res.success) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#b91c1c;">' +
+            sysEscapeHtml(res && res.message ? res.message : 'Không tải được lịch sử.') + '</td></tr>';
+          return;
+        }
+        const events = res.list || [];
+        if (!events.length) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#64748b;">Chưa có sự kiện đăng nhập/đăng xuất được ghi nhận.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = events.map(function(item, index) {
+          const actionLabel = item.action === 'LOGIN' ? 'Đăng nhập' : 'Đăng xuất';
+          return '<tr style="border-bottom:1px solid #f1f5f9;">' +
+            '<td style="padding:10px;text-align:center;">' + (index + 1) + '</td>' +
+            '<td style="padding:10px;white-space:nowrap;">' + sysEscapeHtml(item.time || '-') + '</td>' +
+            '<td style="padding:10px;">' + actionLabel + '</td>' +
+            '<td style="padding:10px;color:#94a3b8;">' + sysEscapeHtml(item.ip_address || 'Không ghi nhận') + '</td>' +
+            '<td style="padding:10px;color:#94a3b8;">' + sysEscapeHtml(item.user_agent || 'Không ghi nhận') + '</td>' +
+            '</tr>';
+        }).join('');
+      })
+      .withFailureHandler(function(err) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#b91c1c;">' +
+          'Lỗi tải lịch sử: ' + sysEscapeHtml(err && err.message ? err.message : err) + '</td></tr>';
+      })
+      .handleApiRoute('SYS', 'getSysUserLoginHistory', {
+        token: getSystemAuthToken(),
+        username: username
+      });
+  }
+
+  function closeSysLoginLogsModal() {
+    document.getElementById('modal-sys-login-logs').style.display = 'none';
+  }
+
+  window.addEventListener('DOMContentLoaded', function() {
+    ensureSysMatrixModalStructure_(false);
+    bindSysMatrixValuePanelGlobals_();
+    initSysColumnDropdown();
+    ensureSysUsrData();
+    document.addEventListener('keydown', function(event) {
+      if (event.key !== 'Escape') return;
+      if (document.querySelector('.sys-matrix-value-select.is-open')) {
+        closeSysMatrixValuePanels_();
+        return;
+      }
+      if (document.getElementById('modal-sys-matrix').style.display === 'flex') {
+        closeSysMatrixModal();
+      }
+    });
+  });
+</script>

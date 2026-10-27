@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HAP HOLDING - Hệ Thống Quản Trị Doanh Nghiệp</title>
+
+    <?!= include('UI_Styles'); ?>
+  </head>
+  <body>
+
+    <!-- 1. MÀN HÌNH ĐĂNG NHẬP OVERLAY -->
+    <?!= include('UI_Login'); ?>
+
+    <div id="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+    <div id="modal-emp-custom-confirm" role="dialog" aria-modal="true" aria-labelledby="emp-confirm-title" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); z-index: 999999; align-items: center; justify-content: center; padding:16px;">
+      <div style="background: #ffffff; width: min(400px, 100%); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+        <h4 id="emp-confirm-title" style="margin: 0; font-size: 0.98rem; color: #0f172a; font-weight: 700;">Xác nhận hành động</h4>
+        <p id="emp-confirm-message" style="margin: 0; font-size: 0.85rem; color: #475569; line-height: 1.4;"></p>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
+          <button type="button" onclick="closeEMPConfirm(false)" style="padding: 7px 14px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; font-size: 0.83rem; font-weight: 600;">Hủy</button>
+          <button type="button" onclick="closeEMPConfirm(true)" style="padding: 7px 14px; border-radius: 6px; border: none; background: #be123c; color: #fff; cursor: pointer; font-size: 0.83rem; font-weight: 600;">Đồng ý</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. THANH ĐIỀU HƯỚNG SIDEBAR (LEFT) -->
+    <?!= include('UI_Sidebar'); ?>
+
+    <!-- 3. KHU VỰC NỘI DUNG CHÍNH (RIGHT) -->
+    <div id="main-wrapper">
+      
+      <!-- THANH HEADER TRÊN -->
+      <?!= include('UI_Header'); ?>
+
+      <!-- KHU VỰC HIỂN THỊ MÀN HÌNH PHÂN HỆ (BODY VIEWS) -->
+      <div id="content-body">
+
+        <div id="view-no-navigation-access" class="view-container" role="status" style="min-height: 50vh; padding: 28px;">
+          <div style="max-width: 480px; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; color: #475569; text-align: center; line-height: 1.6;">
+            Tài khoản chưa được cấp quyền truy cập chức năng. Vui lòng liên hệ quản trị viên hệ thống.
+          </div>
+        </div>
+
+        <!-- ==================== 0. DASHBOARD VIEW ==================== -->
+        <div id="view-dashboard" class="view-container active">
+          <?!= include('UI_Dashboard'); ?>
+        </div>
+
+        <!-- ==================== 1. HRM MODULE VIEWS ==================== -->
+        <div id="view-hrm-id" class="view-container">
+          <?!= include('UI_HRM_ID'); ?>
+        </div>
+
+        <div id="view-hrm-emp" class="view-container">
+          <?!= include('UI_HRM_EMP'); ?>
+        </div>
+
+        <div id="view-hrm-org" class="view-container">
+          <?!= include('UI_HRM_ORG'); ?>     
+        </div>
+
+        <div id="view-hrm-att" class="view-container">
+          <?!= include('UI_HRM_ATT'); ?>
+        </div>
+
+        <!-- ==================== 2. WMS MODULE VIEWS ==================== -->
+        <div id="view-wms-warehouse" class="view-container">
+          <?!= include('UI_WMS_WAREHOUSE'); ?>
+        </div>
+
+        <div id="view-wms-sku" class="view-container">
+          <?!= include('UI_WMS_SKU'); ?>
+        </div>
+
+        <?!= include('UI_WMS_DOCS_STYLE'); ?>
+<?!= include('UI_WMS_DOCS_IN'); ?>
+<?!= include('UI_WMS_DOCS_OUT'); ?>
+<?!= include('UI_WMS_DOCS_MODALS'); ?>
+<?!= include('UI_WMS_DOCS_SCRIPT'); ?>
+
+        <?!= include('UI_WMS_WORKFLOW'); ?>
+
+        <div id="view-wms-inv" class="view-container">
+          <div style="background: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <h2 style="font-size: 1.25rem; color: #0f172a; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" style="width: 22px; height: 22px; fill: #2563eb;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+              BÁO CÁO TỒN KHO
+            </h2>
+            <p style="color: #64748b; font-size: 0.9rem;">Theo dõi số lượng tồn kho thực tế theo từng kho hàng.</p>
+          </div>
+        </div>
+
+        <!-- ==================== 3. RMS MODULE VIEWS ==================== -->
+        <div id="view-rms-create" class="view-container">
+          <div style="background: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <h2 style="font-size: 1.25rem; color: #0f172a; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" style="width: 22px; height: 22px; fill: #2563eb;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              TẠO ĐỀ XUẤT / YÊU CẦU
+            </h2>
+            <p style="color: #64748b; font-size: 0.9rem;">Gửi đề xuất thanh toán, cấp phát vật tư hoặc mua sắm.</p>
+          </div>
+        </div>
+
+        <div id="view-rms-approve" class="view-container">
+          <div style="background: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <h2 style="font-size: 1.25rem; color: #0f172a; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" style="width: 22px; height: 22px; fill: #2563eb;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+              PHÊ DUYỆT ĐỀ XUẤT
+            </h2>
+            <p style="color: #64748b; font-size: 0.9rem;">Màn hình dành cho Quản lý / Ban giám đốc duyệt đề xuất.</p>
+          </div>
+        </div>
+
+        <!-- ==================== 4. MES MODULE VIEWS ==================== -->
+        <div id="view-mes-order" class="view-container">
+          <div style="background: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <h2 style="font-size: 1.25rem; color: #0f172a; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" style="width: 22px; height: 22px; fill: #2563eb;"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+              LỆNH SẢN XUẤT
+            </h2>
+            <p style="color: #64748b; font-size: 0.9rem;">Tạo và theo dõi tiến độ các lệnh sản xuất tại xưởng.</p>
+          </div>
+        </div>
+
+        <div id="view-mes-bom" class="view-container">
+          <div style="background: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <h2 style="font-size: 1.25rem; color: #0f172a; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" style="width: 22px; height: 22px; fill: #2563eb;"><path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7s2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z"/></svg>
+              ĐỊNH MỨC SẢN XUẤT (BOM)
+            </h2>
+            <p style="color: #64748b; font-size: 0.9rem;">Cấu hình định mức nguyên vật liệu cho từng thành phẩm.</p>
+          </div>
+        </div>
+
+        <!-- ==================== 5. FMS MODULE VIEWS ==================== -->
+        <div id="view-fms-log" class="view-container">
+          <div style="background: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <h2 style="font-size: 1.25rem; color: #0f172a; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" style="width: 22px; height: 22px; fill: #2563eb;"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg>
+              NHẬT KÝ CANH TÁC TRANG TRẠI
+            </h2>
+            <p style="color: #64748b; font-size: 0.9rem;">Ghi chép hoạt động chăm sóc, phân bón, thu hoạch Farm.</p>
+          </div>
+        </div>
+
+        <!-- ==================== 6. DMS MODULE VIEWS ==================== -->
+        <div id="view-dms-docs" class="view-container">
+          <div style="background: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <h2 style="font-size: 1.25rem; color: #0f172a; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" style="width: 22px; height: 22px; fill: #2563eb;"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>
+              KHO TÀI LIỆU VĂN BẢN DRIVE
+            </h2>
+            <p style="color: #64748b; font-size: 0.9rem;">Quản lý và tra cứu tài liệu, biểu mẫu, hợp đồng lưu trên Google Drive.</p>
+          </div>
+        </div>
+
+        <!-- ==================== 7. UAM MODULE VIEWS ==================== -->
+        <div id="view-sys-usr" class="view-container">
+          <?!= include('UI_SYS_USR'); ?>
+        </div>
+
+        <!-- Thùng rác & Nhật ký thao tác (chỉ SuperAdmin) -->
+        <div id="view-sys-admin" class="view-container">
+          <?!= include('UI_SYS_ADMIN'); ?>
+        </div>
+
+        <!-- DMS Hệ thống quản trị -->
+        <div id="view-dms-sys" class="view-container">
+          <?!= include('UI_DMS'); ?>
+        </div>
+
+      </div>
+    </div>
+
+    <?!= include('UI_Scripts'); ?>
+  </body>
+</html>

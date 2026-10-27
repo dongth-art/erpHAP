@@ -1,0 +1,166 @@
+<!-- UI_Sidebar.html - HAP HOLDING ERP SYSTEM -->
+<div id="sidebar" class="collapsed">
+  <div class="brand-header">
+    <div class="brand-title">
+      <!-- LOGO HAP HOLDING THU NHỎ TRÊN SIDEBAR -->
+      <img src="https://lh3.googleusercontent.com/d/1f4pu_IXo9UA_TQIBYbcsCBBdLESQCCkW" alt="HAP Logo" style="height: 32px; width: 32px; object-fit: contain; flex-shrink: 0; background: #ffffff; border-radius: 4px; padding: 2px;">
+      <span class="brand-text">HAP HOLDING</span>
+    </div>
+  </div>
+
+  <ul class="menu-list">
+    
+    <!-- 0. TRANG TỔNG QUAN (DASHBOARD) -->
+    <li class="menu-item">
+      <div class="menu-link" onclick="switchView('view-dashboard', 'HAP HOLDING', 'Trang tổng quan')">
+        <div class="menu-icon-text">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8v-10h-8v10zm0-18v6h8V3h-8z"/>
+          </svg>
+          <span class="menu-text">Trang tổng quan</span>
+        </div>
+      </div>
+    </li>
+
+    <!-- 1. HRM MODULE -->
+    <li class="menu-item">
+      <div class="menu-link" onclick="toggleSubmenu(this, event)">
+        <div class="menu-icon-text">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+          </svg>
+          <span class="menu-text">HRM - Nhân sự</span>
+        </div>
+        <svg class="svg-icon arrow-icon" viewBox="0 0 24 24" style="width: 16px; height: 16px; transition: transform 0.2s;">
+          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+        </svg>
+      </div>
+      <ul class="submenu">
+        <li><a class="submenu-link" onclick="switchView('view-hrm-org', 'HRM', 'Sơ đồ Tổ chức'); if(typeof reloadOrgChartData==='function') reloadOrgChartData();">Sơ đồ Tổ chức</a></li>
+        <li><a class="submenu-link active" onclick="switchView('view-hrm-id', 'HRM', 'Tiếp nhận CCCD')">Tiếp nhận CCCD</a></li>
+        <li><a class="submenu-link" onclick="switchView('view-hrm-emp', 'HRM', 'Hồ sơ Nhân viên')">Hồ sơ Nhân viên</a></li>
+        <li><a class="submenu-link" onclick="switchView('view-hrm-att', 'HRM', 'Chấm công & Nghỉ phép')">Chấm công & Nghỉ phép</a></li>
+      </ul>
+    </li>
+
+    <!-- 2. WMS MODULE -->
+    <li class="menu-item">
+      <div class="menu-link" onclick="toggleSubmenu(this, event)">
+        <div class="menu-icon-text">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/>
+          </svg>
+          <span class="menu-text">WMS - Quản lý Kho</span>
+        </div>
+        <svg class="svg-icon arrow-icon" viewBox="0 0 24 24" style="width: 16px; height: 16px; transition: transform 0.2s;">
+          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+        </svg>
+      </div>
+      <ul class="submenu">
+        <li><a class="submenu-link" onclick="switchView('view-wms-warehouse', 'WMS', 'Danh sách kho')">Danh sách kho</a></li>
+        <li><a class="submenu-link" onclick="switchView('view-wms-sku', 'WMS', 'Mã hàng (SKU)')">Mã hàng (SKU)</a></li>
+        <li><a class="submenu-link" onclick="switchView('view-wms-in', 'WMS', 'Nhập kho')">Nhập kho</a></li>
+        <li><a class="submenu-link" onclick="switchView('view-wms-out', 'WMS', 'Xuất kho')">Xuất kho</a></li>
+        <li><a class="submenu-link" onclick="switchView('view-wms-wf', 'WMS', 'Cấu hình luồng duyệt')">Cấu hình luồng duyệt</a></li>
+        <li><a class="submenu-link" onclick="switchView('view-wms-wf-inbox', 'WMS', 'Duyệt của tôi')">Duyệt của tôi</a></li>
+        <li><a class="submenu-link" onclick="switchView('view-wms-inv', 'WMS', 'Tồn kho')">Báo cáo Tồn kho</a></li>
+      </ul>
+    </li>
+
+    <!-- 3. RMS MODULE -->
+    <li class="menu-item">
+      <div class="menu-link" onclick="toggleSubmenu(this, event)">
+        <div class="menu-icon-text">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+          </svg>
+          <span class="menu-text">RMS - Yêu cầu</span>
+        </div>
+        <svg class="svg-icon arrow-icon" viewBox="0 0 24 24" style="width: 16px; height: 16px; transition: transform 0.2s;">
+          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+        </svg>
+      </div>
+      <ul class="submenu">
+        <li><a class="submenu-link" onclick="switchView('view-rms-create', 'RMS', 'Tạo đề xuất')">Tạo đề xuất</a></li>
+        <li><a class="submenu-link" onclick="switchView('view-rms-approve', 'RMS', 'Duyệt đề xuất')">Phê duyệt đề xuất</a></li>
+      </ul>
+    </li>
+
+    <!-- 4. MES MODULE -->
+    <li class="menu-item">
+      <div class="menu-link" onclick="toggleSubmenu(this, event)">
+        <div class="menu-icon-text">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
+          </svg>
+          <span class="menu-text">MES - Sản xuất</span>
+        </div>
+        <svg class="svg-icon arrow-icon" viewBox="0 0 24 24" style="width: 16px; height: 16px; transition: transform 0.2s;">
+          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+        </svg>
+      </div>
+      <ul class="submenu">
+        <li><a class="submenu-link" onclick="switchView('view-mes-order', 'MES', 'Lệnh sản xuất')">Lệnh sản xuất</a></li>
+        <li><a class="submenu-link" onclick="switchView('view-mes-bom', 'MES', 'Định mức BOM')">Định mức BOM</a></li>
+      </ul>
+    </li>
+
+    <!-- 5. FMS MODULE -->
+    <li class="menu-item">
+      <div class="menu-link" onclick="toggleSubmenu(this, event)">
+        <div class="menu-icon-text">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <path d="M12 3L4 9v12h16V9l-8-6zm0 2.25L18 10v9H6v-9l6-4.75z"/>
+          </svg>
+          <span class="menu-text">FMS - Trang trại</span>
+        </div>
+        <svg class="svg-icon arrow-icon" viewBox="0 0 24 24" style="width: 16px; height: 16px; transition: transform 0.2s;">
+          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+        </svg>
+      </div>
+      <ul class="submenu">
+        <li><a class="submenu-link" onclick="switchView('view-fms-log', 'FMS', 'Nhật ký canh tác')">Nhật ký canh tác</a></li>
+      </ul>
+    </li>
+
+    <!-- 6. DMS MODULE -->
+    <li class="menu-item">
+      <div class="menu-link" onclick="toggleSubmenu(this, event)">
+        <div class="menu-icon-text">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
+          </svg>
+          <span class="menu-text">DMS - Tài liệu</span>
+        </div>
+        <svg class="svg-icon arrow-icon" viewBox="0 0 24 24" style="width: 16px; height: 16px; transition: transform 0.2s;">
+          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+        </svg>
+      </div>
+      <ul class="submenu">
+        <li><a class="submenu-link" onclick="switchView('view-dms-sys', 'DMS', 'Hệ thống quản trị'); if(typeof reloadDmsDocs==='function') reloadDmsDocs();">Hệ thống quản trị</a></li>
+        <li><a class="submenu-link" onclick="switchView('view-dms-docs', 'DMS', 'Kho văn bản Drive')">Kho văn bản Drive</a></li>
+      </ul>
+    </li>
+
+    <!-- 7. UAM MODULE -->
+    <li class="menu-item">
+      <div class="menu-link" onclick="toggleSubmenu(this, event)">
+        <div class="menu-icon-text">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8s0 0 0 0z"/>
+          </svg>
+          <span class="menu-text">UAM - Tài khoản</span>
+        </div>
+        <svg class="svg-icon arrow-icon" viewBox="0 0 24 24" style="width: 16px; height: 16px; transition: transform 0.2s;">
+          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+        </svg>
+      </div>
+      <ul class="submenu">
+        <li><a class="submenu-link" onclick="switchView('view-sys-usr', 'UAM', 'Quản lý Tài khoản'); if(typeof ensureSysUsrData === 'function') ensureSysUsrData();">Tài khoản (SYS_USR)</a></li>
+        <li class="super-only"><a class="submenu-link" onclick="switchView('view-sys-admin', 'UAM', 'Thùng rác'); HapSysAdmin.open('trash');">Thùng rác (khôi phục)</a></li>
+        <li class="super-only"><a class="submenu-link" onclick="switchView('view-sys-admin', 'UAM', 'Nhật ký thao tác'); HapSysAdmin.open('audit');">Nhật ký thao tác</a></li>
+      </ul>
+    </li>
+
+  </ul>
+</div>

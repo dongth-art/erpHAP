@@ -1,0 +1,332 @@
+<!-- UI_DMS.html - Document Management (redesigned) -->
+<style>
+  .dms-field { display:flex; flex-direction:column; gap:6px; margin:0 0 10px; color:#475569; font-size:.82rem; font-weight:600; }
+  .dms-input, .dms-select { box-sizing:border-box; width:100%; padding:9px 11px; border:1px solid #cbd5e1; border-radius:6px; background:#fff; color:#0f172a; font:inherit; }
+  .dms-btn { border:1px solid #cbd5e1; border-radius:6px; padding:8px 13px; background:#fff; color:#334155; font-weight:600; cursor:pointer; }
+  .dms-btn.primary { border-color:#2563eb; background:#2563eb; color:#fff; }
+  .dms-btn:disabled { opacity:.55; cursor:wait; }
+  .dms-muted { color:#64748b; font-size:.82rem; }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+  tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','sans-serif'] }, colors: { brand: { 50:'#eff6ff',100:'#dbeafe',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a',950:'#172554' } } } } };
+</script>
+<style>
+  ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:#f1f5f9}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+</style>
+
+<div class="font-sans text-slate-800">
+  <div class="max-w-7xl mx-auto space-y-3">
+
+
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between"><div><p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tổng tài liệu</p><p class="text-2xl font-bold text-slate-900 mt-1" id="dms-stat-total">0</p></div><div class="p-3 bg-blue-50 text-brand-700 rounded-xl"><i data-lucide="files" class="w-5 h-5"></i></div></div>
+      <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between"><div><p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Bản thảo</p><p class="text-2xl font-bold text-amber-600 mt-1" id="dms-stat-draft">0</p></div><div class="p-3 bg-amber-50 text-amber-600 rounded-xl"><i data-lucide="file-edit" class="w-5 h-5"></i></div></div>
+      <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between"><div><p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Đang xem xét</p><p class="text-2xl font-bold text-sky-600 mt-1" id="dms-stat-review">0</p></div><div class="p-3 bg-sky-50 text-sky-600 rounded-xl"><i data-lucide="clock" class="w-5 h-5"></i></div></div>
+      <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between"><div><p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Đã ban hành</p><p class="text-2xl font-bold text-emerald-600 mt-1" id="dms-stat-approved">0</p></div><div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><i data-lucide="check-circle-2" class="w-5 h-5"></i></div></div>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
+      <div class="p-4 border-b border-slate-200/80 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-1 flex-wrap items-center gap-3 min-w-[280px]">
+          <div class="relative flex-1 min-w-[240px]">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input type="text" id="dms-search" placeholder="Tìm tiêu đề, danh mục, người soạn..." oninput="dmsRender()" class="w-full pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+          </div>
+          <div class="w-44">
+            <select id="dms-filter-status" onchange="dmsRender()" class="w-full py-2 px-3 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+              <option value="">Tất cả trạng thái</option>
+              <option value="DRAFT">Bản thảo</option>
+              <option value="APPROVED">Đã ban hành</option>
+              <option value="ARCHIVED">Lưu trữ</option>
+            </select>
+          </div>
+        </div>
+        <button id="dms-create-btn" type="button" onclick="dmsOpenForm()" class="p-2 bg-brand-800 hover:bg-brand-900 text-white rounded-lg transition-colors flex items-center justify-center shadow-2xs" title="Thêm tài liệu mới">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+        </button>
+        <button type="button" onclick="reloadDmsDocs()" class="p-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-600 rounded-lg" title="Làm mới">
+          <i data-lucide="rotate-cw" class="w-4 h-4" id="dms-refresh-icon"></i>
+        </button>
+      </div>
+
+      <div class="overflow-x-auto min-h-[360px]">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-slate-100/70 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+              <th class="py-3.5 px-4 whitespace-nowrap">Mã / Pháp nhân</th>
+              <th class="py-3.5 px-4 whitespace-nowrap">Lĩnh vực & Loại</th>
+              <th class="py-3.5 px-4">Tiêu đề tài liệu</th>
+              <th class="py-3.5 px-4 whitespace-nowrap">Thông tin hiệu lực</th>
+              <th class="py-3.5 px-4 whitespace-nowrap">Thông tin phê duyệt</th>
+              <th class="py-3.5 px-4 text-center whitespace-nowrap">URL / Tệp</th>
+              <th class="py-3.5 px-4 text-center whitespace-nowrap min-w-[120px]">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody id="dms-body" class="divide-y divide-slate-200/70 text-sm text-slate-700">
+            <tr><td colspan="7" class="py-6 px-4 text-slate-500">Đang tải...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="p-4 border-t border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+        <div>Hiển thị <strong id="dms-range">0</strong> trong số <strong id="dms-total">0</strong> kết quả</div>
+        <div class="flex items-center gap-1">
+          <button class="px-3 py-1.5 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 disabled:opacity-50 font-medium" id="dms-prev" type="button" onclick="dmsChangePage(-1)">Trước</button>
+          <span id="dms-page" class="px-2"></span>
+          <button class="px-3 py-1.5 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 font-medium text-slate-700" id="dms-next" type="button" onclick="dmsChangePage(1)">Sau</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="dms-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-[1170px] overflow-hidden border border-slate-100">
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="p-2 bg-brand-50 text-brand-800 rounded-lg"><i data-lucide="file-plus" class="w-5 h-5"></i></div>
+          <h3 id="dms-title" class="font-bold text-slate-800 text-base">Thêm mới Tài liệu</h3>
+        </div>
+        <button type="button" onclick="dmsCloseForm()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form onsubmit="dmsSave(event)" class="p-6 space-y-4">
+        <div style="display:flex;gap:14px;margin-bottom:10px;">
+          <label class="dms-field" style="flex:1;">Pháp nhân<select class="dms-select" id="dms-doc-entity"><option value="HDG">HDG - Holding</option><option value="FOD">FOD - Seafood</option><option value="FED">FED - Feed</option><option value="FAM">FAM - Farm</option><option value="SEA">SEA - Seafarm</option></select></label>
+          <label class="dms-field" style="flex:1;">Mảng hoạt động<select class="dms-select" id="dms-doc-activity"><option value="VPQT">VPQT - Văn phòng & Quản trị</option><option value="KDTT">KDTT - Kinh doanh, Thị trường, Marketing</option><option value="SXCB">SXCB - Sản xuất, Chế biến</option><option value="NTKT">NTKT - Nuôi trồng, Khai thác</option><option value="TCKT">TCKT - Tài chính, Kế toán</option><option value="MHKV">MHKV - Thu mua, Mua hàng, Kho vận</option></select></label>
+          <label class="dms-field" style="flex:1;">Lĩnh vực<select class="dms-select" id="dms-doc-domain"><option value="0">0 - Tất cả / Dùng chung</option><option value="1">1 - Cá sông</option><option value="2">2 - Hải sản đông lạnh / Chế biến</option><option value="3">3 - Thức ăn / Dinh dưỡng</option><option value="4">4 - Bể biển / Lồng nuôi</option><option value="5">5 - Hồ/Áo nuôi</option></select></label>
+        </div>
+        <div style="display:flex;gap:14px;margin-bottom:10px;">
+          <label class="dms-field" style="flex:1;">Loại tài liệu<select class="dms-select" id="dms-doc-doctype"><option value="QT">QT - Quy trình</option><option value="QD">QD - Quy định</option><option value="HD">HD - Hướng dẫn công việc</option><option value="BM">BM - Biểu mẫu</option><option value="QB">QB - Quyết định ban hành</option><option value="TB">TB - Thông báo</option><option value="CN">CN - Chức năng nhiệm vụ</option><option value="MC">MC - Mô tả công việc</option></select></label>
+          <label class="dms-field" style="flex:1;">Trạng thái<select class="dms-select" id="dms-doc-status"><option value="DRAFT">Bản thảo</option><option value="APPROVED">Đã ban hành</option><option value="ARCHIVED">Lưu trữ</option></select></label>
+          <label class="dms-field" style="flex:1;">Ngày hiệu lực<input class="dms-input" id="dms-doc-effective" type="date"></label>
+          <label class="dms-field" style="flex:1;">Ban hành/sửa đổi<input class="dms-input" id="dms-doc-seq" type="text"></label>
+        </div>
+        <div style="margin-bottom:10px;">
+          <label class="dms-field">Tiêu đề *<input class="dms-input" id="dms-doc-title" required></label>
+        </div>
+        <div style="display:flex;gap:14px;margin-bottom:10px;">
+          <label class="dms-field" style="flex:1;">Người soạn<select class="dms-select" id="dms-doc-owner"></select></label>
+          <label class="dms-field" style="flex:1;">Người xem xét<select class="dms-select" id="dms-doc-reviewer"></select></label>
+          <label class="dms-field" style="flex:1;">Người duyệt<select class="dms-select" id="dms-doc-approver"></select></label>
+        </div>
+        <div style="display:flex;gap:14px;margin-bottom:10px;">
+          <label class="dms-field" style="flex:1;">Upload file<input class="dms-input" id="dms-doc-file" type="file"></label>
+          <label class="dms-field" style="flex:1;">URL file<input class="dms-input" id="dms-doc-url" type="url" placeholder="https://..."></label>
+        </div>
+        <div id="dms-message" class="dms-muted" role="status" style="margin-top:12px;"></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;">
+          <button class="dms-btn" type="button" onclick="dmsCloseForm()">Đóng</button>
+          <button class="dms-btn primary" id="dms-save" type="submit">Lưu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  lucide.createIcons();
+</script>
+
+<script>
+  var dmsDocs = [];
+  var dmsPerms = { canRead:true, canCreate:true, canEdit:true, canDelete:true };
+  var dmsEmpMap = {};
+  var dmsPageNum = 1;
+  var dmsPageSize = 30;
+  window.dmsEditingId = null;
+
+  function dmsEscape(v){ return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function dmsFormatDate(v){ if(!v) return ''; var s=String(v); var m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/); if(m) return m[1]+'/'+m[2]+'/'+m[3]; m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return m[3]+'/'+m[2]+'/'+m[1]; var d=new Date(v); if(!isNaN(d.getTime())){var dd=String(d.getDate()).padStart(2,'0');var mm=String(d.getMonth()+1).padStart(2,'0');return dd+'/'+mm+'/'+d.getFullYear();} return s; }
+  function dmsDateToISO(v){ if(!v) return ''; var s=String(v); var m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/); if(m) return m[3]+'-'+m[2]+'-'+m[1]; m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return s.slice(0,10); var d=new Date(v); if(!isNaN(d.getTime())){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');} return ''; }
+
+  function dmsStatusLabel(s){ s=String(s||'').toUpperCase(); return s==='APPROVED'?'Đã ban hành':s==='PENDING_APPROVAL'?'Chờ duyệt ban hành':s==='PENDING_REVIEW'?'Chờ xem xét':s==='ARCHIVED'?'Lưu trữ':'Bản thảo'; }
+  function dmsStatusCls(s){ s=String(s||'').toUpperCase(); return s==='APPROVED'?'emerald':s==='ARCHIVED'?'slate':'amber'; }
+
+  window.reloadDmsDocs = function() {
+    if (!window.HAP_IS_AUTHED || !window.HAP_IS_AUTHED()) return;
+    var body = document.getElementById('dms-body');
+    if (body) body.innerHTML = '<tr><td colspan="7" class="py-6 px-4 text-slate-500">Đang tải...</td></tr>';
+    google.script.run.withSuccessHandler(function(res) {
+      if (!res || !res.success) { if (body) body.innerHTML = '<tr><td colspan="7" class="py-6 px-4 text-slate-500">'+dmsEscape((res&&res.message)?res.message:'Không tải được.')+'</td></tr>'; if (window.HAP_handleAuthFailure_) window.HAP_handleAuthFailure_(res); return; }
+      dmsDocs = res.list || [];
+      if (res.page) dmsPageNum = res.page;
+      dmsPerms = res.permissions || dmsPerms;
+      var cb = document.getElementById('dms-create-btn'); if (cb) cb.style.display = dmsPerms.canCreate ? '' : 'none';
+      // stats
+      document.getElementById('dms-stat-total').textContent = dmsDocs.length;
+      document.getElementById('dms-stat-draft').textContent = dmsDocs.filter(function(d){return String(d.status).toUpperCase()==='DRAFT';}).length;
+      document.getElementById('dms-stat-review').textContent = dmsDocs.filter(function(d){return String(d.status).toUpperCase()==='PENDING_REVIEW';}).length;
+      document.getElementById('dms-stat-approved').textContent = dmsDocs.filter(function(d){return String(d.status).toUpperCase()==='APPROVED';}).length;
+      dmsEmpMap = {};
+      (res.employees || []).forEach(function(e){ dmsEmpMap[e.emp_id] = e.full_name; });
+      dmsRender();
+    }).withFailureHandler(function() {
+      if (body) body.innerHTML = '<tr><td colspan="7" class="py-6 px-4 text-slate-500">Lỗi kết nối.</td></tr>';
+    }).handleApiRoute('DMS','listDocs',{token: window.HAP_TOKEN(), page: dmsPageNum, pageSize: dmsPageSize});
+  };
+
+  window.dmsRender = function() {
+    var body = document.getElementById('dms-body'); if (!body) return;
+    var kw = (document.getElementById('dms-search').value||'').toLowerCase();
+    var st = document.getElementById('dms-filter-status').value;
+    var rows = dmsDocs.filter(function(d){
+      var match = !kw || [d.doc_code,d.doc_title].join(' ').toLowerCase().indexOf(kw)!==-1;
+      var matchSt = !st || String(d.status).toUpperCase()===st;
+      return match && matchSt;
+    });
+    var pageCount = Math.max(1, Math.ceil(rows.length/dmsPageSize));
+    dmsPageNum = Math.min(dmsPageNum, pageCount);
+    var start = (dmsPageNum-1)*dmsPageSize;
+    var pageRows = rows.slice(start, start+dmsPageSize);
+    document.getElementById('dms-range').textContent = (rows.length? (start+1)+'-'+Math.min(start+dmsPageSize,rows.length) : '0');
+    document.getElementById('dms-total').textContent = rows.length;
+    document.getElementById('dms-page').textContent = dmsPageNum + ' / ' + pageCount;
+    document.getElementById('dms-prev').disabled = dmsPageNum<=1;
+    document.getElementById('dms-next').disabled = dmsPageNum>=pageCount;
+    if (!pageRows.length) { body.innerHTML = '<tr><td colspan="7" class="py-6 px-4 text-slate-500">Chưa có tài liệu.</td></tr>'; return; }
+    body.innerHTML = pageRows.map(function(d){
+      var status = String(d.status||'').toUpperCase();
+      var cls = dmsStatusCls(status);
+      var label = dmsStatusLabel(status) + (d.seq_no ? ' - ' + dmsEscape(d.seq_no) : '');
+      var editBtn = (dmsPerms.canEdit && (dmsPerms.isSuper || String(d.status).toUpperCase()==='DRAFT')) ? '<button class="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-brand-50 rounded-lg" title="Sửa" onclick="event.stopPropagation();dmsOpenForm(\''+dmsEscape(d.doc_id)+'\')"><i data-lucide="edit-2" class="w-4 h-4"></i></button>' : '';
+      var delBtn = (dmsPerms.canDelete && (dmsPerms.isSuper || String(d.status).toUpperCase()==='DRAFT')) ? '<button class="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Xóa" onclick="event.stopPropagation();dmsDelete(\''+dmsEscape(d.doc_id)+'\')"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' : '';
+      var urlIcon = d.file_url ? '<a href="'+dmsEscape(d.file_url)+'" target="_blank" title="Xem URL" class="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-slate-100 rounded-lg inline-flex"><i data-lucide="link" class="w-4 h-4"></i></a>' : '';
+      var fileIcon = d.file_id ? '<a href="https://drive.google.com/file/d/'+dmsEscape(d.file_id)+'/view" target="_blank" title="Xem file" class="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg inline-flex"><i data-lucide="file-text" class="w-4 h-4"></i></a>' : '';
+      return '<tr class="hover:bg-slate-50/80 transition-colors group">'+
+        '<td class="py-3.5 px-4 whitespace-nowrap"><div class="font-bold text-slate-900">'+dmsEscape(d.entity_code||'')+'</div><div class="text-xs text-slate-500 font-mono mt-0.5">'+dmsEscape(String(d.doc_code||'').replace(/\/0$/,''))+'</div></td>'+
+        '<td class="py-3.5 px-4 whitespace-nowrap"><div class="font-bold text-slate-900">'+dmsEscape(d.activity_code||'')+'</div><div class="text-xs text-slate-500 font-mono mt-0.5">'+dmsEscape(d.domain_code||'')+' '+dmsEscape(d.doc_type_code||'')+'</div></td>'+
+        '<td class="py-3.5 px-4 max-w-sm"><span class="font-medium text-brand-800 line-clamp-2 leading-snug">'+dmsEscape(d.doc_title||'')+'</span></td>'+
+        '<td class="py-3.5 px-4 whitespace-nowrap"><div class="space-y-1"><span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-'+cls+'-50 text-'+cls+'-700 border border-'+cls+'-200"><span class="w-1.5 h-1.5 rounded-full bg-'+cls+'-500"></span>'+label+'</span><div class="text-xs text-slate-500">Hiệu lực: <strong class="text-slate-700">'+dmsFormatDate(d.effective_date)+'</strong></div></div></td>'+
+        '<td class="py-3.5 px-4 text-xs whitespace-nowrap"><div class="space-y-0.5"><p><span class="text-slate-400">Soạn:</span> <span class="font-medium text-slate-800">'+(dmsEmpMap[d.owner_emp_id]||d.owner_emp_id||'')+'</span></p><p><span class="text-slate-400">Xem xét:</span> <span class="text-slate-800">'+(dmsEmpMap[d.reviewer_emp_id]||d.reviewer_emp_id||'—')+'</span></p><p><span class="text-slate-400">Duyệt:</span> <span class="text-slate-800">'+(dmsEmpMap[d.approver_emp_id]||d.approver_emp_id||'—')+'</span></p></div></td>'+
+        '<td class="py-3.5 px-4 text-center whitespace-nowrap"><div class="flex items-center justify-center gap-2">'+urlIcon+fileIcon+'</div></td>'+
+        '<td class="py-3.5 px-4 text-center whitespace-nowrap"><div class="flex items-center justify-center gap-1">'+(d.canApprove?'<button class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors" title="Duyệt" onclick="event.stopPropagation();dmsApprove(\''+dmsEscape(d.doc_id)+'\',this)"><i data-lucide="check" class="w-3.5 h-3.5"></i>Duyệt</button><button class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors" title="Từ chối" onclick="event.stopPropagation();dmsReject(\''+dmsEscape(d.doc_id)+'\',this)"><i data-lucide="x" class="w-3.5 h-3.5"></i>Từ chối</button>':'')+editBtn+delBtn+'</div></td>'+
+      '</tr>';
+    }).join('');
+    lucide.createIcons();
+  };
+
+  window.dmsChangePage = function(delta){ dmsPageNum += delta; dmsRender(); };
+
+  window.dmsOpenForm = function(docId) {
+    var item = docId ? dmsDocs.find(function(d){return d.doc_id===docId;}) : null;
+    document.getElementById('dms-title').textContent = item ? 'Cập nhật tài liệu' : 'Thêm mới Tài liệu';
+    document.getElementById('dms-doc-entity').value = item ? item.entity_code || 'HDG' : 'HDG';
+    document.getElementById('dms-doc-activity').value = item ? item.activity_code || 'VPQT' : 'VPQT';
+    document.getElementById('dms-doc-domain').value = item ? item.domain_code || '0' : '0';
+    document.getElementById('dms-doc-doctype').value = item ? item.doc_type_code || 'QT' : 'QT';
+    document.getElementById('dms-doc-title').value = item ? item.doc_title || '' : '';
+    document.getElementById('dms-doc-status').value = item ? item.status || 'DRAFT' : 'DRAFT';
+    document.getElementById('dms-doc-effective').value = item ? dmsDateToISO(item.effective_date) : '';
+    document.getElementById('dms-doc-seq').value = item ? item.seq_no || '' : '';
+    document.getElementById('dms-doc-url').value = item ? item.file_url || '' : '';
+    window.dmsEditingId = docId || null;
+    document.getElementById('dms-doc-owner').innerHTML = '';
+    document.getElementById('dms-doc-reviewer').innerHTML = '';
+    document.getElementById('dms-doc-approver').innerHTML = '';
+    var opts = Object.keys(dmsEmpMap).map(function(k){ return { emp_id: k, full_name: dmsEmpMap[k] }; });
+    var html = '<option value="">-- chọn --</option>' + opts.map(function(e){ return '<option value="'+dmsEscape(e.emp_id)+'">'+dmsEscape(e.emp_id)+' - '+dmsEscape(e.full_name)+'</option>'; }).join('');
+    document.getElementById('dms-doc-owner').innerHTML = html;
+    document.getElementById('dms-doc-reviewer').innerHTML = html;
+    document.getElementById('dms-doc-approver').innerHTML = html;
+    if (item) {
+      document.getElementById('dms-doc-owner').value = item.owner_emp_id || '';
+      document.getElementById('dms-doc-reviewer').value = item.reviewer_emp_id || '';
+      document.getElementById('dms-doc-approver').value = item.approver_emp_id || '';
+    }
+    document.getElementById('dms-message').textContent = '';
+    var m = document.getElementById('dms-modal'); m.classList.remove('hidden'); m.classList.add('flex');
+  };
+
+  window.dmsCloseForm = function() { window.dmsEditingId = null; var m = document.getElementById('dms-modal'); m.classList.add('hidden'); m.classList.remove('flex'); };
+
+  window.dmsSave = function(e) {
+    e.preventDefault();
+    var btn = document.getElementById('dms-save');
+    var msg = document.getElementById('dms-message');
+    var url = document.getElementById('dms-doc-url').value.trim();
+    if (url && !/^https?:\/\//i.test(url)) { msg.textContent = 'URL phải bắt đầu bằng http:// hoặc https://'; return; }
+    btn.disabled = true; msg.textContent = 'Đang lưu...';
+    var record = {
+      doc_id: window.dmsEditingId || '',
+      entity_code: document.getElementById('dms-doc-entity').value,
+      activity_code: document.getElementById('dms-doc-activity').value,
+      domain_code: document.getElementById('dms-doc-domain').value,
+      doc_type_code: document.getElementById('dms-doc-doctype').value,
+      doc_title: document.getElementById('dms-doc-title').value,
+      status: document.getElementById('dms-doc-status').value,
+      effective_date: document.getElementById('dms-doc-effective').value,
+      owner_emp_id: document.getElementById('dms-doc-owner').value,
+      reviewer_emp_id: document.getElementById('dms-doc-reviewer').value,
+      approver_emp_id: document.getElementById('dms-doc-approver').value,
+      seq_no: document.getElementById('dms-doc-seq').value,
+      file_url: url,
+      file_id: (function(){ var it = window.dmsEditingId ? dmsDocs.find(function(d){return d.doc_id===window.dmsEditingId;}) : null; return it ? (it.file_id||'') : ''; })()
+    };
+    var fileInput = document.getElementById('dms-doc-file');
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+      var f = fileInput.files[0];
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var base64 = e.target.result.split(',')[1];
+        google.script.run.withSuccessHandler(function(res) {
+          if (res && res.success) { record.file_url = res.url; record.file_id = res.fileId; doSave(record, btn, msg); }
+          else { btn.disabled = false; msg.textContent = res && res.message ? res.message : 'Upload lỗi'; }
+        }).withFailureHandler(function(err){ btn.disabled=false; msg.textContent='Upload lỗi: '+err; })
+        .handleApiRoute('DMS','uploadFile',{token: window.HAP_TOKEN(), name: f.name, mimeType: f.type, base64: base64, folderId: '1GOEDDkNbEZvk2Pl2Gn2s1TDj4-OGjfj2'});
+      };
+      reader.readAsDataURL(f);
+      return;
+    }
+    doSave(record, btn, msg);
+  };
+
+  function doSave(record, btn, msg) {
+    btn.disabled = true; msg.textContent = 'Đang lưu...';
+    google.script.run.withSuccessHandler(function(res) {
+      btn.disabled = false; msg.textContent = res && res.message ? res.message : '';
+      if (res && res.success) {
+        dmsCloseForm();
+        if (window.showToast) window.showToast(res.message || 'Đã lưu', 'success');
+        reloadDmsDocs();
+      } else {
+        if (window.showToast) window.showToast(res && res.message ? res.message : 'Lỗi', 'error');
+      }
+    }).withFailureHandler(function(err) {
+      btn.disabled = false; msg.textContent = 'Lỗi kết nối: ' + (err && err.message ? err.message : err);
+    }).handleApiRoute('DMS','saveDoc',{token: window.HAP_TOKEN(), record: record});
+  };
+
+  window.dmsDelete = function(docId) {
+    if (window.showEMPConfirm) {
+      window.showEMPConfirm('Đánh dấu xóa tài liệu "'+docId+'"?', function() {
+        google.script.run.withSuccessHandler(function(res) {
+          if (res && res.success) { if (window.showToast) window.showToast(res.message||'Đã xóa','success'); reloadDmsDocs(); }
+          else { if (window.showToast) window.showToast(res && res.message ? res.message : 'Lỗi','error'); }
+        }).withFailureHandler(function(err){ if (window.showToast) window.showToast('Lỗi: '+err,'error'); })
+        .handleApiRoute('DMS','deleteDoc',{token: window.HAP_TOKEN(), docId: docId});
+      });
+    }
+  };
+  window.dmsApprove = function(docId, btn) {
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Đang duyệt'; lucide.createIcons(); }
+    google.script.run.withSuccessHandler(function(res) {
+      if (btn) btn.disabled = false;
+      if (res && res.success) { if (window.showToast) window.showToast(res.message || 'Đã duyệt', 'success'); reloadDmsDocs(); }
+      else { if (window.showToast) window.showToast(res && res.message ? res.message : 'Lỗi', 'error'); }
+    }).withFailureHandler(function(err){ if (btn) btn.disabled=false; if (window.showToast) window.showToast('Lỗi: ' + err, 'error'); })
+    .handleApiRoute('DMS','approveDoc',{token: window.HAP_TOKEN(), docId: docId});
+  };
+  window.dmsReject = function(docId, btn) {
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Đang từ chối'; lucide.createIcons(); }
+    google.script.run.withSuccessHandler(function(res) {
+      if (btn) btn.disabled = false;
+      if (res && res.success) { if (window.showToast) window.showToast(res.message || 'Đã từ chối', 'success'); reloadDmsDocs(); }
+      else { if (window.showToast) window.showToast(res && res.message ? res.message : 'Lỗi', 'error'); }
+    }).withFailureHandler(function(err){ if (btn) btn.disabled=false; if (window.showToast) window.showToast('Lỗi: ' + err, 'error'); })
+    .handleApiRoute('DMS','rejectDoc',{token: window.HAP_TOKEN(), docId: docId});
+  };
+</script>

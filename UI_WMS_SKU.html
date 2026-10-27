@@ -1,0 +1,1427 @@
+<!-- UI_WMS_SKU.html - Danh mục mã hàng (SKU) -->
+<style>
+  .wsku-card { padding:20px; background:#fff; border:1px solid #e2e8f0; border-radius:10px; }
+  .wsku-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:9px; margin:16px 0; }
+  .wsku-toolbar > input[type="search"] { flex:1; min-width:220px; }
+  .wsku-input, .wsku-select { box-sizing:border-box; width:100%; padding:9px 11px; border:1px solid #cbd5e1; border-radius:6px; background:#fff; color:#0f172a; font:inherit; }
+  .wsku-btn { border:1px solid #cbd5e1; border-radius:6px; padding:8px 13px; background:#fff; color:#334155; font-weight:600; cursor:pointer; }
+  .wsku-btn.primary { border-color:#2563eb; background:#2563eb; color:#fff; }
+  .wsku-btn:disabled { opacity:.55; cursor:wait; }
+  .wsku-table-wrap { overflow:auto; border:1px solid #e2e8f0; border-radius:8px; }
+  .wsku-table { width:100%; border-collapse:collapse; font-size:.83rem; }
+  .wsku-table th, .wsku-table td { padding:10px 11px; border-bottom:1px solid #f1f5f9; text-align:left; vertical-align:top; }
+  .wsku-table th { background:#f8fafc; color:#0f172a; font-weight:700; }
+  .wsku-table td { white-space:normal; min-width:105px; }
+  .wsku-table th:first-child, .wsku-table td:first-child { box-sizing:border-box; width:34px; min-width:34px; max-width:34px; padding:8px 4px; text-align:center; }
+  .wsku-table th:first-child input, .wsku-table td:first-child input { box-sizing:border-box; display:block; width:16px; height:16px; margin:0 auto; padding:0; accent-color:#2563eb; cursor:pointer; }
+  .wsku-table th:last-child, .wsku-table td:last-child { width:76px; min-width:76px; padding-left:5px; padding-right:5px; }
+  .wsku-table td.wsku-cell-identity { min-width:145px; }
+  .wsku-table td.wsku-cell-item { min-width:220px; max-width:340px; }
+  .wsku-table td.wsku-cell-units, .wsku-table td.wsku-cell-stock { min-width:150px; }
+  .wsku-cell-main { color:#0f172a; font-weight:600; }
+  .wsku-cell-secondary { margin-top:3px; color:#64748b; font-size:.76rem; line-height:1.4; }
+  .wsku-cell-secondary strong { color:#334155; font-weight:600; }
+  .wsku-cell-value { display:inline-block; margin-right:8px; white-space:nowrap; }
+  .wsku-column-menu-wrap { position:relative; }
+  .wsku-column-menu { position:absolute; top:calc(100% + 5px); right:0; z-index:5; display:none; width:max-content; max-width:calc(100vw - 32px); padding:10px; border:1px solid #dbe3ee; border-radius:8px; background:#fff; box-shadow:0 10px 25px rgba(15,23,42,.14); }
+  .wsku-column-menu.open { display:grid; gap:9px; }
+  .wsku-column-toggle { display:flex; align-items:center; gap:8px; color:#334155; font-size:.8rem; white-space:nowrap; cursor:pointer; }
+  .wsku-column-toggle input { box-sizing:border-box; flex:0 0 15px; width:15px; height:15px; min-width:15px; margin:0; padding:0; accent-color:#2563eb; }
+  .wsku-pager { display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:8px; margin:10px 0 0; }
+  .wsku-page-size { width:auto; min-width:76px; padding:7px 9px; }
+  .wsku-muted { color:#64748b; font-size:.82rem; }
+  .wsku-action-icon { display:inline-flex; width:28px; height:28px; align-items:center; justify-content:center; padding:0; border:1px solid transparent; border-radius:6px; background:transparent; color:#64748b; cursor:pointer; }
+  .wsku-action-icon:hover, .wsku-action-icon:focus-visible { border-color:#fecaca; background:#fef2f2; color:#dc2626; outline:none; }
+  .wsku-action-icon svg { width:17px; height:17px; }
+  .wsku-action-icon { width:30px; height:30px; }
+  .wsku-action-icon svg { width:16px; height:16px; }
+  .wsku-badge { display:inline-block; padding:3px 8px; border-radius:20px; background:#dcfce7; color:#15803d; font-size:.74rem; font-weight:600; }
+  .wsku-badge.off { background:#f1f5f9; color:#64748b; }
+  .wsku-modal { position:fixed; inset:0; z-index:100010; display:none; align-items:center; justify-content:center; padding:16px; background:rgba(15,23,42,.48); }
+  .wsku-modal-card { box-sizing:border-box; display:flex; flex-direction:column; width:min(1040px,100%); max-height:90vh; overflow:hidden; padding:0; border:1px solid #dbe3ee; border-radius:14px; background:#f8fafc; box-shadow:0 24px 70px rgba(15,23,42,.28); }
+  .wsku-modal-head { padding:17px 21px 14px; border-bottom:1px solid #e2e8f0; background:linear-gradient(135deg,#fff 0%,#f1f5f9 100%); }
+  .wsku-modal-head h3 { margin:0; color:#0f172a; font-size:1.15rem; letter-spacing:-.02em; }
+  .wsku-modal-head p { margin:3px 0 0; color:#64748b; font-size:.78rem; }
+  .wsku-form-body { overflow:auto; padding:15px 19px 9px; }
+  .wsku-form-layout { display:grid; grid-template-columns:1fr 1fr; gap:11px; align-items:start; }
+  .wsku-form-section { min-width:0; margin:0; padding:13px 14px 11px; border:1px solid #e2e8f0; border-radius:11px; background:#fff; box-shadow:0 1px 2px rgba(15,23,42,.03); }
+  .wsku-form-section.identity { grid-column:1/-1; border-color:#dbeafe; background:linear-gradient(135deg,#fff 0%,#f8fbff 100%); }
+  .wsku-section-heading { display:flex; align-items:center; gap:9px; margin-bottom:8px; }
+  .wsku-section-index { display:inline-flex; width:23px; height:23px; flex:0 0 23px; align-items:center; justify-content:center; border-radius:7px; background:#eff6ff; color:#2563eb; font-size:.72rem; font-weight:700; }
+  .wsku-section-title { margin:0; color:#1e293b; font-size:.84rem; font-weight:700; }
+  .wsku-section-note { margin:2px 0 0; color:#94a3b8; font-size:.7rem; font-weight:400; }
+  .wsku-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 13px; }
+  .wsku-field { display:flex; flex-direction:column; gap:5px; margin:5px 0; color:#475569; font-size:.77rem; font-weight:600; }
+  .wsku-field .wsku-input, .wsku-field .wsku-select, .wsku-field .wsku-textarea { box-sizing:border-box; width:100%; border:1px solid #dbe3ee; border-radius:7px; padding:8px 10px; background:#fff; color:#0f172a; font:inherit; font-size:.84rem; transition:border-color .15s,box-shadow .15s; }
+  .wsku-field .wsku-input:focus, .wsku-field .wsku-select:focus, .wsku-field .wsku-textarea:focus { border-color:#60a5fa; outline:3px solid rgba(59,130,246,.12); }
+  .wsku-field .wsku-textarea { min-height:64px; resize:vertical; }
+  .wsku-field.featured { grid-column:span 1; }
+  .wsku-field.featured .wsku-input { border-color:#bfdbfe; background:#fbfdff; }
+  .wsku-field.full { grid-column:1/-1; }
+  .wsku-checks { display:grid; gap:8px; margin:9px 0 2px; }
+  .wsku-check { display:flex; align-items:center; gap:8px; color:#334155; font-size:.78rem; }
+  .wsku-check input { width:15px; height:15px; accent-color:#2563eb; }
+  .wsku-system-note { display:flex; align-items:center; gap:9px; margin-top:9px; padding:9px 11px; border:1px solid #dbeafe; border-radius:8px; background:#eff6ff; color:#475569; font-size:.74rem; line-height:1.45; }
+  .wsku-system-note svg { width:17px; height:17px; flex:0 0 17px; color:#2563eb; }
+  .wsku-form-message { min-height:16px; margin:0 2px 4px; color:#64748b; font-size:.78rem; }
+  .wsku-import-preview { max-height:42vh; overflow:auto; margin-top:12px; border:1px solid #e2e8f0; border-radius:8px; background:#fff; }
+  .wsku-import-table { width:100%; min-width:1850px; border-collapse:collapse; font-size:.76rem; }
+  .wsku-import-table th, .wsku-import-table td { padding:6px; border-bottom:1px solid #e2e8f0; text-align:left; vertical-align:top; }
+  .wsku-import-table th { position:sticky; top:0; z-index:1; background:#f8fafc; color:#475569; white-space:nowrap; }
+  .wsku-import-table input { box-sizing:border-box; width:125px; min-height:32px; padding:5px 7px; border:1px solid #cbd5e1; border-radius:5px; font:inherit; }
+  .wsku-import-table input[data-field="category_code"], .wsku-import-table input[data-field="sku_name"], .wsku-import-table input[data-field="sku_description"] { width:190px; }
+  .wsku-import-table input[data-field="short_name"] { width:135px; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
+  .wsku-import-errors { min-width:220px; max-width:320px; color:#b91c1c; white-space:normal; }
+  .wsku-import-errors.ok { color:#15803d; }
+  .wsku-import-invalid { background:#fff7f7; }
+  .wsku-form-footer { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:11px 19px; border-top:1px solid #e2e8f0; background:#fff; }
+  .wsku-footer-hint { color:#94a3b8; font-size:.72rem; }
+  .wsku-qr-card { display:flex; flex-direction:column; align-items:center; width:min(360px,100%); padding:20px; border:1px solid #dbe3ee; border-radius:14px; background:#fff; box-shadow:0 24px 70px rgba(15,23,42,.28); }
+  .wsku-qr-card h3 { align-self:stretch; margin:0; color:#0f172a; font-size:1rem; }
+  .wsku-qr-card p { align-self:stretch; margin:5px 0 13px; color:#64748b; font-size:.78rem; }
+  .wsku-qr-image { display:flex; align-items:center; justify-content:center; width:244px; height:244px; border:1px solid #f1f5f9; border-radius:10px; background:#fff; }
+  .wsku-qr-image svg { display:block; width:224px; height:224px; }
+  .wsku-qr-value { margin:12px 0 16px; color:#334155; font:600 .82rem ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.04em; }
+  .wsku-qr-actions { display:flex; justify-content:flex-end; align-self:stretch; gap:8px; }
+  .wsku-btn { border-radius:8px; }
+  @media(max-width:680px) { .wsku-form-layout { grid-template-columns:1fr; } .wsku-form-section.identity { grid-column:auto; } .wsku-field.full { grid-column:auto; } }
+  @media(max-width:460px) { .wsku-grid { grid-template-columns:1fr; } .wsku-modal { padding:8px; } .wsku-form-body { padding:10px; } .wsku-modal-head { padding:14px 15px 12px; } .wsku-form-footer { padding:10px 12px; } .wsku-footer-hint { display:none; } }
+</style>
+
+<section class="wsku-card">
+  <div class="wsku-toolbar">
+    <div style="position:relative;flex:1;min-width:220px;">
+      <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#94a3b8;" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <input class="wsku-input" id="wms-sku-search" type="search" placeholder="Tìm mã SKU, tên, mã hàng hoặc nhóm hàng" oninput="wmsSkuRender()" style="padding-left:34px;">
+    </div>
+    <button class="wsku-btn" id="wms-sku-reload" type="button" onclick="reloadWmsSkus()" title="Tải lại"><svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;"><path d="M20 7v5h-5M4 17v-5h5M6 9a7 7 0 0 1 12-2l2 2M4 13l2 2a7 7 0 0 0 12-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <span class="wsku-muted" id="wms-sku-load-status" role="status" aria-live="polite"></span>
+    <button class="wsku-btn" type="button" title="Xuất Excel" onclick="wmsSkuExportExcel()"><svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button class="wsku-btn" id="wms-sku-import-open" type="button" onclick="wmsSkuOpenImport()" title="Nhập Excel"><svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;"><path d="M12 21V9m0 0-4 4m4-4 4 4M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button class="wsku-btn primary" id="wms-sku-create" type="button" onclick="wmsSkuOpenForm(-1)" title="Thêm SKU"><svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <div class="wsku-column-menu-wrap">
+      <button class="wsku-btn" id="wms-sku-column-menu-button" type="button"
+        aria-haspopup="true" aria-expanded="false" onclick="wmsSkuToggleColumnMenu()" title="Ẩn/Hiện cột">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
+          <path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" stroke="currentColor" stroke-width="1.7"/>
+          <circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="1.7"/>
+        </svg>
+      </button>
+      <div class="wsku-column-menu" id="wms-sku-column-menu" role="group" aria-label="Chọn cột hiển thị">
+        <label class="wsku-column-toggle"><input type="checkbox" data-column="identity" checked onchange="wmsSkuSetColumn(this)"> Mã SKU & Mã hàng</label>
+        <label class="wsku-column-toggle"><input type="checkbox" data-column="item" checked onchange="wmsSkuSetColumn(this)"> Tên & Nhóm hàng</label>
+        <label class="wsku-column-toggle"><input type="checkbox" data-column="units" checked onchange="wmsSkuSetColumn(this)"> Đơn vị & Quy cách</label>
+        <label class="wsku-column-toggle"><input type="checkbox" data-column="stock" onchange="wmsSkuSetColumn(this)"> Tồn kho & Bảo quản</label>
+        <label class="wsku-column-toggle"><input type="checkbox" data-column="tracking" onchange="wmsSkuSetColumn(this)"> Theo dõi lô/HSD/QC</label>
+        <label class="wsku-column-toggle"><input type="checkbox" data-column="status" checked onchange="wmsSkuSetColumn(this)"> Trạng thái</label>
+      </div>
+    </div>
+  </div>
+  <div class="wsku-toolbar" id="wms-sku-selection-toolbar" style="display:none;margin:8px 0;">
+    <span class="wsku-muted" id="wms-sku-selection-count"></span>
+    <button class="wsku-btn" id="wms-sku-bulk-delete" type="button" onclick="wmsSkuDeleteSelected()">Xóa đã chọn</button>
+  </div>
+  <div class="wsku-table-wrap" id="wms-sku-table-wrap">
+    <table class="wsku-table">
+      <thead id="wms-sku-head"></thead>
+      <tbody id="wms-sku-body"><tr><td class="wsku-muted">Chọn màn hình để tải danh sách.</td></tr></tbody>
+    </table>
+  </div>
+  <div class="wsku-pager">
+    <label class="wsku-muted" for="wms-sku-page-size">Số dòng:</label>
+    <select class="wsku-input wsku-page-size" id="wms-sku-page-size" onchange="wmsSkuSetPageSize(this.value)">
+      <option value="15">15</option><option value="30" selected>30</option><option value="50">50</option><option value="100">100</option>
+    </select>
+    <button class="wsku-action-icon" id="wms-sku-prev" type="button" onclick="wmsSkuChangePage(-1)" title="Trang trước" aria-label="Trang trước">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <span id="wms-sku-page" class="wsku-muted"></span>
+    <button class="wsku-action-icon" id="wms-sku-next" type="button" onclick="wmsSkuChangePage(1)" title="Trang sau" aria-label="Trang sau">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+</section>
+
+<div class="wsku-modal" id="wms-sku-modal" role="dialog" aria-modal="true" aria-labelledby="wms-sku-title">
+  <form class="wsku-modal-card" onsubmit="wmsSkuSave(event)">
+    <header class="wsku-modal-head">
+      <h3 id="wms-sku-title">Thêm SKU</h3>
+      <p>Khai báo thông tin nhận diện, quy cách, truy xuất và điều kiện lưu trữ của mã hàng.</p>
+    </header>
+    <div class="wsku-form-body">
+      <div class="wsku-form-layout">
+      <section class="wsku-form-section identity">
+        <div class="wsku-section-heading"><span class="wsku-section-index">01</span><div><h4 class="wsku-section-title">Thông tin mặt hàng</h4><p class="wsku-section-note">Thông tin nhận diện và phân loại</p></div></div>
+        <div class="wsku-grid">
+          <label class="wsku-field">Nhóm hàng *
+            <input class="wsku-input" id="wms-sku-category" list="wms-sku-category-options" required
+              placeholder="Gõ để tìm nhóm hàng" onchange="wmsSkuCategoryChanged()">
+            <datalist id="wms-sku-category-options">
+              <option value="001 - Thành phẩm"></option>
+              <option value="002 - Thành phẩm theo đơn hàng"></option>
+              <option value="003 - Bán thành phẩm/Dở dang"></option>
+              <option value="004 - Nguyên liệu thủy sản"></option>
+              <option value="005 - Phụ gia/Gia vị"></option>
+              <option value="006 - Vật tư bao trì trực tiếp"></option>
+              <option value="007 - Vật tư bao bì gián tiếp"></option>
+              <option value="008 - Vật tư tiêu hao sản xuất"></option>
+              <option value="009 - Phụ tùng kỹ thuật"></option>
+              <option value="010 - Vật tư tiêu hao kỹ thuật"></option>
+              <option value="011 - Công cụ dụng cụ"></option>
+              <option value="012 - Văn phòng phẩm/Thiết bị VP"></option>
+              <option value="013 - Bảo hộ lao động"></option>
+              <option value="014 - Nguyên liệu sản xuất"></option>
+              <option value="015 - Khác"></option>
+              <option value="016 - Máy móc thiết bị"></option>
+            </datalist>
+          </label>
+          <label class="wsku-field">Mã hàng *
+            <input class="wsku-input" id="wms-sku-short-name" type="text" list="wms-sku-code-options"
+              maxlength="150" required placeholder="Chọn nhóm hàng để nhận mã gợi ý"
+              oninput="wmsSkuCodeTouched = true; wmsSkuValidateUniqueField(this)">
+            <datalist id="wms-sku-code-options"></datalist>
+          </label>
+          <label class="wsku-field featured">Tên hàng *
+            <input class="wsku-input" id="wms-sku-name" list="wms-sku-name-options" maxlength="300"
+              required placeholder="Gõ để tìm hoặc nhập tên hàng"
+              oninput="wmsSkuValidateUniqueField(this)">
+            <datalist id="wms-sku-name-options"></datalist>
+          </label>
+          <label class="wsku-field">Nhóm hàng phụ<input class="wsku-input" id="wms-sku-subcategory" maxlength="150"></label>
+          <label class="wsku-field full">Mô tả thông số SKU
+            <textarea class="wsku-textarea" id="wms-sku-description" maxlength="2000" rows="2" placeholder="Thông số chi tiết giúp nhận diện sản phẩm"></textarea>
+          </label>
+        </div>
+        <div class="wsku-system-note"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.7"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.7"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.7"/><path d="M14 14h3v3h-3zm4 4h3v3h-3zm0-4h3m-7 7h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mã hàng được gợi ý theo nhóm đã chọn và có thể chỉnh sửa. Mã SKU hệ thống và QR được tạo sau khi lưu.</span></div>
+      </section>
+      <section class="wsku-form-section">
+        <div class="wsku-section-heading"><span class="wsku-section-index">02</span><div><h4 class="wsku-section-title">Đơn vị & quy cách</h4><p class="wsku-section-note">Quy đổi và trạng thái sử dụng</p></div></div>
+        <div class="wsku-grid">
+          <label class="wsku-field">Đơn vị cơ sở *<input class="wsku-input" id="wms-sku-uom-base" maxlength="40" placeholder="kg, cái, lít..." required></label>
+          <label class="wsku-field">Đơn vị đóng gói<input class="wsku-input" id="wms-sku-uom-pack" maxlength="40" placeholder="bao, thùng..."></label>
+          <label class="wsku-field">Số đơn vị cơ sở / đơn vị đóng gói<input class="wsku-input" id="wms-sku-pack-ratio" type="number" min="0.000001" step="any" value="1"></label>
+          <label class="wsku-field">Trạng thái<select class="wsku-select" id="wms-sku-status"><option value="ACTIVE">Đang hoạt động</option><option value="INACTIVE">Ngừng hoạt động</option></select></label>
+        </div>
+      </section>
+      <section class="wsku-form-section">
+        <div class="wsku-section-heading"><span class="wsku-section-index">03</span><div><h4 class="wsku-section-title">Tồn kho & bảo quản</h4><p class="wsku-section-note">Ngưỡng tồn và yêu cầu truy xuất</p></div></div>
+        <div class="wsku-grid">
+          <label class="wsku-field">Hạn sử dụng (ngày)<input class="wsku-input" id="wms-sku-shelf-life" type="number" min="0" step="1"></label>
+          <label class="wsku-field">Điều kiện bảo quản<input class="wsku-input" id="wms-sku-storage" maxlength="300" placeholder="Nhiệt độ, độ ẩm, ánh sáng..."></label>
+          <label class="wsku-field">Tồn tối thiểu<input class="wsku-input" id="wms-sku-min-stock" type="number" min="0" step="any"></label>
+          <label class="wsku-field">Tồn tối đa<input class="wsku-input" id="wms-sku-max-stock" type="number" min="0" step="any"></label>
+        </div>
+        <div class="wsku-checks">
+          <label class="wsku-check"><input id="wms-sku-batch" type="checkbox"> Theo dõi số lô</label>
+          <label class="wsku-check"><input id="wms-sku-expiry" type="checkbox"> Theo dõi hạn sử dụng</label>
+          <label class="wsku-check"><input id="wms-sku-qc" type="checkbox"> Bắt buộc kiểm tra QC</label>
+        </div>
+      </section>
+      </div>
+      <div id="wms-sku-message" class="wsku-form-message" role="status"></div>
+    </div>
+    <footer class="wsku-form-footer">
+      <span class="wsku-footer-hint">* Thông tin bắt buộc</span>
+      <div style="display:flex;gap:8px;">
+      <button class="wsku-btn" type="button" onclick="wmsSkuCloseForm()">Đóng</button>
+      <button class="wsku-btn primary" id="wms-sku-save" type="submit">Lưu SKU</button>
+      </div>
+    </footer>
+  </form>
+</div>
+
+<div class="wsku-modal" id="wms-sku-import-modal" role="dialog" aria-modal="true" aria-labelledby="wms-sku-import-title">
+  <form class="wsku-modal-card" onsubmit="wmsSkuImport(event)">
+    <header class="wsku-modal-head">
+      <h3 id="wms-sku-import-title">Import SKU từ Excel</h3>
+      <p>Dán các dòng/cột đã sao chép từ Excel. SKU được xử lý theo quy tắc tạo mới hiện tại.</p>
+    </header>
+    <div class="wsku-form-body">
+      <p class="wsku-muted" style="margin:0 0 8px;">
+        Thứ tự cột: Nhóm hàng, Mã hàng (để trống để tự sinh), Tên hàng, Nhóm hàng phụ,
+        Mô tả thông số, Đơn vị cơ sở, Đơn vị đóng gói, Số lượng/đóng gói, Hạn sử dụng,
+        Điều kiện bảo quản, Tồn tối thiểu, Tồn tối đa, Theo dõi lô, Theo dõi HSD, QC, Trạng thái.
+        Dùng TRUE/FALSE hoặc Y/N cho các cột Có/Không. Tối đa 200 dòng.
+      </p>
+      <div class="wsku-toolbar" style="margin:8px 0;">
+        <button class="wsku-btn" type="button" onclick="wmsSkuDownloadImportTemplate()">Tải form Excel</button>
+      </div>
+      <label class="wsku-field" for="wms-sku-import-data">Dữ liệu đã sao chép
+        <textarea class="wsku-textarea" id="wms-sku-import-data" rows="5"
+          oninput="wmsSkuBuildImportPreview()"
+          placeholder="001 - Thành phẩm&#9;&#9;Tên mặt hàng&#9;&#9;Mô tả&#9;cái"></textarea>
+      </label>
+      <div class="wsku-toolbar" style="justify-content:space-between;margin:8px 0;">
+        <span id="wms-sku-import-summary" class="wsku-muted">Dán dữ liệu để xem trước và kiểm tra.</span>
+        <button class="wsku-btn" type="button" onclick="wmsSkuBuildImportPreview()">Tạo lại bản xem trước</button>
+      </div>
+      <div class="wsku-import-preview" id="wms-sku-import-preview" hidden>
+        <table class="wsku-import-table">
+          <thead><tr>
+            <th>Dòng</th><th>Nhóm hàng *</th><th>Mã hàng</th><th>Tên hàng *</th>
+            <th>Nhóm phụ</th><th>Mô tả</th><th>Đơn vị *</th><th>Đóng gói</th>
+            <th>Số lượng/đóng gói</th><th>HSD ngày</th><th>Bảo quản</th>
+            <th>Tồn tối thiểu</th><th>Tồn tối đa</th><th>Theo dõi lô</th>
+            <th>Theo dõi HSD</th><th>QC</th><th>Trạng thái</th><th>Kiểm tra</th><th></th>
+          </tr></thead>
+          <tbody id="wms-sku-import-preview-body"></tbody>
+        </table>
+      </div>
+      <div id="wms-sku-import-message" class="wsku-form-message" role="status"></div>
+    </div>
+    <footer class="wsku-form-footer">
+      <span class="wsku-footer-hint">Mã hàng, tên hàng và nhóm hàng trùng sẽ bị từ chối.</span>
+      <div style="display:flex;gap:8px;">
+        <button class="wsku-btn" type="button" onclick="wmsSkuCloseImport()">Đóng</button>
+        <button class="wsku-btn primary" id="wms-sku-import-submit" type="submit" disabled>Nhập SKU</button>
+      </div>
+    </footer>
+  </form>
+</div>
+
+<div class="wsku-modal" id="wms-sku-qr-modal" role="dialog" aria-modal="true" aria-labelledby="wms-sku-qr-title">
+  <div class="wsku-qr-card">
+    <h3 id="wms-sku-qr-title">QR mã SKU</h3>
+    <p>Quét mã để đọc mã định danh mặt hàng.</p>
+    <div class="wsku-qr-image" id="wms-sku-qr-image"></div>
+    <div class="wsku-qr-value" id="wms-sku-qr-value"></div>
+    <div class="wsku-qr-actions">
+      <button class="wsku-btn" type="button" onclick="wmsSkuCloseQr()">Đóng</button>
+      <button class="wsku-btn primary" type="button" onclick="wmsSkuDownloadQr()">Tải QR SVG</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  var wmsSkuRows = [];
+  var wmsSkuPermissions = { create:false, update:false, delete:false };
+  var wmsSkuVisibleRows = [];
+  var wmsSkuPageNumber = 1;
+  var wmsSkuPageSize = 30;
+  var wmsSkuColumns = { identity:true, item:true, units:true, stock:false, tracking:false, status:true };
+  var wmsSkuSelected = {};
+  var wmsSkuLoadRequestId = 0;
+  var wmsSkuEditing = null;
+  var wmsSkuCodeTouched = false;
+  var wmsSkuImportDraft = [];
+  var wmsSkuImportOverflow = false;
+  var wmsSkuImportCategories = [
+    '001 - Thành phẩm', '002 - Thành phẩm theo đơn hàng', '003 - Bán thành phẩm/Dở dang',
+    '004 - Nguyên liệu thủy sản', '005 - Phụ gia/Gia vị', '006 - Vật tư bao trì trực tiếp',
+    '007 - Vật tư bao bì gián tiếp', '008 - Vật tư tiêu hao sản xuất', '009 - Phụ tùng kỹ thuật',
+    '010 - Vật tư tiêu hao kỹ thuật', '011 - Công cụ dụng cụ', '012 - Văn phòng phẩm/Thiết bị VP',
+    '013 - Bảo hộ lao động', '014 - Nguyên liệu sản xuất', '015 - Khác', '016 - Máy móc thiết bị'
+  ];
+  var wmsSkuQrSvg = '';
+  var wmsSkuQrId = '';
+
+  function wmsSkuEscape(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function(c) {
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+
+  function wmsSkuFlag(value) {
+    return value === true || String(value).toUpperCase() === 'TRUE' ||
+      String(value).toUpperCase() === 'Y' || String(value) === '1';
+  }
+
+  function wmsSkuQrSvgFor(value) {
+    var text = String(value || '').toUpperCase();
+    var alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:';
+    if (!text || text.length > 25 || text.split('').some(function(ch) {
+      return alphabet.indexOf(ch) < 0;
+    })) throw new Error('Mã SKU không hợp lệ để tạo QR.');
+
+    var bits = [];
+    function appendBits(number, length) {
+      for (var i = length - 1; i >= 0; i--) bits.push((number >>> i) & 1);
+    }
+    appendBits(2, 4);
+    appendBits(text.length, 9);
+    for (var p = 0; p < text.length; p += 2) {
+      if (p + 1 < text.length) {
+        appendBits(alphabet.indexOf(text[p]) * 45 + alphabet.indexOf(text[p + 1]), 11);
+      } else {
+        appendBits(alphabet.indexOf(text[p]), 6);
+      }
+    }
+    var capacity = 19 * 8;
+    appendBits(0, Math.min(4, capacity - bits.length));
+    while (bits.length % 8) bits.push(0);
+    var data = [];
+    for (var b = 0; b < bits.length; b += 8) {
+      var byte = 0;
+      for (var k = 0; k < 8; k++) byte = (byte << 1) | bits[b + k];
+      data.push(byte);
+    }
+    for (var pad = 0; data.length < 19; pad++) data.push(pad % 2 ? 0x11 : 0xec);
+
+    function gfMultiply(x, y) {
+      var result = 0;
+      while (y) {
+        if (y & 1) result ^= x;
+        x <<= 1;
+        if (x & 0x100) x ^= 0x11d;
+        y >>>= 1;
+      }
+      return result;
+    }
+    var generator = [1];
+    var root = 1;
+    for (var degree = 0; degree < 7; degree++) {
+      var next = new Array(generator.length + 1).fill(0);
+      for (var g = 0; g < generator.length; g++) {
+        next[g] ^= generator[g];
+        next[g + 1] ^= gfMultiply(generator[g], root);
+      }
+      generator = next;
+      root = gfMultiply(root, 2);
+    }
+    var remainder = data.concat(new Array(7).fill(0));
+    for (var d = 0; d < data.length; d++) {
+      var factor = remainder[d];
+      for (var r = 0; r < generator.length; r++) remainder[d + r] ^= gfMultiply(generator[r], factor);
+    }
+    var codewords = data.concat(remainder.slice(data.length));
+    var matrix = Array.from({ length:21 }, function() { return new Array(21).fill(null); });
+    function setModule(row, col, dark) {
+      if (row >= 0 && row < 21 && col >= 0 && col < 21) matrix[row][col] = !!dark;
+    }
+    function finder(top, left) {
+      for (var y = -1; y <= 7; y++) for (var x = -1; x <= 7; x++) {
+        var inside = y >= 0 && y <= 6 && x >= 0 && x <= 6;
+        var dark = inside && (y === 0 || y === 6 || x === 0 || x === 6 ||
+          (y >= 2 && y <= 4 && x >= 2 && x <= 4));
+        setModule(top + y, left + x, dark);
+      }
+    }
+    finder(0, 0);
+    finder(0, 14);
+    finder(14, 0);
+    for (var timing = 8; timing <= 12; timing++) {
+      setModule(6, timing, timing % 2 === 0);
+      setModule(timing, 6, timing % 2 === 0);
+    }
+    for (var fi = 0; fi < 15; fi++) {
+      if (fi < 6) setModule(fi, 8, false);
+      else if (fi < 8) setModule(fi + 1, 8, false);
+      else setModule(8, 14 - fi, false);
+      if (fi < 8) setModule(8, 20 - fi, false);
+      else setModule(21 - 15 + fi, 8, false);
+    }
+    setModule(13, 8, true);
+
+    var dataBits = [];
+    codewords.forEach(function(codeword) {
+      for (var q = 7; q >= 0; q--) dataBits.push((codeword >>> q) & 1);
+    });
+    var bitIndex = 0;
+    var upward = true;
+    for (var right = 20; right >= 1; right -= 2) {
+      if (right === 6) right = 5;
+      for (var step = 0; step < 21; step++) {
+        var row = upward ? 20 - step : step;
+        for (var side = 0; side < 2; side++) {
+          var col = right - side;
+          if (matrix[row][col] !== null) continue;
+          var darkBit = bitIndex < dataBits.length ? dataBits[bitIndex++] === 1 : false;
+          if ((row + col) % 2 === 0) darkBit = !darkBit;
+          matrix[row][col] = darkBit;
+        }
+      }
+      upward = !upward;
+    }
+    var formatData = 8;
+    var formatRemainder = formatData << 10;
+    for (var shift = 14; shift >= 10; shift--) {
+      if ((formatRemainder >>> shift) & 1) formatRemainder ^= 0x537 << (shift - 10);
+    }
+    var formatBits = ((formatData << 10) | formatRemainder) ^ 0x5412;
+    for (var fb = 0; fb < 15; fb++) {
+      var set = ((formatBits >>> fb) & 1) === 1;
+      if (fb < 6) setModule(fb, 8, set);
+      else if (fb < 8) setModule(fb + 1, 8, set);
+      else setModule(8, 14 - fb, set);
+      if (fb < 8) setModule(8, 20 - fb, set);
+      else setModule(21 - 15 + fb, 8, set);
+    }
+
+    var path = [];
+    for (var y = 0; y < 21; y++) for (var x = 0; x < 21; x++) {
+      if (matrix[y][x]) path.push('M' + (x + 4) + ' ' + (y + 4) + 'h1v1h-1z');
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 29" role="img" aria-label="QR ' +
+      wmsSkuEscape(text) + '"><rect width="29" height="29" fill="#fff"/><path d="' +
+      path.join('') + '" fill="#0f172a"/></svg>';
+  }
+
+  function reloadWmsSkus() {
+    if (!window.HAP_IS_AUTHED || !window.HAP_IS_AUTHED()) return;
+    var body = document.getElementById('wms-sku-body');
+    var button = document.getElementById('wms-sku-reload');
+    var status = document.getElementById('wms-sku-load-status');
+    if (button.disabled) return;
+    if (typeof google === 'undefined' || !google.script || !google.script.run) {
+      status.textContent = 'Không thể kết nối Apps Script.';
+      window.showToast(status.textContent, 'error');
+      return;
+    }
+
+    var requestId = ++wmsSkuLoadRequestId;
+    button.disabled = true;
+    button.textContent = 'Đang tải...';
+    status.textContent = 'Đang tải lại danh sách SKU...';
+    document.getElementById('wms-sku-table-wrap').setAttribute('aria-busy', 'true');
+    if (!wmsSkuRows.length) {
+      body.innerHTML = '<tr><td colspan="' + (wmsSkuVisibleColumns().length + 2) +
+        '" class="wsku-muted">Đang tải dữ liệu SKU...</td></tr>';
+    }
+
+    function finishLoad(message) {
+      if (requestId !== wmsSkuLoadRequestId) return;
+      button.disabled = false;
+      button.textContent = 'Tải lại';
+      status.textContent = message;
+      document.getElementById('wms-sku-table-wrap').removeAttribute('aria-busy');
+    }
+
+    try {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (requestId !== wmsSkuLoadRequestId) return;
+          if (!res || !res.success) {
+            var message = res && res.message ? res.message : 'Không tải được danh sách SKU.';
+            finishLoad('Tải dữ liệu thất bại.');
+            if (!wmsSkuRows.length) {
+              body.innerHTML = '<tr><td colspan="' + (wmsSkuVisibleColumns().length + 2) +
+                '" class="wsku-muted">Không tải được dữ liệu.</td></tr>';
+            }
+            if (window.HAP_handleAuthFailure_(res)) return;
+            window.showToast(message, 'error');
+            return;
+          }
+          wmsSkuRows = Array.isArray(res.list) ? res.list : [];
+          var availableIds = {};
+          wmsSkuRows.forEach(function(item) { availableIds[item.sku_id] = true; });
+          Object.keys(wmsSkuSelected).forEach(function(skuId) {
+            if (!availableIds[skuId]) delete wmsSkuSelected[skuId];
+          });
+          wmsSkuPermissions = res.permissions || { create:false, update:false, delete:false };
+          wmsSkuRefreshSuggestions();
+          document.getElementById('wms-sku-create').style.display = wmsSkuPermissions.create ? '' : 'none';
+          document.getElementById('wms-sku-import-open').style.display = wmsSkuPermissions.create ? '' : 'none';
+          wmsSkuRender();
+          finishLoad('Đã tải ' + wmsSkuRows.length + ' SKU.');
+        })
+        .withFailureHandler(function(err) {
+          if (requestId !== wmsSkuLoadRequestId) return;
+          finishLoad('Tải dữ liệu thất bại.');
+          if (!wmsSkuRows.length) {
+            body.innerHTML = '<tr><td colspan="' + (wmsSkuVisibleColumns().length + 2) +
+              '" class="wsku-muted">Lỗi kết nối máy chủ.</td></tr>';
+          }
+          window.showToast('Lỗi kết nối máy chủ: ' + (err && err.message ? err.message : err), 'error');
+        })
+        .handleApiRoute('WMS', 'listSkus', {
+          token: window.HAP_TOKEN(),
+          searchKey: ''
+        });
+    } catch (err) {
+      finishLoad('Không thể gửi yêu cầu tải dữ liệu.');
+      window.showToast('Không thể tải danh sách SKU: ' + (err && err.message ? err.message : err), 'error');
+    }
+  }
+
+  function wmsSkuColumnDefinitions() {
+    return [
+        { key:'identity', label:'Mã SKU & Mã hàng', className:'identity', value:function(item) {
+          return '<div class="wsku-cell-main">' + wmsSkuEscape(item.sku_id) + '</div>' +
+            '<div class="wsku-cell-secondary">Mã hàng: <strong>' + wmsSkuEscape(item.short_name) + '</strong></div>';
+        } },
+        { key:'item', label:'Tên & Nhóm hàng', className:'item', value:function(item) {
+          return '<div class="wsku-cell-main">' + wmsSkuEscape(item.sku_name) + '</div>' +
+            '<div class="wsku-cell-secondary">' + wmsSkuEscape(item.category_code) +
+            (item.sub_category ? ' · ' + wmsSkuEscape(item.sub_category) : '') + '</div>' +
+            (item.sku_description
+              ? '<div class="wsku-cell-secondary">' + wmsSkuEscape(item.sku_description) + '</div>' : '');
+        } },
+        { key:'units', label:'Đơn vị & Quy cách', className:'units', value:function(item) {
+          var ratio = wmsSkuFormatNumber(item.pack_ratio);
+          var packaging = item.uom_pack
+            ? wmsSkuEscape(item.uom_pack) + (ratio ? ' (' + ratio + ' ' + wmsSkuEscape(item.uom_base) + ')' : '')
+            : '';
+          return '<div class="wsku-cell-main">' + wmsSkuEscape(item.uom_base) + '</div>' +
+            (packaging ? '<div class="wsku-cell-secondary">Đóng gói: ' + packaging + '</div>' : '');
+        } },
+        { key:'stock', label:'Tồn kho & Bảo quản', className:'stock', value:function(item) {
+          var unit = String(item.uom_base || '').trim();
+          var min = wmsSkuFormatNumber(item.min_stock);
+          var max = wmsSkuFormatNumber(item.max_stock);
+          var levels = [];
+          if (min) levels.push('Tối thiểu: ' + min + (unit ? ' ' + wmsSkuEscape(unit) : ''));
+          if (max) levels.push('Tối đa: ' + max + (unit ? ' ' + wmsSkuEscape(unit) : ''));
+          if (item.shelf_life_days !== '' && item.shelf_life_days != null) {
+            levels.push('HSD: ' + wmsSkuFormatNumber(item.shelf_life_days) + ' ngày');
+          }
+          return (levels.length ? '<div class="wsku-cell-secondary">' + levels.join('<br>') + '</div>' : '') +
+            (item.storage_condition
+              ? '<div class="wsku-cell-secondary">Bảo quản: ' + wmsSkuEscape(item.storage_condition) + '</div>' : '') ||
+            '<span class="wsku-muted">—</span>';
+        } },
+        { key:'tracking', label:'Theo dõi lô/HSD/QC', className:'tracking', value:function(item) {
+          var tags = [];
+          if (wmsSkuFlag(item.is_batch_managed)) tags.push('Lô');
+          if (wmsSkuFlag(item.is_expiry_managed)) tags.push('HSD');
+          if (wmsSkuFlag(item.qc_inspection_req)) tags.push('QC');
+          return tags.length ? tags.map(function(tag) {
+            return '<span class="wsku-cell-value">' + tag + '</span>';
+          }).join('') : '<span class="wsku-muted">Không</span>';
+        } },
+        { key:'status', label:'Trạng thái', className:'status', value:function(item) {
+          var active = String(item.status || '').toUpperCase() === 'ACTIVE';
+          return '<span class="wsku-badge' + (active ? '' : ' off') + '">' +
+            (active ? 'Đang hoạt động' : 'Ngừng hoạt động') + '</span>';
+        } }
+      ];
+    }
+
+    function wmsSkuVisibleColumns() {
+      return wmsSkuColumnDefinitions().filter(function(column) {
+        return wmsSkuColumns[column.key];
+    });
+    }
+
+    function wmsSkuFormatNumber(value) {
+      if (value === '' || value == null || !isFinite(Number(value))) return '';
+      return new Intl.NumberFormat('vi-VN', { maximumFractionDigits:8 }).format(Number(value));
+    }
+
+  function wmsSkuRenderHeader() {
+    var columns = wmsSkuVisibleColumns();
+    document.getElementById('wms-sku-head').innerHTML =
+      '<tr><th>' + (wmsSkuPermissions.delete
+        ? '<input type="checkbox" id="wms-sku-select-page" aria-label="Chọn tất cả SKU trang này" onchange="wmsSkuSelectPage(this.checked)">'
+        : '') + '</th>' +
+      columns.map(function(column) {
+        return '<th data-column="' + column.key + '">' + wmsSkuEscape(column.label) + '</th>';
+      }).join('') + '<th aria-label="Thao tác"></th></tr>';
+  }
+
+  function wmsSkuSetColumn(input) {
+    wmsSkuColumns[input.getAttribute('data-column')] = input.checked;
+    wmsSkuRenderHeader();
+    wmsSkuRender();
+  }
+
+  function wmsSkuToggleColumnMenu() {
+    var menu = document.getElementById('wms-sku-column-menu');
+    var button = document.getElementById('wms-sku-column-menu-button');
+    var isOpen = menu.classList.toggle('open');
+    button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+
+  function wmsSkuSetPageSize(value) {
+    var pageSize = Number(value);
+    if ([15, 30, 50, 100].indexOf(pageSize) < 0) return;
+    wmsSkuPageSize = pageSize;
+    wmsSkuPageNumber = 1;
+    wmsSkuRender();
+  }
+
+  function wmsSkuRender() {
+    var body = document.getElementById('wms-sku-body');
+    var columns = wmsSkuVisibleColumns();
+    wmsSkuRenderHeader();
+    var keyword = document.getElementById('wms-sku-search').value.trim().toLowerCase();
+    wmsSkuVisibleRows = wmsSkuRows.filter(function(item) {
+      return !keyword || [
+        item.sku_id, item.sku_name, item.sku_description, item.short_name, item.barcode,
+        item.category_code, item.sub_category, item.uom_base
+      ].join(' ').toLowerCase().indexOf(keyword) !== -1;
+    });
+    var pageCount = Math.max(1, Math.ceil(wmsSkuVisibleRows.length / wmsSkuPageSize));
+    wmsSkuPageNumber = Math.min(wmsSkuPageNumber, pageCount);
+    var start = (wmsSkuPageNumber - 1) * wmsSkuPageSize;
+    var pageRows = wmsSkuVisibleRows.slice(start, start + wmsSkuPageSize);
+    document.getElementById('wms-sku-page').textContent =
+      (wmsSkuVisibleRows.length ? (start + 1) + '–' + Math.min(start + wmsSkuPageSize, wmsSkuVisibleRows.length) : '0') +
+      ' / ' + wmsSkuVisibleRows.length;
+    document.getElementById('wms-sku-prev').disabled = wmsSkuPageNumber <= 1;
+    document.getElementById('wms-sku-next').disabled = wmsSkuPageNumber >= pageCount;
+    var selectedIds = Object.keys(wmsSkuSelected);
+    var selectionToolbar = document.getElementById('wms-sku-selection-toolbar');
+    selectionToolbar.style.display = selectedIds.length && wmsSkuPermissions.delete ? 'flex' : 'none';
+    document.getElementById('wms-sku-selection-count').textContent =
+      selectedIds.length + ' SKU đã chọn';
+    var selectPage = document.getElementById('wms-sku-select-page');
+    var selectedOnPage = pageRows.filter(function(item) { return !!wmsSkuSelected[item.sku_id]; }).length;
+    if (selectPage) {
+      selectPage.checked = pageRows.length > 0 && selectedOnPage === pageRows.length;
+      selectPage.indeterminate = selectedOnPage > 0 && selectedOnPage < pageRows.length;
+    }
+    if (!pageRows.length) {
+      body.innerHTML = '<tr><td colspan="' + (columns.length + 2) +
+        '" class="wsku-muted">Chưa có SKU phù hợp.</td></tr>';
+      return;
+    }
+    body.innerHTML = pageRows.map(function(item) {
+      var rowIndex = wmsSkuRows.indexOf(item);
+      return '<tr><td>' + (wmsSkuPermissions.delete
+        ? '<input type="checkbox" data-sku-select="' + wmsSkuEscape(item.sku_id) +
+        '" aria-label="Chọn SKU ' + wmsSkuEscape(item.sku_name) + '"' +
+        (wmsSkuSelected[item.sku_id] ? ' checked' : '') +
+        ' onchange="wmsSkuSelectOne(this)">'
+        : '') + '</td>' + columns.map(function(column) {
+        return '<td class="wsku-cell-' + column.className + '">' + column.value(item) + '</td>';
+      }).join('') +
+        '<td><div style="display:flex;align-items:center;gap:3px;">' +
+        '<button class="wsku-action-icon" type="button" title="Xem QR" aria-label="Xem QR ' +
+        wmsSkuEscape(item.sku_name) + '" onclick="wmsSkuOpenQr(' + rowIndex + ')">' +
+        '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.6"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.6"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.6"/><path d="M14 14h3v3h-3zm4 4h3v3h-3zm0-4h3m-7 7h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
+        (wmsSkuPermissions.update ? '<button class="wsku-action-icon" type="button" title="Sửa SKU" aria-label="Sửa SKU ' +
+        wmsSkuEscape(item.sku_name) + '" onclick="wmsSkuOpenForm(' + rowIndex + ')">' +
+        '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m14 5 5 5M4 20l4.2-.8L19 8.4 15.6 5 4.8 15.8 4 20Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' : '') +
+        (wmsSkuPermissions.delete ? '<button class="wsku-action-icon" type="button" title="Đánh dấu xóa SKU" aria-label="Đánh dấu xóa SKU ' +
+          wmsSkuEscape(item.sku_name) + '" onclick="wmsSkuDelete(' + wmsSkuRows.indexOf(item) + ')">' +
+          '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M5.5 7l1 13h11l1-13M9 7V4h6v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' : '') +
+        '</div></td></tr>';
+    }).join('');
+  }
+
+  function wmsSkuSelectOne(input) {
+    var skuId = input.getAttribute('data-sku-select');
+    if (input.checked) {
+      if (!wmsSkuSelected[skuId] && Object.keys(wmsSkuSelected).length >= 200) {
+        window.showToast('Mỗi lần chỉ chọn tối đa 200 SKU để xóa.', 'warning');
+        wmsSkuRender();
+        return;
+      }
+      wmsSkuSelected[skuId] = true;
+    } else delete wmsSkuSelected[skuId];
+    wmsSkuRender();
+  }
+
+  function wmsSkuSelectPage(checked) {
+    var keyword = document.getElementById('wms-sku-search').value.trim().toLowerCase();
+    var filtered = wmsSkuRows.filter(function(item) {
+      return !keyword || [
+        item.sku_id, item.sku_name, item.sku_description, item.short_name, item.barcode,
+        item.category_code, item.sub_category, item.uom_base
+      ].join(' ').toLowerCase().indexOf(keyword) !== -1;
+    });
+    var start = (wmsSkuPageNumber - 1) * wmsSkuPageSize;
+    var pageRows = filtered.slice(start, start + wmsSkuPageSize);
+    var additions = checked ? pageRows.filter(function(item) {
+      return !wmsSkuSelected[item.sku_id];
+    }) : [];
+    var availableSlots = 200 - Object.keys(wmsSkuSelected).length;
+    if (additions.length > availableSlots) {
+      window.showToast('Mỗi lần chỉ chọn tối đa 200 SKU để xóa. Hãy bỏ chọn bớt trước.', 'warning');
+      return;
+    }
+    pageRows.forEach(function(item) {
+      if (checked) wmsSkuSelected[item.sku_id] = true;
+      else delete wmsSkuSelected[item.sku_id];
+    });
+    wmsSkuRender();
+  }
+
+  function wmsSkuDeleteSelected() {
+    var selectedIds = Object.keys(wmsSkuSelected);
+    if (!selectedIds.length || !wmsSkuPermissions.delete) return;
+    var selectedRows = selectedIds.map(function(skuId) {
+      return wmsSkuRows.find(function(item) { return item.sku_id === skuId; });
+    }).filter(Boolean);
+    window.showEMPConfirm('Đánh dấu xóa ' + selectedRows.length +
+      ' SKU đã chọn? Dòng dữ liệu vẫn được giữ trong sheet.', function() {
+      var button = document.getElementById('wms-sku-bulk-delete');
+      button.disabled = true;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          button.disabled = false;
+          if (!res || !res.success) {
+            window.showToast(res && res.message ? res.message : 'Không xóa được các SKU đã chọn.', 'error');
+            return;
+          }
+          var deleted = {};
+          (res.deleted || []).forEach(function(item) { deleted[item.sku_id] = true; });
+          wmsSkuRows = wmsSkuRows.filter(function(item) { return !deleted[item.sku_id]; });
+          Object.keys(deleted).forEach(function(skuId) { delete wmsSkuSelected[skuId]; });
+          wmsSkuRender();
+          if (res.errors && res.errors.length) {
+            var details = res.errors.slice(0, 3).map(function(item) {
+              return (item.sku_id ? item.sku_id + ': ' : '') + item.message;
+            }).join(' | ');
+            var remaining = res.errors.length > 3
+              ? ' Còn ' + (res.errors.length - 3) + ' lỗi khác.' : '';
+            window.showToast(res.message + ' Lỗi: ' + details + remaining, 'warning');
+            if (res.errors.some(function(item) { return item.code === 'STALE_RECORD'; })) {
+              reloadWmsSkus();
+            }
+          } else {
+            window.showToast(res.message, 'success');
+          }
+        })
+        .withFailureHandler(function(err) {
+          button.disabled = false;
+          window.showToast('Lỗi kết nối máy chủ: ' + (err && err.message ? err.message : err), 'error');
+        })
+        .handleApiRoute('WMS', 'deleteSkus', {
+          token: window.HAP_TOKEN(),
+          records: selectedRows.map(function(item) {
+            return { sku_id: item.sku_id, expected_updated_at: item.updated_at || '' };
+          })
+        });
+    });
+  }
+
+  function wmsSkuExportExcel() {
+    var keyword = document.getElementById('wms-sku-search').value.trim().toLowerCase();
+    var rows = wmsSkuRows.filter(function(item) {
+      return !keyword || [
+        item.sku_id, item.sku_name, item.sku_description, item.short_name, item.barcode,
+        item.category_code, item.sub_category, item.uom_base
+      ].join(' ').toLowerCase().indexOf(keyword) !== -1;
+    });
+    if (!rows.length) {
+      window.showToast('Không có dữ liệu SKU để xuất.', 'warning');
+      return;
+    }
+    var columns = [
+      ['Mã SKU', 'sku_id'], ['Tên hàng', 'sku_name'], ['Mô tả thông số SKU', 'sku_description'],
+      ['Mã hàng', 'short_name'], ['Mã vạch', 'barcode'], ['Nhóm hàng', 'category_code'],
+      ['Nhóm hàng phụ', 'sub_category'], ['Đơn vị cơ sở', 'uom_base'],
+      ['Đơn vị đóng gói', 'uom_pack'], ['Số đơn vị cơ sở/đóng gói', 'pack_ratio'],
+      ['Theo dõi số lô', 'is_batch_managed'], ['Theo dõi hạn sử dụng', 'is_expiry_managed'],
+      ['Hạn sử dụng (ngày)', 'shelf_life_days'], ['Bắt buộc kiểm tra QC', 'qc_inspection_req'],
+      ['Tồn tối thiểu', 'min_stock'], ['Tồn tối đa', 'max_stock'],
+      ['Điều kiện bảo quản', 'storage_condition'], ['Trạng thái', 'status']
+    ];
+    var html = '<html><head><meta charset="utf-8"></head><body><table border="1"><colgroup>' +
+      columns.map(function() { return '<col style="mso-number-format:&quot;\\@&quot;">'; }).join('') +
+      '</colgroup><thead><tr>' + columns.map(function(column) {
+        return '<th style="background:#dbeafe;font-weight:bold">' +
+          wmsSkuEscape(column[0]) + '</th>';
+      }).join('') + '</tr></thead><tbody>' +
+      rows.map(function(item) {
+        return '<tr>' + columns.map(function(column) {
+          var value = item[column[1]];
+          if (['is_batch_managed', 'is_expiry_managed', 'qc_inspection_req'].indexOf(column[1]) >= 0) {
+            value = wmsSkuFlag(value) ? 'Có' : 'Không';
+          } else if (column[1] === 'status') {
+            value = String(value || '').toUpperCase() === 'ACTIVE' ? 'Đang hoạt động' : 'Ngừng hoạt động';
+          } else if (['pack_ratio', 'shelf_life_days', 'min_stock', 'max_stock'].indexOf(column[1]) >= 0) {
+            value = wmsSkuFormatNumber(value);
+          }
+          var cellText = String(value == null ? '' : value);
+          if (/^[=+\-@]/.test(cellText)) cellText = "'" + cellText;
+          return '<td style="mso-number-format:&quot;\\@&quot;">' +
+            wmsSkuEscape(cellText) + '</td>';
+        }).join('') + '</tr>';
+      }).join('') + '</tbody></table></body></html>';
+    var blob = new Blob(['\ufeff', html], { type:'application/vnd.ms-excel;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = 'Danh_sach_ma_hang_SKU.xls';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+    window.showToast('Đã xuất ' + rows.length + ' SKU ra Excel.', 'success');
+  }
+
+  function wmsSkuDelete(index) {
+    var item = wmsSkuRows[index];
+    if (!item) return;
+    window.showEMPConfirm('Đánh dấu xóa SKU "' + item.sku_name +
+      '"? Dòng dữ liệu vẫn được giữ trong sheet.', function() {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) {
+            window.showToast(res && res.message ? res.message : 'Không đánh dấu xóa được SKU.', 'error');
+            if (res && res.code === 'STALE_RECORD') reloadWmsSkus();
+            return;
+          }
+          wmsSkuRows = wmsSkuRows.filter(function(row) { return row.sku_id !== item.sku_id; });
+          wmsSkuRender();
+          window.showToast(res.message || 'Đã đánh dấu xóa SKU.', 'success');
+        })
+        .withFailureHandler(function(err) {
+          window.showToast('Lỗi kết nối máy chủ: ' + (err && err.message ? err.message : err), 'error');
+        })
+        .handleApiRoute('WMS', 'deleteSku', {
+          token: window.HAP_TOKEN(),
+          skuId: item.sku_id,
+          expectedUpdatedAt: item.updated_at || ''
+        });
+      });
+  }
+
+  function wmsSkuChangePage(delta) {
+    wmsSkuPageNumber += delta;
+    wmsSkuRender();
+  }
+
+  document.addEventListener('click', function(event) {
+    var menu = document.getElementById('wms-sku-column-menu');
+    var button = document.getElementById('wms-sku-column-menu-button');
+    if (!menu || !button || menu.contains(event.target) || button.contains(event.target)) return;
+    menu.classList.remove('open');
+    button.setAttribute('aria-expanded', 'false');
+  });
+
+  function wmsSkuOpenQr(index) {
+    var item = wmsSkuRows[index];
+    if (!item || !item.sku_id) return;
+    try {
+      wmsSkuQrId = String(item.sku_id);
+      wmsSkuQrSvg = wmsSkuQrSvgFor(wmsSkuQrId);
+      document.getElementById('wms-sku-qr-image').innerHTML = wmsSkuQrSvg;
+      document.getElementById('wms-sku-qr-value').textContent = wmsSkuQrId;
+      document.getElementById('wms-sku-qr-modal').style.display = 'flex';
+    } catch (err) {
+      window.showToast('Không tạo được QR: ' + err.message, 'error');
+    }
+  }
+
+  function wmsSkuCloseQr() {
+    document.getElementById('wms-sku-qr-modal').style.display = 'none';
+  }
+
+  function wmsSkuDownloadQr() {
+    if (!wmsSkuQrSvg || !wmsSkuQrId) return;
+    var blob = new Blob([wmsSkuQrSvg], { type:'image/svg+xml;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = wmsSkuQrId + '-QR.svg';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function wmsSkuSetValue(id, value) {
+    document.getElementById(id).value = value == null ? '' : value;
+  }
+
+  function wmsSkuPopulateDatalist(id, values) {
+    var list = document.getElementById(id);
+    while (list.firstChild) list.removeChild(list.firstChild);
+    values.forEach(function(value) {
+      if (!value) return;
+      var option = document.createElement('option');
+      option.value = value;
+      list.appendChild(option);
+    });
+  }
+
+  function wmsSkuRefreshSuggestions() {
+    wmsSkuPopulateDatalist('wms-sku-code-options', wmsSkuRows.map(function(item) {
+      return item.short_name;
+    }));
+    wmsSkuPopulateDatalist('wms-sku-name-options', wmsSkuRows.map(function(item) {
+      return item.sku_name;
+    }));
+  }
+
+  function wmsSkuParsePastedRows(text) {
+    var rows = [];
+    var row = [];
+    var cell = '';
+    var quoted = false;
+    for (var i = 0; i < text.length; i++) {
+      var character = text.charAt(i);
+      if (character === '"') {
+        if (quoted && text.charAt(i + 1) === '"') {
+          cell += '"';
+          i++;
+        } else {
+          quoted = !quoted;
+        }
+      } else if (character === '\t' && !quoted) {
+        row.push(cell);
+        cell = '';
+      } else if ((character === '\n' || character === '\r') && !quoted) {
+        if (character === '\r' && text.charAt(i + 1) === '\n') i++;
+        row.push(cell);
+        if (row.some(function(value) { return value.trim() !== ''; })) rows.push(row);
+        row = [];
+        cell = '';
+      } else {
+        cell += character;
+      }
+    }
+    row.push(cell);
+    if (row.some(function(value) { return value.trim() !== ''; })) rows.push(row);
+    if (rows.length && rows[0][0].replace(/^\uFEFF/, '').trim().toLowerCase() === 'nhóm hàng') {
+      rows.shift();
+    }
+    return rows;
+  }
+
+  function wmsSkuImportRecords(text) {
+    return wmsSkuParsePastedRows(text).filter(function(row) {
+      return !String(row[2] || '').trim().toLocaleLowerCase().startsWith('ví dụ:');
+    }).map(function(row) {
+      return {
+        category_code: row[0] || '',
+        short_name: row[1] || '',
+        sku_name: row[2] || '',
+        sub_category: row[3] || '',
+        sku_description: row[4] || '',
+        uom_base: row[5] || '',
+        uom_pack: row[6] || '',
+        pack_ratio: row[7] || '',
+        shelf_life_days: row[8] || '',
+        storage_condition: row[9] || '',
+        min_stock: row[10] || '',
+        max_stock: row[11] || '',
+        is_batch_managed: row[12] || '',
+        is_expiry_managed: row[13] || '',
+        qc_inspection_req: row[14] || '',
+        status: row[15] || 'ACTIVE'
+      };
+    });
+  }
+
+  function wmsSkuImportComparableCode(value) {
+    var code = String(value == null ? '' : value).replace(/^'/, '').trim().toUpperCase();
+    var match = code.match(/^0*(\d{1,3})\.(\d{1,4})$/);
+    return match
+      ? String(Number(match[1])).padStart(3, '0') + '.' + String(Number(match[2])).padStart(4, '0')
+      : code;
+  }
+
+  function wmsSkuImportSuggestedCodes(records, existingRows) {
+    var highestByCategory = {};
+    (existingRows || []).forEach(function(item) {
+      var category = String(item.category_code || '');
+      var prefix = category.substring(0, 3);
+      var code = wmsSkuImportComparableCode(item.short_name);
+      var match = code.match(/^(\d{3})\.(\d{4})$/);
+      if (match && match[1] === prefix) {
+        highestByCategory[prefix] = Math.max(highestByCategory[prefix] || 0, Number(match[2]));
+      }
+    });
+    return records.map(function(record) {
+      var prefix = wmsSkuImportCategories.indexOf(record.category_code) < 0
+        ? '' : record.category_code.substring(0, 3);
+      if (!prefix) return '';
+      var next = (highestByCategory[prefix] || 0) + 1;
+      if (record.short_name) {
+        var match = wmsSkuImportComparableCode(record.short_name).match(/^(\d{3})\.(\d{4})$/);
+        if (match && match[1] === prefix) highestByCategory[prefix] = Math.max(highestByCategory[prefix] || 0, Number(match[2]));
+        return '';
+      }
+      highestByCategory[prefix] = next;
+      return next <= 9999 ? prefix + '.' + String(next).padStart(4, '0') : '';
+    });
+  }
+
+  function wmsSkuImportValidate(records, existingRows) {
+    var errors = records.map(function() { return []; });
+    var categories = wmsSkuImportCategories;
+    var seenCodes = {};
+    var seenNames = {};
+    (existingRows || []).forEach(function(item) {
+      var code = wmsSkuImportComparableCode(item.short_name);
+      var name = String(item.sku_name || '').trim().toLocaleLowerCase();
+      if (code) seenCodes[code] = true;
+      if (name) seenNames[name] = true;
+    });
+    records.forEach(function(record, index) {
+      if (record._server_error) errors[index].push(record._server_error);
+      if (categories.indexOf(String(record.category_code || '').trim()) < 0) {
+        errors[index].push('Nhóm hàng không hợp lệ hoặc chưa nhập.');
+      }
+      var name = String(record.sku_name || '').trim().toLocaleLowerCase();
+      if (!name) errors[index].push('Thiếu tên hàng.');
+      else if (seenNames[name]) errors[index].push('Tên hàng bị trùng.');
+      else seenNames[name] = true;
+      if (!String(record.uom_base || '').trim()) errors[index].push('Thiếu đơn vị cơ sở.');
+
+      var code = wmsSkuImportComparableCode(record.short_name);
+      if (code && seenCodes[code]) errors[index].push('Mã hàng bị trùng.');
+      else if (code) seenCodes[code] = true;
+
+      ['pack_ratio', 'shelf_life_days', 'min_stock', 'max_stock'].forEach(function(field) {
+        if (record[field] === '' || record[field] == null) return;
+        var number = Number(record[field]);
+        if (!isFinite(number) || number < 0 || (field === 'pack_ratio' && number === 0)) {
+          errors[index].push({
+            pack_ratio: 'Số lượng/đóng gói phải lớn hơn 0.',
+            shelf_life_days: 'Hạn sử dụng phải là số không âm.',
+            min_stock: 'Tồn tối thiểu phải là số không âm.',
+            max_stock: 'Tồn tối đa phải là số không âm.'
+          }[field]);
+        }
+      });
+      if (record.min_stock !== '' && record.max_stock !== '' &&
+          Number(record.min_stock) > Number(record.max_stock)) {
+        errors[index].push('Tồn tối thiểu lớn hơn tồn tối đa.');
+      }
+      ['is_batch_managed', 'is_expiry_managed', 'qc_inspection_req'].forEach(function(field) {
+        var flag = String(record[field] || '').trim().toUpperCase();
+        if (flag && ['TRUE', 'FALSE', 'Y', 'N', '1', '0'].indexOf(flag) < 0) {
+          errors[index].push('Giá trị theo dõi lô/HSD/QC phải là Có/Không.');
+        }
+      });
+      if (record.status && ['ACTIVE', 'INACTIVE'].indexOf(String(record.status).toUpperCase()) < 0) {
+        errors[index].push('Trạng thái phải là ACTIVE hoặc INACTIVE.');
+      }
+    });
+    return errors;
+  }
+
+  function wmsSkuImportFieldInput(index, field, value, placeholder) {
+    return '<input type="text" data-row="' + index + '" data-field="' + field +
+      '" oninput="wmsSkuImportEdit(this)" value="' + wmsSkuEscape(value) +
+      '" placeholder="' + wmsSkuEscape(placeholder || '') + '">';
+  }
+
+  function wmsSkuRenderImportPreview() {
+    var wrapper = document.getElementById('wms-sku-import-preview');
+    var body = document.getElementById('wms-sku-import-preview-body');
+    var button = document.getElementById('wms-sku-import-submit');
+    var summary = document.getElementById('wms-sku-import-summary');
+    wrapper.hidden = !wmsSkuImportDraft.length;
+    if (!wmsSkuImportDraft.length) {
+      body.innerHTML = '';
+      button.disabled = true;
+      summary.textContent = 'Dán dữ liệu để xem trước và kiểm tra.';
+      return;
+    }
+    var records = wmsSkuImportDraft;
+    var errors = wmsSkuImportValidate(records, wmsSkuRows);
+    var suggestions = wmsSkuImportSuggestedCodes(records, wmsSkuRows);
+    var fields = [
+      ['category_code', 'Nhóm hàng'], ['short_name', 'Mã hàng'],
+      ['sku_name', 'Tên hàng'], ['sub_category', 'Nhóm phụ'],
+      ['sku_description', 'Mô tả'], ['uom_base', 'Đơn vị cơ sở'],
+      ['uom_pack', 'Đóng gói'], ['pack_ratio', 'Số lượng/đóng gói'],
+      ['shelf_life_days', 'HSD ngày'], ['storage_condition', 'Bảo quản'],
+      ['min_stock', 'Tồn tối thiểu'], ['max_stock', 'Tồn tối đa'],
+      ['is_batch_managed', 'Theo dõi lô'], ['is_expiry_managed', 'Theo dõi HSD'],
+      ['qc_inspection_req', 'QC'], ['status', 'Trạng thái']
+    ];
+    body.innerHTML = records.map(function(record, index) {
+      var cells = fields.map(function(field) {
+        var value = record[field[0]] == null ? '' : record[field[0]];
+        var placeholder = field[0] === 'short_name' && !value
+          ? 'Tự sinh: ' + (suggestions[index] || 'không còn mã') : '';
+        return '<td>' + wmsSkuImportFieldInput(index, field[0], value, placeholder) + '</td>';
+      }).join('');
+      return '<tr id="wms-sku-import-row-' + index + '" class="' +
+        (errors[index].length ? 'wsku-import-invalid' : '') + '">' +
+        '<td>' + (index + 1) + '</td>' + cells +
+        '<td class="wsku-import-errors' + (errors[index].length ? '' : ' ok') +
+        '" id="wms-sku-import-errors-' + index + '">' +
+        (errors[index].length ? wmsSkuEscape(errors[index].join(' ')) : 'Hợp lệ') + '</td>' +
+        '<td><button class="wsku-btn" type="button" onclick="wmsSkuRemoveImportRow(' + index +
+        ')">Bỏ dòng</button></td></tr>';
+    }).join('');
+    var invalidCount = errors.filter(function(rowErrors) { return rowErrors.length > 0; }).length;
+    var canImport = !wmsSkuImportOverflow && invalidCount === 0;
+    button.disabled = !canImport;
+    summary.textContent = records.length + ' dòng xem trước; ' +
+      (wmsSkuImportOverflow ? 'dữ liệu vượt 200 dòng, hãy giảm số dòng rồi tạo lại bản xem trước.' :
+        invalidCount ? invalidCount + ' dòng cần sửa.' : 'tất cả dòng hợp lệ.');
+  }
+
+  function wmsSkuImportEdit(input) {
+    var index = Number(input.getAttribute('data-row'));
+    var field = input.getAttribute('data-field');
+    if (!wmsSkuImportDraft[index] || !field) return;
+    wmsSkuImportDraft[index][field] = input.value;
+    wmsSkuImportDraft[index]._server_error = '';
+    var errors = wmsSkuImportValidate(wmsSkuImportDraft, wmsSkuRows);
+    var row = document.getElementById('wms-sku-import-row-' + index);
+    var errorCell = document.getElementById('wms-sku-import-errors-' + index);
+    row.className = errors[index].length ? 'wsku-import-invalid' : '';
+    errorCell.className = 'wsku-import-errors' + (errors[index].length ? '' : ' ok');
+    errorCell.textContent = errors[index].length ? errors[index].join(' ') : 'Hợp lệ';
+    var count = errors.filter(function(rowErrors) { return rowErrors.length > 0; }).length;
+    document.getElementById('wms-sku-import-submit').disabled =
+      wmsSkuImportOverflow || count > 0;
+    document.getElementById('wms-sku-import-summary').textContent =
+      wmsSkuImportDraft.length + ' dòng xem trước; ' +
+      (wmsSkuImportOverflow ? 'dữ liệu vượt 200 dòng, hãy giảm số dòng rồi tạo lại bản xem trước.' :
+        count ? count + ' dòng cần sửa.' : 'tất cả dòng hợp lệ.');
+  }
+
+  function wmsSkuRemoveImportRow(index) {
+    wmsSkuImportDraft.splice(index, 1);
+    wmsSkuRenderImportPreview();
+  }
+
+  function wmsSkuBuildImportPreview() {
+    var text = document.getElementById('wms-sku-import-data').value;
+    var records = wmsSkuImportRecords(text);
+    wmsSkuImportOverflow = records.length > 200;
+    wmsSkuImportDraft = records.slice(0, 200);
+    document.getElementById('wms-sku-import-message').textContent = '';
+    wmsSkuRenderImportPreview();
+  }
+
+  function wmsSkuOpenImport() {
+    document.getElementById('wms-sku-import-data').value = '';
+    document.getElementById('wms-sku-import-message').textContent = '';
+    wmsSkuImportDraft = [];
+    wmsSkuImportOverflow = false;
+    wmsSkuRenderImportPreview();
+    document.getElementById('wms-sku-import-modal').style.display = 'flex';
+  }
+
+  function wmsSkuCloseImport() {
+    document.getElementById('wms-sku-import-modal').style.display = 'none';
+    wmsSkuImportDraft = [];
+    wmsSkuImportOverflow = false;
+  }
+
+  function wmsSkuDownloadImportTemplate() {
+    var headers = [
+      'Nhóm hàng', 'Mã hàng (để trống để tự sinh)', 'Tên hàng', 'Nhóm hàng phụ',
+      'Mô tả thông số SKU', 'Đơn vị cơ sở', 'Đơn vị đóng gói', 'Số đơn vị cơ sở/đóng gói',
+      'Hạn sử dụng (ngày)', 'Điều kiện bảo quản', 'Tồn tối thiểu', 'Tồn tối đa',
+      'Theo dõi số lô (TRUE/FALSE)', 'Theo dõi hạn sử dụng (TRUE/FALSE)',
+      'Bắt buộc QC (TRUE/FALSE)', 'Trạng thái (ACTIVE/INACTIVE)'
+    ];
+    var example = [
+      '001 - Thành phẩm', '', 'Ví dụ: Thành phẩm A', '', 'Mô tả thông số sản phẩm',
+      'cái', 'thùng', '1', '', '', '', '', 'FALSE', 'FALSE', 'FALSE', 'ACTIVE'
+    ];
+    var html = '<html><head><meta charset="utf-8"></head><body><table border="1"><colgroup>' +
+      headers.map(function() {
+        return '<col style="mso-number-format:&quot;\\@&quot;">';
+      }).join('') + '</colgroup><thead><tr>' +
+      headers.map(function(value) {
+        return '<th style="background:#dbeafe;font-weight:bold">' + wmsSkuEscape(value) + '</th>';
+      }).join('') + '</tr></thead><tbody><tr>' +
+      example.map(function(value) {
+        return '<td style="mso-number-format:&quot;\\@&quot;">' + wmsSkuEscape(value) + '</td>';
+      }).join('') + '</tr></tbody></table></body></html>';
+    var blob = new Blob(['\ufeff', html], { type:'application/vnd.ms-excel;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = 'Mau_nhap_SKU.xls';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function wmsSkuImport(event) {
+    event.preventDefault();
+    var records = wmsSkuImportDraft;
+    var button = document.getElementById('wms-sku-import-submit');
+    var message = document.getElementById('wms-sku-import-message');
+    if (wmsSkuImportOverflow) {
+      message.textContent = 'Dữ liệu vượt giới hạn 200 dòng. Hãy giảm số dòng rồi tạo lại bản xem trước.';
+      return;
+    }
+    if (!records.length) {
+      message.textContent = 'Không tìm thấy dòng dữ liệu. Hãy dán các dòng đã sao chép từ Excel.';
+      return;
+    }
+    if (records.length > 200) {
+      message.textContent = 'Mỗi lần chỉ nhập tối đa 200 dòng SKU.';
+      return;
+    }
+    var validationErrors = wmsSkuImportValidate(records, wmsSkuRows);
+    if (validationErrors.some(function(rowErrors) { return rowErrors.length > 0; })) {
+      wmsSkuRenderImportPreview();
+      message.textContent = 'Hãy sửa các lỗi hiển thị trong bảng xem trước trước khi nhập.';
+      return;
+    }
+    button.disabled = true;
+    message.textContent = 'Đang nhập ' + records.length + ' dòng...';
+    google.script.run
+      .withSuccessHandler(function(res) {
+        button.disabled = false;
+        if (!res || !res.success) {
+          message.textContent = res && res.message ? res.message : 'Không nhập được dữ liệu SKU.';
+          return;
+        }
+        (res.imported || []).forEach(function(item) {
+          if (item.sku) wmsSkuRows.push(item.sku);
+        });
+        wmsSkuRefreshSuggestions();
+        wmsSkuPageNumber = Math.max(1, Math.ceil(wmsSkuRows.length / wmsSkuPageSize));
+        wmsSkuRender();
+        var errors = res.errors || [];
+        if (errors.length) {
+          var failedRows = {};
+          errors.forEach(function(error) { failedRows[error.row - 1] = error.message; });
+          wmsSkuImportDraft = records.filter(function(record, index) {
+            return Object.prototype.hasOwnProperty.call(failedRows, index);
+          });
+          wmsSkuImportDraft.forEach(function(record) {
+            var originalIndex = records.indexOf(record);
+            record._server_error = failedRows[originalIndex] || '';
+          });
+          document.getElementById('wms-sku-import-data').value = '';
+          wmsSkuRenderImportPreview();
+          message.textContent = res.message + ' Dòng lỗi đã được giữ trong bản xem trước để sửa.';
+        } else {
+          message.textContent = res.message;
+        }
+        if (!errors.length) {
+          wmsSkuCloseImport();
+          window.showToast(res.message, 'success');
+        } else {
+          window.showToast(res.message + ' Có ' + errors.length + ' dòng lỗi.', 'warning');
+        }
+      })
+      .withFailureHandler(function(err) {
+        button.disabled = false;
+        message.textContent = 'Lỗi kết nối máy chủ: ' + (err && err.message ? err.message : err);
+      })
+      .handleApiRoute('WMS', 'importSkus', {
+        token: window.HAP_TOKEN(),
+        records: records
+      });
+  }
+
+  function wmsSkuValidateUniqueField(input) {
+    var field = input.id === 'wms-sku-short-name' ? 'short_name' : 'sku_name';
+    var value = input.value.trim().toLocaleLowerCase();
+    var duplicate = value && wmsSkuRows.some(function(item) {
+      var candidate = String(item[field] || '').trim().toLocaleLowerCase();
+      return candidate === value && (!wmsSkuEditing || item.sku_id !== wmsSkuEditing.sku_id);
+    });
+    input.setCustomValidity(duplicate
+      ? (field === 'short_name' ? 'Mã hàng đã tồn tại.' : 'Tên hàng đã tồn tại.')
+      : '');
+  }
+
+  function wmsSkuCategoryChanged() {
+    var category = document.getElementById('wms-sku-category').value;
+    var codeInput = document.getElementById('wms-sku-short-name');
+    var message = document.getElementById('wms-sku-message');
+    wmsSkuCodeTouched = false;
+    codeInput.value = '';
+    if (!category) {
+      message.textContent = '';
+      return;
+    }
+
+    message.textContent = 'Đang xác định mã hàng tiếp theo...';
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (document.getElementById('wms-sku-category').value !== category) return;
+        if (res && res.success) {
+          var codeSuggestions = wmsSkuRows.map(function(item) { return item.short_name; });
+          codeSuggestions.push(res.short_name);
+          wmsSkuPopulateDatalist('wms-sku-code-options', codeSuggestions);
+          if (!wmsSkuCodeTouched) {
+            codeInput.value = res.short_name;
+            wmsSkuValidateUniqueField(codeInput);
+          }
+          message.textContent = '';
+        } else {
+          message.textContent = res && res.message ? res.message : 'Không xác định được mã hàng gợi ý.';
+        }
+      })
+      .withFailureHandler(function(err) {
+        if (document.getElementById('wms-sku-category').value !== category) return;
+        message.textContent = 'Lỗi kết nối máy chủ: ' + (err && err.message ? err.message : err);
+      })
+      .handleApiRoute('WMS', 'suggestSkuCode', {
+        token: window.HAP_TOKEN(),
+        categoryCode: category
+      });
+  }
+
+  function wmsSkuOpenForm(index) {
+    var item = index < 0 ? null : wmsSkuRows[index];
+    if (index >= 0 && !item) return;
+    wmsSkuEditing = item;
+    wmsSkuCodeTouched = false;
+    document.getElementById('wms-sku-title').textContent = item ? 'Cập nhật SKU' : 'Thêm SKU';
+    [
+      ['wms-sku-name', item && item.sku_name],
+      ['wms-sku-description', item && item.sku_description],
+      ['wms-sku-short-name', item && item.short_name],
+      ['wms-sku-category', item && item.category_code], ['wms-sku-subcategory', item && item.sub_category],
+      ['wms-sku-uom-base', item && item.uom_base], ['wms-sku-uom-pack', item && item.uom_pack],
+      ['wms-sku-pack-ratio', item ? item.pack_ratio : 1], ['wms-sku-shelf-life', item && item.shelf_life_days],
+      ['wms-sku-min-stock', item && item.min_stock], ['wms-sku-max-stock', item && item.max_stock],
+      ['wms-sku-storage', item && item.storage_condition]
+    ].forEach(function(pair) { wmsSkuSetValue(pair[0], pair[1]); });
+    document.getElementById('wms-sku-status').value = item ? String(item.status || 'ACTIVE').toUpperCase() : 'ACTIVE';
+    document.getElementById('wms-sku-batch').checked = item ? wmsSkuFlag(item.is_batch_managed) : false;
+    document.getElementById('wms-sku-expiry').checked = item ? wmsSkuFlag(item.is_expiry_managed) : false;
+    document.getElementById('wms-sku-qc').checked = item ? wmsSkuFlag(item.qc_inspection_req) : false;
+    document.getElementById('wms-sku-message').textContent = '';
+    document.getElementById('wms-sku-modal').style.display = 'flex';
+    if (!item) document.getElementById('wms-sku-category').value = '';
+    wmsSkuValidateUniqueField(document.getElementById('wms-sku-short-name'));
+    wmsSkuValidateUniqueField(document.getElementById('wms-sku-name'));
+  }
+
+  function wmsSkuCloseForm() {
+    document.getElementById('wms-sku-modal').style.display = 'none';
+    wmsSkuEditing = null;
+  }
+
+  function wmsSkuSave(event) {
+    event.preventDefault();
+    var button = document.getElementById('wms-sku-save');
+    var message = document.getElementById('wms-sku-message');
+    button.disabled = true;
+    message.textContent = 'Đang lưu...';
+    var record = {
+      mode: wmsSkuEditing ? 'UPDATE' : 'CREATE',
+      sku_id: wmsSkuEditing ? wmsSkuEditing.sku_id : '',
+      expected_updated_at: wmsSkuEditing ? wmsSkuEditing.updated_at || '' : '',
+      sku_name: document.getElementById('wms-sku-name').value,
+      sku_description: document.getElementById('wms-sku-description').value,
+      short_name: document.getElementById('wms-sku-short-name').value,
+      category_code: document.getElementById('wms-sku-category').value,
+      sub_category: document.getElementById('wms-sku-subcategory').value,
+      uom_base: document.getElementById('wms-sku-uom-base').value,
+      uom_pack: document.getElementById('wms-sku-uom-pack').value,
+      pack_ratio: document.getElementById('wms-sku-pack-ratio').value,
+      is_batch_managed: document.getElementById('wms-sku-batch').checked,
+      is_expiry_managed: document.getElementById('wms-sku-expiry').checked,
+      shelf_life_days: document.getElementById('wms-sku-shelf-life').value,
+      qc_inspection_req: document.getElementById('wms-sku-qc').checked,
+      min_stock: document.getElementById('wms-sku-min-stock').value,
+      max_stock: document.getElementById('wms-sku-max-stock').value,
+      storage_condition: document.getElementById('wms-sku-storage').value,
+      status: document.getElementById('wms-sku-status').value
+    };
+    google.script.run
+      .withSuccessHandler(function(res) {
+        button.disabled = false;
+        message.textContent = res && res.message ? res.message : '';
+        if (res && res.success) {
+          var existingIndex = wmsSkuRows.findIndex(function(row) {
+            return row.sku_id === res.sku_id;
+          });
+          if (existingIndex < 0) {
+            wmsSkuRows.push(res.sku);
+            document.getElementById('wms-sku-search').value = '';
+            wmsSkuPageNumber = Math.ceil(wmsSkuRows.length / wmsSkuPageSize);
+          }
+          else wmsSkuRows[existingIndex] = res.sku;
+          wmsSkuRefreshSuggestions();
+          wmsSkuCloseForm();
+          wmsSkuRender();
+          window.showToast(res.message || 'Đã lưu SKU.', 'success');
+        } else if (res && res.code === 'STALE_RECORD') {
+          window.showToast(res.message, 'warning');
+          reloadWmsSkus();
+        }
+      })
+      .withFailureHandler(function(err) {
+        button.disabled = false;
+        message.textContent = 'Lỗi kết nối máy chủ: ' + (err && err.message ? err.message : err);
+      })
+      .handleApiRoute('WMS', 'saveSku', { token: window.HAP_TOKEN(), record: record });
+  }
+</script>

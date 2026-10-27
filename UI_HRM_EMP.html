@@ -1,0 +1,1115 @@
+<!-- UI_HRM_EMP.html - QUẢN LÝ HỒ SƠ NHÂN VIÊN -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<style>
+  .pagination-btn {
+    background: #ffffff; color: #334155; border: 1px solid #cbd5e1;
+    padding: 6px 12px; border-radius: 6px; font-size: 0.83rem; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+  }
+  .pagination-btn:hover:not(:disabled) { background: #f1f5f9; border-color: #94a3b8; }
+  .pagination-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .pagination-btn.active { background: #2563eb; color: #ffffff; border-color: #2563eb; }
+
+  #toast-container { position: fixed; top: 20px; right: 20px; z-index: 999999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  .toast-card {
+    pointer-events: auto; min-width: 280px; max-width: 380px; padding: 10px 14px; border-radius: 8px;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15); display: flex; align-items: center; gap: 10px;
+    font-size: 0.83rem; font-weight: 500; color: #ffffff; animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .toast-card.success { background: #0f766e; }
+  .toast-card.error { background: #be123c; }
+  .toast-card.warning { background: #b45309; }
+  .toast-card.info { background: #1d4ed8; }
+
+  @keyframes toastIn { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  #tbody-hrm-emp tr { cursor: pointer; transition: background 0.15s; }
+  #tbody-hrm-emp tr:hover { background-color: #f1f5f9 !important; }
+
+  #emp-drawer-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(2px);
+    z-index: 99998; opacity: 0; visibility: hidden; transition: all 0.3s ease;
+  }
+  #emp-drawer-overlay.active { opacity: 1; visibility: visible; }
+
+  /* TỐI ƯU ĐỘ RỘNG SIDE DRAWER & BỐ CỤC HIỂN THỊ TRỌN VẸN */
+  #emp-drawer-panel {
+    position: fixed; top: 0; right: -750px; width: 700px; max-width: 95vw; height: 100vh;
+    background: #ffffff; box-shadow: -10px 0 25px rgba(0, 0, 0, 0.15);
+    z-index: 99999; transition: right 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex; flex-direction: column; font-family: system-ui, -apple-system, sans-serif;
+  }
+  #emp-drawer-panel.active { right: 0; }
+
+  .drawer-avatar {
+    width: 72px; height: 72px; border-radius: 50%; object-fit: cover;
+    border: 3px solid #ffffff; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .status-badge {
+    padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;
+  }
+  .status-badge.active { background: #dcfce7; color: #15803d; }
+  .status-badge.inactive { background: #fee2e2; color: #b91c1c; }
+
+  .info-card {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px;
+  }
+  .info-card-title {
+    font-size: 0.78rem; font-weight: 700; color: #2563eb; text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 10px; display: flex; align-items: center; gap: 6px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 6px;
+  }
+  .info-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  .info-item { display: flex; flex-direction: column; gap: 2px; }
+  .info-label { font-size: 0.73rem; color: #64748b; font-weight: 500; }
+  .info-value { font-size: 0.83rem; color: #0f172a; font-weight: 600; word-break: break-word; }
+</style>
+
+<div style="display: flex; flex-direction: column; gap: 16px;">
+
+  <!-- ACTION BAR -->
+  <div style="background: #ffffff; padding: 14px 16px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1;">
+      <input type="text" id="emp-search-input" placeholder="Tìm kiếm nhanh nhân viên..." onkeyup="filterEMPTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; width: 280px; outline: none;">
+      
+      <select id="emp-status-filter" onchange="filterEMPTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; outline: none; background: #fff;">
+        <option value="">Tất cả Trạng thái</option>
+        <option value="Đang làm việc">Đang làm việc</option>
+        <option value="Đã nghỉ việc">Đã nghỉ việc</option>
+        <option value="Tạm hoãn">Tạm hoãn</option>
+      </select>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; position: relative;">
+      <div style="position: relative;">
+        <button onclick="toggleEMPColDropdown()" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+          <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+          <span>Ẩn/Hiện Cột</span>
+        </button>
+
+        <div id="emp-col-toggle-dropdown" style="display: none; position: absolute; right: 0; top: 105%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); width: 240px; z-index: 100; padding: 10px; max-height: 320px; overflow-y: auto;">
+          <div style="font-weight: 600; font-size: 0.8rem; color: #64748b; margin-bottom: 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">NHÓM CỘT HIỂN THỊ</div>
+          <div id="emp-col-checkboxes-container" style="display: flex; flex-direction: column; gap: 6px;"></div>
+        </div>
+      </div>
+
+      <button onclick="reloadEMPData(true)" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">Tải lại</button>
+      <button id="btn-export-emp-excel" onclick="exportAllEMPToExcel()" style="background: #047857; color: #ffffff; border: none; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">Xuất Excel</button>
+      <button id="btn-import-emp-excel" onclick="openPasteEMPExcelModal()" style="background: #059669; color: #ffffff; border: none; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">Nhập Excel</button>
+      
+      <button id="btn-bulk-delete-emp" onclick="confirmBulkDeleteEMP()" style="display: none; background: #be123c; color: #ffffff; border: none; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+        <span id="bulk-delete-emp-text">Xóa đã chọn (0)</span>
+      </button>
+
+      <button id="btn-create-emp" onclick="openEMPModal()" style="background: #2563eb; color: #ffffff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">+ Thêm nhân viên</button>
+    </div>
+  </div>
+
+  <!-- BẢNG DỮ LIỆU MAIN -->
+  <div style="background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; overflow-x: auto;">
+    <table id="table-hrm-emp" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+      <thead>
+        <tr style="background: #f8fafc; color: #475569; border-bottom: 2px solid #e2e8f0; font-weight: 600;">
+          <th style="padding: 12px 10px; width: 40px; text-align: center;"><input type="checkbox" id="chk-emp-select-all" onchange="toggleSelectAllEMP(this)"></th>
+          <th style="padding: 12px 10px; width: 40px; text-align: center;">STT</th>
+          <th data-col="basic_info" style="padding: 12px; white-space: nowrap;">Mã & Họ Tên NV</th>
+          <th data-col="contact_info" style="padding: 12px; white-space: nowrap;">Liên hệ / Địa chỉ</th>
+          <th data-col="org_info" style="padding: 12px; white-space: nowrap;">Tổ chức / Chức danh</th>
+          <th data-col="contract_info" style="padding: 12px; white-space: nowrap;">Hợp đồng / Trạng thái</th>
+          <th data-col="salary_bank" style="padding: 12px; white-space: nowrap;">Lương & Ngân hàng</th>
+          <th data-col="tax_insurance" style="padding: 12px; white-space: nowrap;">Thuế & BHXH</th>
+          <th data-col="system_info" style="padding: 12px; white-space: nowrap;">Người tạo / Cập nhật</th>
+          <th style="padding: 12px; text-align: center; white-space: nowrap;">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-hrm-emp">
+        <tr><td colspan="10" style="text-align: center; padding: 24px; color: #94a3b8;">Đang tải danh sách nhân viên...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- THANH PHÂN TRANG -->
+  <div style="background: #ffffff; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span id="txt-emp-page-info" style="font-size: 0.83rem; color: #64748b;">Hiển thị 0 - 0 trong tổng số 0 nhân viên</span>
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 0.83rem; color: #64748b;">
+        <span>Hiển thị:</span>
+        <select id="select-emp-page-size" onchange="changeEMPPageSize(this.value)" style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem; background: #fff; outline: none;">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <button id="btn-emp-prev" class="pagination-btn" onclick="goToEMPPage(window.currentEMPPage - 1)" title="Trang trước">
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+
+      <div id="emp-pagination-numbers" style="display: flex; gap: 4px;"></div>
+
+      <button id="btn-emp-next" class="pagination-btn" onclick="goToEMPPage(window.currentEMPPage + 1)" title="Trang sau">
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- SIDE DRAWER PROFILE CHI TIẾT NHÂN VIÊN -->
+<div id="emp-drawer-overlay" onclick="closeEMPDrawer()"></div>
+
+<div id="emp-drawer-panel">
+  <!-- 1. HEADER PROFILE -->
+  <div style="padding: 20px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #ffffff; position: relative;">
+    <button onclick="closeEMPDrawer()" style="position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center;">&times;</button>
+    
+    <div style="display: flex; gap: 16px; align-items: center;">
+      <img id="d-avatar" src="" class="drawer-avatar" onerror="this.src='https://ui-avatars.com/api/?name=User&background=2563eb&color=fff'">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h3 id="d-full-name" style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #ffffff;">---</h3>
+          <span id="d-work-status-badge" class="status-badge active">● Đang làm việc</span>
+        </div>
+        <div style="font-size: 0.83rem; color: #94a3b8; display: flex; gap: 10px;">
+          <span>Mã NV: <strong id="d-emp-id" style="color: #60a5fa;">---</strong></span>
+          <span>|</span>
+          <span id="d-job-title">---</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. BODY CHỨA 34 CỘT DỮ LIỆU -->
+  <div style="flex: 1; overflow-y: auto; padding: 16px;">
+    <div class="info-card">
+      <div class="info-card-title">
+        <svg viewBox="0 0 24 24" style="width:15px; height:15px; fill:currentColor;"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        1. Thông tin cá nhân & Liên hệ
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Số CCCD</span><span class="info-value" id="d-cccd-no">-</span></div>
+        <div class="info-item"><span class="info-label">Ngày sinh</span><span class="info-value" id="d-dob">-</span></div>
+        <div class="info-item"><span class="info-label">Giới tính</span><span class="info-value" id="d-gender">-</span></div>
+        <div class="info-item"><span class="info-label">Trình độ học vấn</span><span class="info-value" id="d-academic-level">-</span></div>
+        <div class="info-item"><span class="info-label">Số điện thoại</span><span class="info-value" id="d-phone" style="color:#2563eb;">-</span></div>
+        <div class="info-item"><span class="info-label">Email công việc</span><span class="info-value" id="d-email">-</span></div>
+      </div>
+      <div class="info-item" style="margin-top: 10px;"><span class="info-label">Địa chỉ hiện tại</span><span class="info-value" id="d-curr-addr">-</span></div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">
+        <svg viewBox="0 0 24 24" style="width:15px; height:15px; fill:currentColor;"><path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10z"/></svg>
+        2. Tổ chức & Công việc
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Mã Công ty</span><span class="info-value" id="d-company-code">-</span></div>
+        <div class="info-item"><span class="info-label">Mã Đơn vị</span><span class="info-value" id="d-unit-code">-</span></div>
+        <div class="info-item"><span class="info-label">Phòng ban</span><span class="info-value" id="d-dept-code">-</span></div>
+        <div class="info-item"><span class="info-label">Quản lý trực tiếp</span><span class="info-value" id="d-manager-id">-</span></div>
+        <div class="info-item"><span class="info-label">Địa điểm làm việc</span><span class="info-value" id="d-work-location">-</span></div>
+        <div class="info-item"><span class="info-label">Ngày vào làm</span><span class="info-value" id="d-join-date">-</span></div>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">
+        <svg viewBox="0 0 24 24" style="width:15px; height:15px; fill:currentColor;"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+        3. Hợp đồng lao động
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Số hợp đồng</span><span class="info-value" id="d-contract-no">-</span></div>
+        <div class="info-item"><span class="info-label">Loại hợp đồng</span><span class="info-value" id="d-contract-type">-</span></div>
+        <div class="info-item"><span class="info-label">Ngày BĐ hợp đồng</span><span class="info-value" id="d-contract-start-date">-</span></div>
+        <div class="info-item"><span class="info-label">Ngày KT hợp đồng</span><span class="info-value" id="d-contract-end-date">-</span></div>
+        <div class="info-item"><span class="info-label">Trạng thái HĐ</span><span class="info-value" id="d-contract-status">-</span></div>
+        <div class="info-item"><span class="info-label">Ngày nghỉ việc</span><span class="info-value" id="d-resign-date" style="color:#be123c;">-</span></div>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">
+        <svg viewBox="0 0 24 24" style="width:15px; height:15px; fill:currentColor;"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+        4. Lương, Bảo hiểm & Ngân hàng
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Lương cơ bản</span><span class="info-value" id="d-base-salary" style="color:#059669; font-size:0.9rem;">-</span></div>
+        <div class="info-item"><span class="info-label">Ngạch lương</span><span class="info-value" id="d-salary-grade">-</span></div>
+        <div class="info-item"><span class="info-label">Mã số thuế</span><span class="info-value" id="d-tax-code">-</span></div>
+        <div class="info-item"><span class="info-label">Số sổ BHXH</span><span class="info-value" id="d-social-insurance-no">-</span></div>
+        <div class="info-item"><span class="info-label">Số tài khoản</span><span class="info-value" id="d-bank-account-no">-</span></div>
+        <div class="info-item"><span class="info-label">Ngân hàng</span><span class="info-value" id="d-bank-name">-</span></div>
+      </div>
+      <div class="info-item" style="margin-top: 10px;"><span class="info-label">Chủ tài khoản</span><span class="info-value" id="d-bank-account-holder">-</span></div>
+    </div>
+
+    <div class="info-card" style="background:#f1f5f9; border:none;">
+      <div class="info-card-title" style="color:#64748b; border-bottom-color:#cbd5e1;">
+        <svg viewBox="0 0 24 24" style="width:15px; height:15px; fill:currentColor;"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
+        5. Lịch sử Nhật ký Hệ thống
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Người tạo</span><span class="info-value" id="d-created-by">-</span></div>
+        <div class="info-item"><span class="info-label">Thời gian tạo</span><span class="info-value" id="d-created-at">-</span></div>
+        <div class="info-item"><span class="info-label">Thời gian cập nhật gần nhất</span><span class="info-value" id="d-updated-at">-</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. FOOTER HÀNH ĐỘNG -->
+  <div style="padding: 12px 16px; border-top: 1px solid #e2e8f0; background: #f8fafc; display: flex; justify-content: space-between; align-items: center;">
+    <button id="d-btn-delete" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.83rem;">Xóa Nhân Viên</button>
+    <div style="display: flex; gap: 8px;">
+      <button onclick="closeEMPDrawer()" style="background: #ffffff; border: 1px solid #cbd5e1; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.83rem;">Đóng</button>
+      <button id="d-btn-edit" style="background: #2563eb; color: #ffffff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.83rem;">Chỉnh Sửa Hồ Sơ</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL THÊM/SỬA HỒ SƠ -->
+<div id="modal-hrm-emp" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); z-index: 999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 950px; max-width: 95%; max-height: 90vh; border-radius: 12px; overflow-y: auto; display: flex; flex-direction: column;">
+    <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+      <h3 id="modal-emp-title" style="font-size: 1.05rem; font-weight: 700; margin: 0; color: #0f172a;">THÔNG TIN HỒ SƠ NHÂN VIÊN</h3>
+      <button onclick="closeEMPModal()" style="background: transparent; border: none; cursor: pointer; font-size: 1.2rem; color: #64748b;">&times;</button>
+    </div>
+    
+    <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="font-weight: 700; color: #2563eb; border-bottom: 1px solid #bfdbfe; padding-bottom: 4px;">1. THÔNG TIN CÁ NHÂN & LIÊN HỆ</div>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+        <div><label style="font-size: 0.78rem;">Mã Nhân Viên (*)</label><input type="text" id="f-emp-id" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Họ và Tên (*)</label><input type="text" id="f-full-name" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Số CCCD</label><input type="text" id="f-cccd-no" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Giới Tính</label><select id="f-gender" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"><option value="Nam">Nam</option><option value="Nữ">Nữ</option></select></div>
+        <div><label style="font-size: 0.78rem;">Ngày Sinh</label><input type="date" id="f-dob" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Số Điện Thoại</label><input type="text" id="f-phone" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Email</label><input type="email" id="f-email" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Trình Độ Học Vấn</label><input type="text" id="f-academic-level" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+      </div>
+      <div><label style="font-size: 0.78rem;">Địa Chỉ Hiện Tại</label><input type="text" id="f-curr-addr" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+
+      <div style="font-weight: 700; color: #2563eb; border-bottom: 1px solid #bfdbfe; padding-bottom: 4px; margin-top: 8px;">2. TỔ CHỨC & VỊ TRÍ LÀM VIỆC</div>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+        <div><label style="font-size: 0.78rem;">Mã Công Ty</label><input type="text" id="f-company-code" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Mã Đơn Vị</label><input type="text" id="f-unit-code" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Mã Phòng Ban</label><input type="text" id="f-dept-code" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Chức Danh</label><input type="text" id="f-job-title" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Địa Điểm Làm Việc</label><input type="text" id="f-work-location" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Mã Quản Lý trực tiếp</label><input type="text" id="f-manager-id" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Ngày Vào Làm</label><input type="date" id="f-join-date" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Trạng Thái Làm Việc</label><select id="f-work-status" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"><option value="Đang làm việc">Đang làm việc</option><option value="Đã nghỉ việc">Đã nghỉ việc</option><option value="Tạm hoãn">Tạm hoãn</option></select></div>
+      </div>
+
+      <div style="font-weight: 700; color: #2563eb; border-bottom: 1px solid #bfdbfe; padding-bottom: 4px; margin-top: 8px;">3. HỢP ĐỒNG LAO ĐỘNG</div>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+        <div><label style="font-size: 0.78rem;">Loại Hợp Đồng</label><input type="text" id="f-contract-type" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Số Hợp Đồng</label><input type="text" id="f-contract-no" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Ngày Bắt Đầu HĐ</label><input type="date" id="f-contract-start-date" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Ngày Kết Thúc HĐ</label><input type="date" id="f-contract-end-date" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Trạng Thái HĐ</label><input type="text" id="f-contract-status" value="Hiệu lực" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Ngày Nghỉ Việc (Nếu có)</label><input type="date" id="f-resign-date" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+      </div>
+
+      <div style="font-weight: 700; color: #2563eb; border-bottom: 1px solid #bfdbfe; padding-bottom: 4px; margin-top: 8px;">4. LƯƠNG, BẢO HIỂM & TÀI KHOẢN NGÂN HÀNG</div>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+        <div><label style="font-size: 0.78rem;">Ngạch Lương</label><input type="text" id="f-salary-grade" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Lương Cơ Bản</label><input type="number" id="f-base-salary" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Số BHXH</label><input type="text" id="f-social-insurance-no" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Mã Số Thuế</label><input type="text" id="f-tax-code" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Số Tài Khoản</label><input type="text" id="f-bank-account-no" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Tên Ngân Hàng</label><input type="text" id="f-bank-name" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">Chủ Tài Khoản</label><input type="text" id="f-bank-account-holder" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+        <div><label style="font-size: 0.78rem;">URL Ảnh Đại Diện</label><input type="text" id="f-avatar-url" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+      </div>
+    </div>
+
+    <div style="padding: 12px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; background: #f8fafc;">
+      <button onclick="closeEMPModal()" style="background: #e2e8f0; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">Hủy</button>
+      <button id="btn-save-emp" onclick="submitEMPForm()" style="background: #2563eb; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">Lưu Hồ Sơ</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NHẬP EXCEL PREVIEW -->
+<div id="modal-paste-emp-excel" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); z-index: 999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 900px; max-width: 95%; max-height: 90vh; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto;">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+      <h3 style="margin: 0; font-size: 1rem; color: #0f172a; font-weight: 700;">NHẬP DỮ LIỆU TỪ EXCEL (XEM TRƯỚC KHI LƯU)</h3>
+      <button onclick="closePasteEMPExcelModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer;">&times;</button>
+    </div>
+
+    <div id="paste-step-1" style="display: flex; flex-direction: column; gap: 12px;">
+      <p style="margin: 0; font-size: 0.82rem; color: #64748b; line-height: 1.4;">
+        Sao chép dữ liệu từ Excel và dán vào ô bên dưới.
+      </p>
+
+      <textarea id="paste-emp-textarea" placeholder="Dán bảng dữ liệu Excel vào đây (Ctrl+V)..." style="width: 100%; height: 200px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: monospace; font-size: 0.8rem; outline: none; resize: vertical;"></textarea>
+      
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button onclick="closePasteEMPExcelModal()" style="padding: 8px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer;">Hủy</button>
+        <button onclick="previewPastedEMPData()" style="padding: 8px 16px; border-radius: 6px; border: none; background: #2563eb; color: #fff; font-weight: 600; cursor: pointer;">Xem Trước Dữ Liệu</button>
+      </div>
+    </div>
+
+    <div id="paste-step-2" style="display: none; flex-direction: column; gap: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 14px; border-radius: 6px;">
+        <span id="txt-preview-summary" style="font-weight: 600; font-size: 0.88rem; color: #0f172a;">Tổng số dòng chuẩn bị thêm: 0</span>
+        <span id="txt-preview-user" style="font-size: 0.8rem; color: #047857; font-weight: 600;">Người tạo: ...</span>
+      </div>
+
+      <div style="max-height: 350px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 6px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
+          <thead>
+            <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; position: sticky; top: 0;">
+              <th style="padding: 8px; width: 40px; text-align: center;">STT</th>
+              <th style="padding: 8px;">Mã NV</th>
+              <th style="padding: 8px;">Họ và Tên</th>
+              <th style="padding: 8px;">Số Điện Thoại</th>
+              <th style="padding: 8px;">Phòng Ban / Chức Danh</th>
+              <th style="padding: 8px;">Lương Cơ Bản</th>
+              <th style="padding: 8px;">Trạng Thái</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-emp-preview"></tbody>
+        </table>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+        <button onclick="backToPasteStep1()" style="padding: 8px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; font-weight: 600;">← Dán Lại</button>
+        <div style="display: flex; gap: 8px;">
+          <button onclick="closePasteEMPExcelModal()" style="padding: 8px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer;">Hủy Bỏ</button>
+          <button id="btn-confirm-paste-save" onclick="confirmAndSavePastedEMPData()" style="padding: 8px 18px; border-radius: 6px; border: none; background: #059669; color: #fff; font-weight: 700; cursor: pointer;">Xác Nhận & Lưu Vào Sheet</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+window.rawEMPData = window.rawEMPData || [];
+window.empPermissions = null;
+window.applyEMPPermissions = function(permissions) {
+  if (!permissions) return;
+  window.empPermissions = permissions;
+  [
+    ['btn-create-emp', permissions.create],
+    ['btn-export-emp-excel', permissions.export],
+    ['btn-import-emp-excel', permissions.import]
+  ].forEach(function(entry) {
+    var button = document.getElementById(entry[0]);
+    if (button) button.style.display = entry[1] ? '' : 'none';
+  });
+  var selectAll = document.getElementById('chk-emp-select-all');
+  if (selectAll) selectAll.style.display = permissions.delete ? '' : 'none';
+  window.updateEMPBulkBtn();
+};
+window.canUseEMPPermission = function(permission) {
+  if (!window.empPermissions || window.empPermissions[permission]) return true;
+  window.showToast('Bạn chưa được cấp quyền cho thao tác này.', 'warning');
+  return false;
+};
+window.currentEMPPage = window.currentEMPPage || 1;
+window.empPageSize = window.empPageSize || 20;
+window.totalEMPRows = window.totalEMPRows || 0;
+window.totalEMPPages = window.totalEMPPages || 1;
+window.pendingEMPConfirm = window.pendingEMPConfirm || null;
+window.parsedExcelPreviewRecords = window.parsedExcelPreviewRecords || [];
+window.currentAppUsername = window.currentAppUsername || 'admin';
+
+var EMP_COL_GROUPS = [
+  { key: "basic_info", label: "Mã & Họ Tên NV" },
+  { key: "contact_info", label: "Liên hệ / Địa chỉ" },
+  { key: "org_info", label: "Tổ chức / Chức danh" },
+  { key: "contract_info", label: "Hợp đồng / Trạng thái" },
+  { key: "salary_bank", label: "Lương & Ngân hàng" },
+  { key: "tax_insurance", label: "Thuế & BHXH" },
+  { key: "system_info", label: "Người tạo / Cập nhật" }
+];
+
+window.initAppUsername = function() {
+  try {
+    var sess = JSON.parse(localStorage.getItem('HAP_USER_SESSION') || '{}');
+    if (sess && sess.username) window.currentAppUsername = sess.username;
+  } catch(e) {}
+};
+
+window.showToast = function(msg, type, duration) {
+  type = type || 'info';
+  duration = duration || 3000;
+  if (window.HAP_shouldSuppressAuthToast_ && window.HAP_shouldSuppressAuthToast_(msg)) return;
+  var container = document.getElementById('toast-container');
+  if (!container) return;
+  
+  var t = document.createElement('div');
+  t.className = 'toast-card ' + type;
+  var message = document.createElement('span');
+  message.style.flex = '1';
+  message.textContent = String(msg == null ? '' : msg);
+  var close = document.createElement('button');
+  close.type = 'button';
+  close.setAttribute('aria-label', 'Đóng thông báo');
+  close.textContent = '×';
+  close.style.cssText = 'background:none;border:none;color:#fff;cursor:pointer;font-weight:bold;opacity:0.8;';
+  close.addEventListener('click', function() { t.remove(); });
+  t.appendChild(message);
+  t.appendChild(close);
+  container.appendChild(t);
+
+  setTimeout(function() {
+    t.style.transition = 'all 0.3s opacity';
+    t.style.opacity = '0';
+    setTimeout(function() { if (t.parentElement) t.remove(); }, 300);
+  }, duration);
+};
+
+window.showEMPConfirm = function(msg, callback) {
+  document.getElementById('emp-confirm-message').textContent = msg;
+  window.pendingEMPConfirm = callback;
+  document.getElementById('modal-emp-custom-confirm').style.display = 'flex';
+};
+
+window.closeEMPConfirm = function(isOk) {
+  document.getElementById('modal-emp-custom-confirm').style.display = 'none';
+  if (isOk && typeof window.pendingEMPConfirm === 'function') {
+    window.pendingEMPConfirm();
+  }
+  window.pendingEMPConfirm = null;
+};
+
+window.openEMPDrawer = function(empId) {
+  var item = window.rawEMPData.find(function(i) { return i.emp_id === empId; });
+  if (!item) return;
+
+  document.getElementById('d-full-name').textContent = item.full_name || 'N/A';
+  document.getElementById('d-emp-id').textContent = item.emp_id || 'N/A';
+  document.getElementById('d-job-title').textContent = item.job_title || 'Chưa cập nhật';
+  
+  var avatarImg = document.getElementById('d-avatar');
+  avatarImg.src = item.avatar_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(item.full_name || 'User') + '&background=2563eb&color=fff');
+
+  var stBadge = document.getElementById('d-work-status-badge');
+  if (item.work_status === 'Đang làm việc') {
+    stBadge.className = 'status-badge active';
+    stBadge.textContent = '● Đang làm việc';
+  } else {
+    stBadge.className = 'status-badge inactive';
+    stBadge.textContent = '● ' + (item.work_status || 'Đã nghỉ việc');
+  }
+
+  document.getElementById('d-cccd-no').textContent = item.cccd_no || '-';
+  document.getElementById('d-dob').textContent = item.dob || '-';
+  document.getElementById('d-gender').textContent = item.gender || '-';
+  document.getElementById('d-academic-level').textContent = item.academic_level || '-';
+  document.getElementById('d-phone').textContent = item.phone || '-';
+  document.getElementById('d-email').textContent = item.email || '-';
+  document.getElementById('d-curr-addr').textContent = item.curr_addr || '-';
+
+  document.getElementById('d-company-code').textContent = item.company_code || '-';
+  document.getElementById('d-unit-code').textContent = item.unit_code || '-';
+  document.getElementById('d-dept-code').textContent = item.dept_code || '-';
+  document.getElementById('d-manager-id').textContent = item.manager_id || '-';
+  document.getElementById('d-work-location').textContent = item.work_location || '-';
+  document.getElementById('d-join-date').textContent = item.join_date || '-';
+
+  document.getElementById('d-contract-no').textContent = item.contract_no || '-';
+  document.getElementById('d-contract-type').textContent = item.contract_type || '-';
+  document.getElementById('d-contract-start-date').textContent = item.contract_start_date || '-';
+  document.getElementById('d-contract-end-date').textContent = item.contract_end_date || '-';
+  document.getElementById('d-contract-status').textContent = item.contract_status || '-';
+  document.getElementById('d-resign-date').textContent = item.resign_date || '-';
+
+  document.getElementById('d-base-salary').textContent = Number(item.base_salary || 0).toLocaleString('vi-VN') + ' VNĐ';
+  document.getElementById('d-salary-grade').textContent = item.salary_grade || '-';
+  document.getElementById('d-tax-code').textContent = item.tax_code || '-';
+  document.getElementById('d-social-insurance-no').textContent = item.social_insurance_no || '-';
+  document.getElementById('d-bank-account-no').textContent = item.bank_account_no || '-';
+  document.getElementById('d-bank-name').textContent = item.bank_name || '-';
+  document.getElementById('d-bank-account-holder').textContent = item.bank_account_holder || '-';
+
+  document.getElementById('d-created-by').textContent = item.created_by || 'admin';
+  document.getElementById('d-created-at').textContent = item.created_at || '-';
+  document.getElementById('d-updated-at').textContent = item.updated_at || '-';
+
+  document.getElementById('d-btn-edit').onclick = function() {
+    window.closeEMPDrawer();
+    window.editEMPRecord(item.emp_id);
+  };
+  document.getElementById('d-btn-delete').onclick = function() {
+    window.closeEMPDrawer();
+    window.confirmSingleDeleteEMP(item.emp_id, item.full_name);
+  };
+  document.getElementById('d-btn-edit').style.display =
+    !window.empPermissions || window.empPermissions.update ? '' : 'none';
+  document.getElementById('d-btn-delete').style.display =
+    !window.empPermissions || window.empPermissions.delete ? '' : 'none';
+
+  document.getElementById('emp-drawer-overlay').classList.add('active');
+  document.getElementById('emp-drawer-panel').classList.add('active');
+};
+
+window.closeEMPDrawer = function() {
+  document.getElementById('emp-drawer-overlay').classList.remove('active');
+  document.getElementById('emp-drawer-panel').classList.remove('active');
+};
+
+window.toggleEMPColDropdown = function() {
+  var d = document.getElementById('emp-col-toggle-dropdown');
+  d.style.display = (d.style.display === 'none' || !d.style.display) ? 'block' : 'none';
+};
+
+window.initEMPColDropdown = function() {
+  var container = document.getElementById('emp-col-checkboxes-container');
+  if (!container) return;
+  container.innerHTML = '';
+  var saved = JSON.parse(localStorage.getItem('HAP_EMP_GROUPED_COLS') || '{}');
+
+  EMP_COL_GROUPS.forEach(function(col) {
+    var isChecked = saved[col.key] !== false;
+    var l = document.createElement('label');
+    l.style.cssText = "display: flex; align-items: center; gap: 8px; font-size: 0.82rem; cursor: pointer;";
+    l.innerHTML = '<input type="checkbox" ' + (isChecked ? 'checked' : '') + ' onchange="toggleEMPColVis(\'' + col.key + '\', this.checked)"> <span>' + col.label + '</span>';
+    container.appendChild(l);
+  });
+};
+
+window.toggleEMPColVis = function(key, isVisible) {
+  var saved = JSON.parse(localStorage.getItem('HAP_EMP_GROUPED_COLS') || '{}');
+  saved[key] = isVisible;
+  localStorage.setItem('HAP_EMP_GROUPED_COLS', JSON.stringify(saved));
+  window.applyEMPColVisibility();
+};
+
+window.applyEMPColVisibility = function() {
+  var saved = JSON.parse(localStorage.getItem('HAP_EMP_GROUPED_COLS') || '{}');
+  EMP_COL_GROUPS.forEach(function(col) {
+    var isVisible = saved[col.key] !== false;
+    var disp = isVisible ? '' : 'none';
+    document.querySelectorAll('#table-hrm-emp th[data-col="' + col.key + '"], #table-hrm-emp td[data-col="' + col.key + '"]').forEach(function(el) {
+      el.style.display = disp;
+    });
+  });
+};
+
+window.reloadEMPData = function(showToastNotice) {
+  window.currentEMPPage = 1;
+  window.fetchEMPData(showToastNotice);
+};
+
+window.changeEMPPageSize = function(val) {
+  window.empPageSize = parseInt(val, 10);
+  window.currentEMPPage = 1;
+  window.fetchEMPData();
+};
+
+window.goToEMPPage = function(p) {
+  if (p < 1 || p > window.totalEMPPages || p === window.currentEMPPage) return;
+  window.currentEMPPage = p;
+  window.fetchEMPData();
+};
+
+window.fetchEMPData = function(showToastNotice) {
+  if (!window.HAP_IS_AUTHED || !window.HAP_IS_AUTHED()) return;
+  var tbody = document.getElementById('tbody-hrm-emp');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 24px; color: #94a3b8;">Đang tải danh sách nhân viên...</td></tr>';
+
+  if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.success) {
+        window.applyEMPPermissions(res.permissions);
+        window.totalEMPRows = res.totalRows || 0;
+        window.rawEMPData = res.list || [];
+        window.totalEMPPages = Math.ceil(window.totalEMPRows / window.empPageSize) || 1;
+        window.renderEMPTable(window.rawEMPData);
+        window.renderEMPPagination();
+        if (showToastNotice) {
+          window.showToast("Đã tải lại dữ liệu mới nhất", 'info', 2000);
+        }
+      } else {
+        if (window.HAP_handleAuthFailure_(res)) return;
+        window.showToast(res.message || "Lỗi khi tải dữ liệu", 'error');
+      }
+    })
+    .fetchHRMEMPListPaginated(HAP_TOKEN(), window.currentEMPPage, window.empPageSize);
+};
+
+window.renderEMPTable = function(data) {
+  var tbody = document.getElementById('tbody-hrm-emp');
+  if (!tbody) return;
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 24px; color: #64748b;">Chưa có dữ liệu nhân viên.</td></tr>';
+    return;
+  }
+
+  var startNum = (window.currentEMPPage - 1) * window.empPageSize;
+  var html = '';
+
+  data.forEach(function(item, idx) {
+    var basicHtml = '<div style="font-weight: 700; color: #2563eb;">' + item.emp_id + '</div>' +
+      '<div style="font-weight: 600; color: #0f172a;">' + item.full_name + '</div>' +
+      '<div style="font-size: 0.75rem; color: #64748b;">CCCD: ' + (item.cccd_no || '-') + '</div>';
+
+    var contactHtml = '<div>SĐT: <strong>' + (item.phone || '-') + '</strong></div>' +
+      '<div style="font-size: 0.75rem; color: #64748b;">' + (item.email || '-') + '</div>';
+
+    var orgHtml = '<div style="font-weight: 600; color: #334155;">' + (item.job_title || '-') + '</div>' +
+      '<div style="font-size: 0.75rem; color: #64748b;">PB: ' + (item.dept_code || '-') + ' | Cty: ' + (item.company_code || '-') + '</div>';
+
+    var contractHtml = '<div>HĐ: ' + (item.contract_no || '-') + ' (' + (item.contract_type || '-') + ')</div>' +
+      '<div style="font-size: 0.75rem;"><span style="color:' + (item.work_status === 'Đang làm việc' ? '#16a34a' : '#dc2626') + '; font-weight:600;">● ' + item.work_status + '</span></div>';
+
+    var salaryHtml = '<div>Lương: <strong>' + Number(item.base_salary || 0).toLocaleString('vi-VN') + ' đ</strong></div>' +
+      '<div style="font-size: 0.75rem; color: #64748b;">NH: ' + (item.bank_account_no || '-') + ' (' + (item.bank_name || '-') + ')</div>';
+
+    var taxHtml = '<div>MST: ' + (item.tax_code || '-') + '</div>' +
+      '<div style="font-size: 0.75rem; color: #64748b;">BHXH: ' + (item.social_insurance_no || '-') + '</div>';
+
+    var sysHtml = '<div style="font-weight: 600; color: #334155;">Tạo: ' + (item.created_by || 'admin') + '</div>' +
+      '<div style="font-size: 0.75rem; color: #94a3b8;">' + (item.updated_at || '-') + '</div>';
+
+    html += '<tr onclick="openEMPDrawer(\'' + item.emp_id + '\')" style="border-bottom: 1px solid #f1f5f9;">' +
+      '<td style="padding: 10px; text-align: center;"><input type="checkbox" class="chk-emp-item" value="' + item.emp_id + '" onclick="event.stopPropagation()" onchange="updateEMPBulkBtn()"' + (window.empPermissions && !window.empPermissions.delete ? ' style="display:none;"' : '') + '></td>' +
+      '<td style="padding: 10px; text-align: center; color: #64748b;">' + (startNum + idx + 1) + '</td>' +
+      '<td data-col="basic_info" style="padding: 10px;">' + basicHtml + '</td>' +
+      '<td data-col="contact_info" style="padding: 10px;">' + contactHtml + '</td>' +
+      '<td data-col="org_info" style="padding: 10px;">' + orgHtml + '</td>' +
+      '<td data-col="contract_info" style="padding: 10px;">' + contractHtml + '</td>' +
+      '<td data-col="salary_bank" style="padding: 10px;">' + salaryHtml + '</td>' +
+      '<td data-col="tax_insurance" style="padding: 10px;">' + taxHtml + '</td>' +
+      '<td data-col="system_info" style="padding: 10px;">' + sysHtml + '</td>' +
+      '<td style="padding: 10px; text-align: center; white-space: nowrap;">' +
+        (window.empPermissions && !window.empPermissions.update ? '' : '<button onclick="event.stopPropagation(); editEMPRecord(\'' + item.emp_id + '\')" style="background: #f1f5f9; color: #2563eb; border: 1px solid #cbd5e1; padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; font-weight: 600; cursor: pointer; margin-right: 4px;">Sửa</button>') +
+        (window.empPermissions && !window.empPermissions.delete ? '' : '<button onclick="event.stopPropagation(); confirmSingleDeleteEMP(\'' + item.emp_id + '\', \'' + item.full_name + '\')" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; font-weight: 600; cursor: pointer;">Xóa</button>') +
+      '</td>' +
+    '</tr>';
+  });
+
+  tbody.innerHTML = html;
+  window.applyEMPColVisibility();
+  window.updateEMPBulkBtn();
+};
+
+window.renderEMPPagination = function() {
+  var startIdx = window.totalEMPRows > 0 ? (window.currentEMPPage - 1) * window.empPageSize + 1 : 0;
+  var endIdx = Math.min(window.currentEMPPage * window.empPageSize, window.totalEMPRows);
+
+  var info = document.getElementById('txt-emp-page-info');
+  if (info) info.textContent = 'Hiển thị ' + startIdx + ' - ' + endIdx + ' trong tổng số ' + window.totalEMPRows + ' nhân viên';
+
+  document.getElementById('btn-emp-prev').disabled = (window.currentEMPPage === 1);
+  document.getElementById('btn-emp-next').disabled = (window.currentEMPPage === window.totalEMPPages || window.totalEMPPages === 0);
+
+  var container = document.getElementById('emp-pagination-numbers');
+  if (!container) return;
+  container.innerHTML = '';
+
+  var pagesToRender = [];
+  if (window.totalEMPPages <= 5) {
+    for (var i = 1; i <= window.totalEMPPages; i++) pagesToRender.push(i);
+  } else {
+    if (window.currentEMPPage <= 3) {
+      pagesToRender = [1, 2, 3, 4, '...', window.totalEMPPages];
+    } else if (window.currentEMPPage >= window.totalEMPPages - 2) {
+      pagesToRender = [1, '...', window.totalEMPPages - 3, window.totalEMPPages - 2, window.totalEMPPages - 1, window.totalEMPPages];
+    } else {
+      pagesToRender = [1, '...', window.currentEMPPage - 1, window.currentEMPPage, window.currentEMPPage + 1, '...', window.totalEMPPages];
+    }
+  }
+
+  pagesToRender.forEach(function(p) {
+    if (p === '...') {
+      var dots = document.createElement('span');
+      dots.style.cssText = "padding: 4px 6px; color: #94a3b8; font-size: 0.83rem;";
+      dots.textContent = '...';
+      container.appendChild(dots);
+    } else {
+      var btn = document.createElement('button');
+      btn.className = 'pagination-btn ' + (p === window.currentEMPPage ? 'active' : '');
+      btn.textContent = p;
+      btn.onclick = function() { window.goToEMPPage(p); };
+      container.appendChild(btn);
+    }
+  });
+};
+
+window.filterEMPTable = function() {
+  var q = (document.getElementById('emp-search-input').value || '').toLowerCase();
+  var st = document.getElementById('emp-status-filter').value;
+
+  var filtered = window.rawEMPData.filter(function(item) {
+    var matchQ = !q || (item.emp_id && item.emp_id.toLowerCase().indexOf(q) !== -1) ||
+                        (item.full_name && item.full_name.toLowerCase().indexOf(q) !== -1) ||
+                        (item.phone && item.phone.toLowerCase().indexOf(q) !== -1) ||
+                        (item.cccd_no && item.cccd_no.toLowerCase().indexOf(q) !== -1) ||
+                        (item.dept_code && item.dept_code.toLowerCase().indexOf(q) !== -1);
+    var matchSt = !st || item.work_status === st;
+    return matchQ && matchSt;
+  });
+
+  window.renderEMPTable(filtered);
+};
+
+window.toggleSelectAllEMP = function(masterChk) {
+  document.querySelectorAll('.chk-emp-item').forEach(function(c) { c.checked = masterChk.checked; });
+  window.updateEMPBulkBtn();
+};
+
+window.updateEMPBulkBtn = function() {
+  var selected = Array.from(document.querySelectorAll('.chk-emp-item:checked')).map(function(c) { return c.value; });
+  var btn = document.getElementById('btn-bulk-delete-emp');
+  var txt = document.getElementById('bulk-delete-emp-text');
+  var masterChk = document.getElementById('chk-emp-select-all');
+
+  if (selected.length > 0 && (!window.empPermissions || window.empPermissions.delete)) {
+    btn.style.display = 'inline-block';
+    txt.textContent = 'Xóa đã chọn (' + selected.length + ')';
+  } else {
+    btn.style.display = 'none';
+    if (masterChk) masterChk.checked = false;
+  }
+};
+
+window.confirmSingleDeleteEMP = function(empId, fullName) {
+  if (!window.canUseEMPPermission('delete')) return;
+  if (!window.canUseEMPPermission('delete')) return;
+  window.showEMPConfirm('Chuyển nhân viên "' + fullName + '" (' + empId + ') vào Thùng rác? SuperAdmin có thể khôi phục sau này.', function() {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.success) {
+          window.showToast('Đã xóa thành công nhân viên ' + fullName + '!', 'success');
+          window.rawEMPData = window.rawEMPData.filter(function(item) { return item.emp_id !== empId; });
+          window.totalEMPRows = Math.max(0, window.totalEMPRows - 1);
+          window.renderEMPTable(window.rawEMPData);
+          window.renderEMPPagination();
+        } else {
+          window.showToast(res.message || "Xóa thất bại", 'error');
+        }
+      })
+      .deleteHRMEMPRecord(HAP_TOKEN(), empId);
+  });
+};
+
+window.confirmBulkDeleteEMP = function() {
+  if (!window.canUseEMPPermission('delete')) return;
+  var selected = Array.from(document.querySelectorAll('.chk-emp-item:checked')).map(function(c) { return c.value; });
+  if (selected.length === 0) return;
+
+  window.showEMPConfirm('Chuyển ' + selected.length + ' nhân viên đã chọn vào Thùng rác? SuperAdmin có thể khôi phục sau này.', function() {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.success) {
+          window.showToast('Đã xóa thành công ' + selected.length + ' hồ sơ nhân viên!', 'success');
+          
+          var selectedSet = new Set(selected);
+          window.rawEMPData = window.rawEMPData.filter(function(item) { return !selectedSet.has(item.emp_id); });
+          window.totalEMPRows = Math.max(0, window.totalEMPRows - selected.length);
+
+          document.querySelectorAll('.chk-emp-item').forEach(function(c) { c.checked = false; });
+          window.renderEMPTable(window.rawEMPData);
+          window.renderEMPPagination();
+        } else {
+          window.showToast(res.message || "Xóa hàng loạt thất bại", 'error');
+        }
+      })
+      .deleteBulkHRMEMPRecords(HAP_TOKEN(), selected);
+  });
+};
+
+window.openPasteEMPExcelModal = function() {
+  if (!window.canUseEMPPermission('import')) return;
+  document.getElementById('paste-emp-textarea').value = '';
+  document.getElementById('paste-step-1').style.display = 'flex';
+  document.getElementById('paste-step-2').style.display = 'none';
+  window.parsedExcelPreviewRecords = [];
+  document.getElementById('modal-paste-emp-excel').style.display = 'flex';
+};
+
+window.closePasteEMPExcelModal = function() {
+  document.getElementById('modal-paste-emp-excel').style.display = 'none';
+};
+
+window.backToPasteStep1 = function() {
+  document.getElementById('paste-step-1').style.display = 'flex';
+  document.getElementById('paste-step-2').style.display = 'none';
+};
+
+window.previewPastedEMPData = function() {
+  // Không trim() cả khối: sẽ mất ô trống đầu tiên (cột CCCD) của dòng đầu tiên -> lệch cột
+  var rawText = (document.getElementById('paste-emp-textarea').value || '').replace(/^[\r\n]+/, '').replace(/\s+$/, '');
+  if (!rawText) {
+    window.showToast("Hãy dán dữ liệu Excel trước khi xem trước!", 'warning');
+    return;
+  }
+
+  var lines = rawText.split('\n');
+  var nowStr = new Date().toLocaleString('vi-VN');
+  window.parsedExcelPreviewRecords = [];
+
+  lines.forEach(function(line) {
+    if (!line.trim()) return;
+    var cols = line.split('\t').map(function(c) { return c.trim(); });
+    if (cols[1] === 'emp_id' || cols[1] === 'Mã NV') return;
+
+    if (cols.length >= 2 && cols[1]) {
+      window.parsedExcelPreviewRecords.push({
+        cccd_no: cols[0] || '',
+        emp_id: cols[1] || '',
+        full_name: cols[2] || '',
+        dob: cols[3] || '',
+        gender: cols[4] || 'Nam',
+        curr_addr: cols[5] || '',
+        avatar_url: cols[6] || '',
+        phone: cols[7] || '',
+        email: cols[8] || '',
+        company_code: cols[9] || '',
+        unit_code: cols[10] || '',
+        dept_code: cols[11] || '',
+        job_title: cols[12] || '',
+        work_location: cols[13] || '',
+        manager_id: cols[14] || '',
+        join_date: cols[15] || '',
+        contract_type: cols[16] || '',
+        contract_no: cols[17] || '',
+        contract_start_date: cols[18] || '',
+        contract_end_date: cols[19] || '',
+        contract_status: cols[20] || 'Hiệu lực',
+        work_status: cols[21] || 'Đang làm việc',
+        resign_date: cols[22] || '',
+        salary_grade: cols[23] || '',
+        base_salary: parseFloat(cols[24]) || 0,
+        social_insurance_no: cols[25] || '',
+        tax_code: cols[26] || '',
+        bank_account_no: cols[27] || '',
+        bank_name: cols[28] || '',
+        bank_account_holder: cols[29] || '',
+        academic_level: cols[30] || '',
+        created_by: window.currentAppUsername,
+        created_at: nowStr,
+        updated_at: nowStr
+      });
+    }
+  });
+
+  if (window.parsedExcelPreviewRecords.length === 0) {
+    window.showToast("Dữ liệu copy từ Excel không hợp lệ!", 'warning');
+    return;
+  }
+
+  var tbody = document.getElementById('tbody-emp-preview');
+  var html = '';
+
+  window.parsedExcelPreviewRecords.forEach(function(r, idx) {
+    html += '<tr style="border-bottom: 1px solid #f1f5f9;">' +
+      '<td style="padding: 8px; text-align: center; color: #64748b;">' + (idx + 1) + '</td>' +
+      '<td style="padding: 8px; font-weight: 700; color: #2563eb;">' + r.emp_id + '</td>' +
+      '<td style="padding: 8px; font-weight: 600;">' + r.full_name + '</td>' +
+      '<td style="padding: 8px;">' + (r.phone || '-') + '</td>' +
+      '<td style="padding: 8px;">' + (r.dept_code || '-') + ' / ' + (r.job_title || '-') + '</td>' +
+      '<td style="padding: 8px; font-weight: 600;">' + Number(r.base_salary).toLocaleString('vi-VN') + ' đ</td>' +
+      '<td style="padding: 8px;"><span style="color:#16a34a; font-weight:600;">' + r.work_status + '</span></td>' +
+    '</tr>';
+  });
+
+  tbody.innerHTML = html;
+  document.getElementById('txt-preview-summary').textContent = 'Tổng số dòng chuẩn bị thêm: ' + window.parsedExcelPreviewRecords.length;
+  document.getElementById('txt-preview-user').textContent = 'Người tạo: ' + window.currentAppUsername;
+
+  document.getElementById('paste-step-1').style.display = 'none';
+  document.getElementById('paste-step-2').style.display = 'flex';
+};
+
+window.confirmAndSavePastedEMPData = function() {
+  if (!window.canUseEMPPermission('import')) return;
+  if (!window.parsedExcelPreviewRecords || window.parsedExcelPreviewRecords.length === 0) return;
+
+  var btn = document.getElementById('btn-confirm-paste-save');
+  btn.disabled = true;
+  btn.textContent = "Đang xử lý...";
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.disabled = false;
+      btn.textContent = "Xác Nhận & Lưu Vào Sheet";
+
+      if (res && res.success) {
+        window.showToast(res.message, 'success');
+        window.closePasteEMPExcelModal();
+
+        window.rawEMPData = window.parsedExcelPreviewRecords.concat(window.rawEMPData);
+        window.totalEMPRows += window.parsedExcelPreviewRecords.length;
+
+        window.renderEMPTable(window.rawEMPData);
+        window.renderEMPPagination();
+      } else {
+        window.showToast(res.message || "Không thể lưu dữ liệu từ Excel", 'error');
+      }
+    })
+    .saveBulkHRMEMPRecords(HAP_TOKEN(), window.parsedExcelPreviewRecords);
+};
+
+window.exportAllEMPToExcel = function() {
+  if (!window.canUseEMPPermission('export')) return;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.success && res.list) {
+        var ws = XLSX.utils.json_to_sheet(res.list);
+        var wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "HRM_EMP");
+        XLSX.writeFile(wb, "Danh_Sach_Nhan_Vien_" + new Date().getTime() + ".xlsx");
+        window.showToast("Đã xuất tệp Excel thành công", 'success');
+      } else {
+        window.showToast("Lỗi khi xuất tệp Excel", 'error');
+      }
+    })
+    .fetchAllHRMEMPRecords(HAP_TOKEN());
+};
+
+window.openEMPModal = function() {
+  if (!window.canUseEMPPermission('create')) return;
+  document.getElementById('modal-emp-title').textContent = "THÊM MỚI HỒ SƠ NHÂN VIÊN";
+  document.querySelectorAll('#modal-hrm-emp input').forEach(function(i) { i.value = ''; });
+  document.getElementById('f-emp-id').readOnly = false;
+  document.getElementById('modal-hrm-emp').style.display = 'flex';
+};
+
+window.closeEMPModal = function() {
+  document.getElementById('modal-hrm-emp').style.display = 'none';
+};
+
+window.editEMPRecord = function(empId) {
+  if (!window.canUseEMPPermission('update')) return;
+  var item = window.rawEMPData.find(function(i) { return i.emp_id === empId; });
+  if (!item) return;
+
+  document.getElementById('modal-emp-title').textContent = "CẬP NHẬT HỒ SƠ NHÂN VIÊN";
+  document.getElementById('f-emp-id').value = item.emp_id;
+  document.getElementById('f-emp-id').readOnly = true;
+  document.getElementById('f-full-name').value = item.full_name || '';
+  document.getElementById('f-cccd-no').value = item.cccd_no || '';
+  document.getElementById('f-gender').value = item.gender || 'Nam';
+  document.getElementById('f-dob').value = item.dob || '';
+  document.getElementById('f-phone').value = item.phone || '';
+  document.getElementById('f-email').value = item.email || '';
+  document.getElementById('f-academic-level').value = item.academic_level || '';
+  document.getElementById('f-curr-addr').value = item.curr_addr || '';
+  document.getElementById('f-company-code').value = item.company_code || '';
+  document.getElementById('f-unit-code').value = item.unit_code || '';
+  document.getElementById('f-dept-code').value = item.dept_code || '';
+  document.getElementById('f-job-title').value = item.job_title || '';
+  document.getElementById('f-work-location').value = item.work_location || '';
+  document.getElementById('f-manager-id').value = item.manager_id || '';
+  document.getElementById('f-join-date').value = item.join_date || '';
+  document.getElementById('f-work-status').value = item.work_status || 'Đang làm việc';
+  document.getElementById('f-contract-type').value = item.contract_type || '';
+  document.getElementById('f-contract-no').value = item.contract_no || '';
+  document.getElementById('f-contract-start-date').value = item.contract_start_date || '';
+  document.getElementById('f-contract-end-date').value = item.contract_end_date || '';
+  document.getElementById('f-contract-status').value = item.contract_status || 'Hiệu lực';
+  document.getElementById('f-resign-date').value = item.resign_date || '';
+  document.getElementById('f-salary-grade').value = item.salary_grade || '';
+  document.getElementById('f-base-salary').value = item.base_salary || 0;
+  document.getElementById('f-social-insurance-no').value = item.social_insurance_no || '';
+  document.getElementById('f-tax-code').value = item.tax_code || '';
+  document.getElementById('f-bank-account-no').value = item.bank_account_no || '';
+  document.getElementById('f-bank-name').value = item.bank_name || '';
+  document.getElementById('f-bank-account-holder').value = item.bank_account_holder || '';
+  document.getElementById('f-avatar-url').value = item.avatar_url || '';
+
+  document.getElementById('modal-hrm-emp').style.display = 'flex';
+};
+
+window.submitEMPForm = function() {
+  var empId = document.getElementById('f-emp-id').value.trim();
+  var fullName = document.getElementById('f-full-name').value.trim();
+
+  if (!empId || !fullName) {
+    window.showToast("Vui lòng điền Mã nhân viên và Họ tên!", 'warning');
+    return;
+  }
+
+  var btn = document.getElementById('btn-save-emp');
+  btn.disabled = true;
+  btn.textContent = "Đang lưu...";
+
+  // Lấy lại dữ liệu cũ (nếu đang ở chế độ chỉnh sửa) để bảo toàn created_at và created_by
+  var existingIdx = window.rawEMPData.findIndex(function(item) { return item.emp_id === empId; });
+  var oldItem = existingIdx >= 0 ? window.rawEMPData[existingIdx] : null;
+
+  var nowStr = new Date().toLocaleString('vi-VN');
+
+  var record = {
+    cccd_no: document.getElementById('f-cccd-no').value.trim(),
+    emp_id: empId,
+    full_name: fullName,
+    dob: document.getElementById('f-dob').value,
+    gender: document.getElementById('f-gender').value,
+    curr_addr: document.getElementById('f-curr-addr').value.trim(),
+    avatar_url: document.getElementById('f-avatar-url').value.trim(),
+    phone: document.getElementById('f-phone').value.trim(),
+    email: document.getElementById('f-email').value.trim(),
+    company_code: document.getElementById('f-company-code').value.trim(),
+    unit_code: document.getElementById('f-unit-code').value.trim(),
+    dept_code: document.getElementById('f-dept-code').value.trim(),
+    job_title: document.getElementById('f-job-title').value.trim(),
+    work_location: document.getElementById('f-work-location').value.trim(),
+    manager_id: document.getElementById('f-manager-id').value.trim(),
+    join_date: document.getElementById('f-join-date').value,
+    contract_type: document.getElementById('f-contract-type').value.trim(),
+    contract_no: document.getElementById('f-contract-no').value.trim(),
+    contract_start_date: document.getElementById('f-contract-start-date').value,
+    contract_end_date: document.getElementById('f-contract-end-date').value,
+    contract_status: document.getElementById('f-contract-status').value.trim(),
+    work_status: document.getElementById('f-work-status').value,
+    resign_date: document.getElementById('f-resign-date').value,
+    salary_grade: document.getElementById('f-salary-grade').value.trim(),
+    base_salary: parseFloat(document.getElementById('f-base-salary').value) || 0,
+    social_insurance_no: document.getElementById('f-social-insurance-no').value.trim(),
+    tax_code: document.getElementById('f-tax-code').value.trim(),
+    bank_account_no: document.getElementById('f-bank-account-no').value.trim(),
+    bank_name: document.getElementById('f-bank-name').value.trim(),
+    bank_account_holder: document.getElementById('f-bank-account-holder').value.trim(),
+    academic_level: document.getElementById('f-academic-level').value.trim(),
+    created_by: oldItem ? (oldItem.created_by || window.currentAppUsername) : window.currentAppUsername,
+    created_at: oldItem ? (oldItem.created_at || nowStr) : nowStr,
+    updated_at: nowStr
+  };
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.disabled = false;
+      btn.textContent = "Lưu Hồ Sơ";
+
+      if (res && res.success) {
+        window.showToast(res.message, 'success');
+        window.closeEMPModal();
+
+        if (existingIdx >= 0) {
+          window.rawEMPData[existingIdx] = record;
+        } else {
+          window.rawEMPData.unshift(record);
+          window.totalEMPRows += 1;
+        }
+
+        window.renderEMPTable(window.rawEMPData);
+        window.renderEMPPagination();
+      } else {
+        window.showToast(res.message || "Không thể lưu hồ sơ", 'error');
+      }
+    })
+    .saveHRMEMPRecord(HAP_TOKEN(), record);
+};
+
+// Tự động khởi chạy ngay khi nhúng HTML
+window.initAppUsername();
+window.initEMPColDropdown();
+// Dữ liệu được nạp sau khi đăng nhập/xác thực xong (HAP_onAuthenticated trong UI_Scripts)
+</script>

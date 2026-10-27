@@ -1,0 +1,1557 @@
+<!-- UI_HRM_ID.html - HAP HOLDING ERP SYSTEM (Giao diện Quản lý Hồ sơ CCCD/CMND) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<style>
+  /* PAGINATION STYLES */
+  .pagination-btn {
+    background: #ffffff;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.83rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .pagination-btn:hover:not(:disabled) {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+  }
+  .pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .pagination-btn.active {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+  }
+
+  /* CUSTOM TOAST NOTIFICATION */
+  #toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 999999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+  }
+  .toast-card {
+    pointer-events: auto;
+    min-width: 300px;
+    max-width: 420px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #ffffff;
+    animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .toast-card.success { background: #059669; }
+  .toast-card.error { background: #dc2626; }
+  .toast-card.warning { background: #d97706; }
+  .toast-card.info { background: #2563eb; }
+
+  @keyframes toastIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+</style>
+
+<!-- CONTAINER CHỨA TOAST NOTIFICATION -->
+<div id="toast-container"></div>
+
+<div id="qr-scan-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:100000; background:rgba(2,6,23,0.94); flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:16px;">
+  <div style="color:#fff; font-weight:700; font-size:1rem;">Quét mã QR trên CCCD</div>
+  <div style="position:relative; width:100%; max-width:520px;">
+    <video id="qr-video" playsinline muted autoplay style="width:100%; max-height:58vh; object-fit:cover; border-radius:12px; background:#000;"></video>
+    <div style="position:absolute; top:16%; left:16%; right:16%; bottom:16%; border:3px solid #38bdf8; border-radius:12px; pointer-events:none;"></div>
+  </div>
+  <canvas id="qr-canvas" style="display:none;"></canvas>
+  <div id="qr-overlay-msg" style="color:#e2e8f0; font-size:0.88rem; text-align:center; max-width:520px; min-height:2.6em;"></div>
+  <div style="display:flex; gap:10px;">
+    <button type="button" onclick="HapQrScan.stop(); HapQrScan.pickPhoto(true);" style="background:#0284c7; color:#fff; border:none; padding:10px 18px; border-radius:8px; font-weight:600; cursor:pointer;">Chụp ảnh</button>
+    <button type="button" onclick="HapQrScan.stop();" style="background:#fff; color:#0f172a; border:none; padding:10px 18px; border-radius:8px; font-weight:600; cursor:pointer;">Đóng</button>
+  </div>
+</div>
+
+
+<div style="display: flex; flex-direction: column; gap: 16px;">
+
+  <!-- THANH CÔNG CỤ TRÊN (ACTION BAR) -->
+  <div style="background: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    
+    <!-- NHÓM BỘ LỌC VÀ TÌM KIẾM -->
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1;">
+      <input type="text" id="hrm-id-search-input" placeholder="Tìm theo Tên, Số CCCD, CMND, Địa chỉ..." onkeyup="filterHRMIDTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; width: 280px; outline: none;">
+      
+      <select id="hrm-id-gender-filter" onchange="filterHRMIDTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; outline: none; background: #fff;">
+        <option value="">-- Tất cả Giới tính --</option>
+        <option value="Nam">Nam</option>
+        <option value="Nữ">Nữ</option>
+      </select>
+    </div>
+
+    <!-- NHÓM NÚT THAO TÁC -->
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; position: relative;">
+      
+      <!-- NÚT TÙY CHỈNH ẨN/HIỆN CỘT -->
+      <div style="position: relative;">
+        <button onclick="toggleColumnDropdown()" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+          <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+          <span>Ẩn/Hiện Cột</span>
+        </button>
+
+        <div id="col-toggle-dropdown" style="display: none; position: absolute; right: 0; top: 105%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); width: 230px; z-index: 100; padding: 10px; max-height: 320px; overflow-y: auto;">
+          <div style="font-weight: 600; font-size: 0.8rem; color: #64748b; margin-bottom: 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">CHỌN CỘT HIỂN THỊ</div>
+          <div id="col-checkboxes-container" style="display: flex; flex-direction: column; gap: 6px;"></div>
+        </div>
+      </div>
+
+      <!-- NÚT TẢI LẠI -->
+      <button onclick="reloadHRMIDData()" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        <span>Tải lại</span>
+      </button>
+
+      <!-- NÚT XUẤT EXCEL -->
+      <button id="btn-export-excel" onclick="exportAllHRMIDToExcel()" style="background: #047857; color: #ffffff; border: none; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        <span>Xuất Excel</span>
+      </button>
+
+      <!-- NÚT DÁN TỪ EXCEL -->
+      <button id="btn-import-id-excel" onclick="openPasteExcelModal()" style="background: #10b981; color: #ffffff; border: none; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+        <span>Nhập Excel</span>
+      </button>
+
+      <!-- NÚT THÊM HÀNG LOẠT VÀO DANH SÁCH NHÂN SỰ -->
+      <button id="btn-bulk-add-emp" onclick="confirmBulkAddHRMEMP()" style="display: none; background: #059669; color: #ffffff; border: none; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; align-items: center; gap: 6px;">
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        <span id="bulk-add-emp-text">Thêm nhân sự (0)</span>
+      </button>
+
+      <!-- NÚT XÓA HÀNG LOẠT -->
+      <button id="btn-bulk-delete" onclick="confirmBulkDeleteHRMID()" style="display: none; background: #dc2626; color: #ffffff; border: none; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; align-items: center; gap: 6px;">
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        <span id="bulk-delete-text">Xóa đã chọn (0)</span>
+      </button>
+
+      <!-- NÚT THÊM MỚI HỒ SƠ CCCD -->
+      <button id="btn-create-id" onclick="openHRMIDModal()" style="background: #2563eb; color: #ffffff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        <span>Thêm hồ sơ</span>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- BẢNG HIỂN THỊ DỮ LIỆU -->
+  <div style="background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; overflow-x: auto;">
+    <table id="table-hrm-id" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+      <thead>
+        <tr style="background: #f8fafc; color: #475569; border-bottom: 2px solid #e2e8f0; font-weight: 600;">
+          <th style="padding: 12px 10px; width: 40px; text-align: center;">
+            <input type="checkbox" id="chk-select-all" onchange="toggleSelectAllHRMID(this)">
+          </th>
+          <th style="padding: 12px 10px; width: 40px; text-align: center;">STT</th>
+          <th data-col="id_numbers" style="padding: 12px; white-space: nowrap;">Số CCCD / CMND</th>
+          <th data-col="full_name" style="padding: 12px; white-space: nowrap;">Họ và Tên</th>
+          <th data-col="gender" style="padding: 12px; white-space: nowrap;">Giới tính</th>
+          <th data-col="dates" style="padding: 12px; white-space: nowrap;">Ngày sinh / Cấp</th>
+          <th data-col="addresses" style="padding: 12px; min-width: 260px;">Thông tin Địa chỉ</th>
+          <th data-col="issue_place" style="padding: 12px; white-space: nowrap;">Nơi cấp</th>
+          <th data-col="images" style="padding: 12px; text-align: center; white-space: nowrap;">Ảnh CCCD</th>
+          <th data-col="created_info" style="padding: 12px; white-space: nowrap;">Thông tin tạo</th>
+          <th style="padding: 12px; text-align: center; white-space: nowrap;">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-hrm-id">
+        <tr>
+          <td colspan="11" style="text-align: center; padding: 24px; color: #94a3b8;">
+            Đang tải dữ liệu hồ sơ CCCD/CMND...
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- THANH PHÂN TRANG -->
+  <div style="background: #ffffff; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span id="txt-page-info" style="font-size: 0.83rem; color: #64748b;">Hiển thị 0 - 0 trong tổng số 0 hồ sơ</span>
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 0.83rem; color: #64748b;">
+        <span>Hiển thị:</span>
+        <select id="select-page-size" onchange="changePageSize(this.value)" style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem; background: #fff;">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <button id="btn-prev-page" class="pagination-btn" onclick="goToPage(currentPage - 1)" title="Trang trước">
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+      <div id="pagination-numbers" style="display: flex; gap: 4px;"></div>
+      <button id="btn-next-page" class="pagination-btn" onclick="goToPage(currentPage + 1)" title="Trang sau">
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- CUSTOM CONFIRMATION MODAL (HỘP THOẠI XÁC NHẬN SANG TRỌNG) -->
+<div id="modal-custom-confirm" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); z-index: 99999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 440px; max-width: 90%; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); padding: 20px; display: flex; flex-direction: column; gap: 16px; animation: modalIn 0.2s ease-out;">
+    <div style="display: flex; align-items: flex-start; gap: 12px;">
+      <div id="confirm-icon-box" style="background: #fef2f2; color: #dc2626; width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px;">
+        <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: currentColor;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v4z"/></svg>
+      </div>
+      <div>
+        <h4 id="custom-confirm-title" style="margin: 0; font-size: 1rem; font-weight: 700; color: #0f172a;">Xác nhận Thêm Nhân Sự</h4>
+        <p id="custom-confirm-message" style="margin: 6px 0 0 0; font-size: 0.85rem; color: #475569; line-height: 1.5;"></p>
+      </div>
+    </div>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+      <button onclick="closeCustomConfirm(false)" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer;">Hủy bỏ</button>
+      <button id="btn-custom-confirm-ok" style="background: #dc2626; color: #ffffff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer;">Xác nhận</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL THÊM / SỬA HỒ SƠ -->
+<div id="modal-hrm-id" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); z-index: 999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 850px; max-width: 95%; max-height: 90vh; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); overflow-y: auto; display: flex; flex-direction: column;">
+    <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+      <h3 id="modal-hrm-id-title" style="font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0;">THÊM MỚI HỒ SƠ CCCD / CMND</h3>
+      <button onclick="closeHRMIDModal()" style="background: transparent; border: none; cursor: pointer; color: #64748b;">
+        <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="background: #f0f9ff; border: 1px dashed #0284c7; padding: 12px 16px; border-radius: 8px;">
+        <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #0369a1; margin-bottom: 4px;">DÁN MÃ QR CCCD HOẶC QUÉT MÃ VẠCH:</label>
+        <input type="text" id="modal-qr-input" placeholder="Dán chuỗi mã QR vào đây..." oninput="handleQRInputParse(this.value)" style="width: 100%; padding: 8px; border: 1px solid #bae6fd; border-radius: 4px; font-size: 0.85rem;">
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
+          <button type="button" onclick="HapQrScan.openLive()" style="background:#0284c7; color:#fff; border:none; padding:7px 12px; border-radius:6px; font-size:0.8rem; font-weight:600; cursor:pointer;">Quét bằng camera</button>
+          <button type="button" onclick="HapQrScan.pickPhoto(true)" style="background:#fff; color:#0369a1; border:1px solid #7dd3fc; padding:7px 12px; border-radius:6px; font-size:0.8rem; font-weight:600; cursor:pointer;">Chụp ảnh mã QR</button>
+          <button type="button" onclick="HapQrScan.pickPhoto(false)" style="background:#fff; color:#0369a1; border:1px solid #7dd3fc; padding:7px 12px; border-radius:6px; font-size:0.8rem; font-weight:600; cursor:pointer;">Chọn ảnh có sẵn</button>
+          <input type="file" id="qr-photo-camera" accept="image/*" capture="environment" style="display:none;" onchange="HapQrScan.onPhoto(this)">
+          <input type="file" id="qr-photo-file" accept="image/*" style="display:none;" onchange="HapQrScan.onPhoto(this)">
+        </div>
+        <div id="qr-scan-status" style="font-size:0.78rem; color:#64748b; margin-top:6px; min-height:1.1em;"></div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Số CCCD (*)</label>
+          <input type="text" id="form-cccd-no" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Số CMND Cũ</label>
+          <input type="text" id="form-cmnd-no" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Họ và Tên (*)</label>
+          <input type="text" id="form-full-name" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Giới Tính</label>
+          <select id="form-gender" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+            <option value="Nam">Nam</option>
+            <option value="Nữ">Nữ</option>
+          </select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Ngày Sinh</label>
+          <input type="date" id="form-dob" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Ngày Cấp CCCD</label>
+          <input type="date" id="form-issue-date" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+        </div>
+      </div>
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Nơi Cấp</label>
+        <input type="text" id="form-issue-place" value="Cục Cảnh sát QLHC về TTXH" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+      </div>
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Nơi Thường Trú Gốc</label>
+        <input type="text" id="form-perm-addr" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+      </div>
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Nơi Thường Trú Sau Sáp Nhập</label>
+        <input type="text" id="form-merged-addr" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+      </div>
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Nơi Ở Hiện Tại</label>
+        <input type="text" id="form-curr-addr" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Ảnh Mặt Trước CCCD</label>
+          <input type="file" accept="image/*" id="file-front" onchange="previewImage(this, 'img-preview-front')" style="font-size: 0.8rem;">
+          <div style="margin-top: 6px; height: 100px; border: 1px solid #e2e8f0; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fafafa;">
+            <img id="img-preview-front" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+          </div>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Ảnh Mặt Sau CCCD</label>
+          <input type="file" accept="image/*" id="file-back" onchange="previewImage(this, 'img-preview-back')" style="font-size: 0.8rem;">
+          <div style="margin-top: 6px; height: 100px; border: 1px solid #e2e8f0; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fafafa;">
+            <img id="img-preview-back" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="padding: 12px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; background: #f8fafc;">
+      <button onclick="closeHRMIDModal()" style="background: #e2e8f0; color: #334155; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">Hủy</button>
+      <button id="btn-save-hrm-id" onclick="submitHRMIDForm()" style="background: #2563eb; color: #ffffff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">Lưu Hồ Sơ</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DÁN EXCEL -->
+<div id="modal-paste-excel" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); z-index: 999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 900px; max-width: 95%; max-height: 90vh; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); overflow: hidden; display: flex; flex-direction: column;">
+    <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+      <div>
+        <h3 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0;">NHẬP DỮ LIỆU HÀNG LOẠT TỪ EXCEL</h3>
+        <p style="font-size: 0.78rem; color: #64748b; margin-top: 2px;">Dán trực tiếp các vùng dữ liệu copy từ Excel để kiểm tra trước khi lưu</p>
+      </div>
+      <button onclick="closePasteExcelModal()" style="background: transparent; border: none; cursor: pointer; color: #64748b;">
+        <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: currentColor;"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+
+    <div style="padding: 20px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px;">
+      <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 16px; font-size: 0.8rem; color: #1e40af;">
+        <div style="font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+          <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M11 17h2v-6h-2v6zm1-15C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zM11 9h2V7h-2v2z"/></svg>
+          Hướng dẫn cấu trúc 15 cột Excel chuẩn:
+        </div>
+        <p style="margin: 0; line-height: 1.4;">
+          Thứ tự từ trái qua phải: <strong>[1] Mã QR Raw | [2] Số CCCD (*) | [3] Số CMND Cũ | [4] Họ tên (*) | [5] Giới tính | [6] Ngày sinh | [7] ĐC Thường trú Gốc | [8] ĐC Sau Sáp Nhập | [9] Nơi ở Hiện tại | [10] Ngày cấp | [11] Nơi cấp | [12] URL Ảnh Trước | [13] URL Ảnh Sau | [14] Người tạo | [15] Thời gian tạo</strong>
+        </p>
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #334155; margin-bottom: 6px;">
+          Dán các ô đã copy từ Excel vào đây (Ctrl + V):
+        </label>
+        <textarea id="paste-excel-input" rows="5" placeholder="Click vào đây và bấm Ctrl + V để dán dữ liệu Excel..." oninput="previewExcelDataOnInput()" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: monospace; font-size: 0.8rem; outline: none;" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#cbd5e1'"></textarea>
+      </div>
+
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-size: 0.85rem; font-weight: 700; color: #0f172a;">XEM TRƯỚC BẢN GHI PHÂN TÍCH</span>
+          <span id="excel-preview-badge" style="background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">0 dòng hợp lệ</span>
+        </div>
+
+        <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow-x: auto; max-height: 200px; background: #fafafa;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem; text-align: left;">
+            <thead>
+              <tr style="background: #f1f5f9; color: #475569; position: sticky; top: 0; z-index: 1;">
+                <th style="padding: 8px; border-bottom: 1px solid #cbd5e1; width: 35px; text-align: center;">#</th>
+                <th style="padding: 8px; border-bottom: 1px solid #cbd5e1; white-space: nowrap;">Số CCCD</th>
+                <th style="padding: 8px; border-bottom: 1px solid #cbd5e1; white-space: nowrap;">Họ và Tên</th>
+                <th style="padding: 8px; border-bottom: 1px solid #cbd5e1; white-space: nowrap;">Giới tính</th>
+                <th style="padding: 8px; border-bottom: 1px solid #cbd5e1; white-space: nowrap;">Ngày sinh</th>
+                <th style="padding: 8px; border-bottom: 1px solid #cbd5e1; min-width: 180px;">Nơi Thường Trú</th>
+                <th style="padding: 8px; border-bottom: 1px solid #cbd5e1; white-space: nowrap;">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-paste-preview">
+              <tr>
+                <td colspan="7" style="text-align: center; padding: 20px; color: #94a3b8;">
+                  Chưa có dữ liệu. Vui lòng dán văn bản từ Excel vào ô phía trên.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding: 12px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; background: #f8fafc;">
+      <button onclick="closePasteExcelModal()" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer;">Hủy bỏ</button>
+      <button id="btn-submit-excel" onclick="processPasteExcelData()" disabled style="background: #10b981; color: #ffffff; border: none; padding: 8px 18px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer; opacity: 0.6;">Xác nhận Nhập Dữ Liệu</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let rawHRMIDData = [];
+  let hrmIdPermissions = null;
+  function applyHRMIDPermissions(permissions) {
+    if (!permissions) return;
+    hrmIdPermissions = permissions;
+    [
+      ['btn-create-id', permissions.create],
+      ['btn-export-excel', permissions.export],
+      ['btn-import-id-excel', permissions.import]
+    ].forEach(function(entry) {
+      const button = document.getElementById(entry[0]);
+      if (button) button.style.display = entry[1] ? 'flex' : 'none';
+    });
+    const selectAll = document.getElementById('chk-select-all');
+    if (selectAll) selectAll.style.display = permissions.delete || permissions.addEmployee ? '' : 'none';
+    updateBulkActionButtons();
+  }
+  function canUseHRMIDPermission(permission) {
+    if (!hrmIdPermissions || hrmIdPermissions[permission]) return true;
+    showToast('Bạn chưa được cấp quyền cho thao tác này.', 'warning');
+    return false;
+  }
+  let parsedExcelRecords = [];
+  let currentPage = 1;
+  let pageSize = 20;
+  let totalServerRows = 0;
+  let totalPages = 1;
+  let base64Front = "";
+  let base64Back = "";
+  let pendingConfirmCallback = null;
+
+  const HRMID_COL_GROUPS = [
+    { key: "id_numbers", label: "Số CCCD / CMND" },
+    { key: "full_name", label: "Họ và Tên" },
+    { key: "gender", label: "Giới tính" },
+    { key: "dates", label: "Ngày sinh / Cấp" },
+    { key: "addresses", label: "Thông tin Địa chỉ" },
+    { key: "issue_place", label: "Nơi cấp" },
+    { key: "images", label: "Ảnh CCCD" },
+    { key: "created_info", label: "Thông tin tạo" }
+  ];
+
+  /* 1. HỆ THỐNG TOAST NOTIFICATION THÂN THIỆN */
+  // ================= QUÉT MÃ QR CCCD BẰNG CAMERA / ẢNH =================
+  // 3 cách: camera trực tiếp, chụp ảnh bằng ứng dụng camera của điện thoại, hoặc chọn ảnh có sẵn.
+  // Hai cách sau vẫn chạy khi trình duyệt chặn camera trực tiếp trong khung trang Apps Script.
+  const HapQrScan = (function() {
+    const LIB_URL = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+    let stream = null, timer = null, hintTimer = null, scanning = false, libPromise = null;
+
+    function $(id) { return document.getElementById(id); }
+    function setStatus(msg, isError) {
+      const el = $('qr-scan-status');
+      if (!el) return;
+      el.textContent = msg || '';
+      el.style.color = isError ? '#dc2626' : '#64748b';
+    }
+    function setOverlayMsg(msg, isError) {
+      const el = $('qr-overlay-msg');
+      if (!el) return;
+      el.textContent = msg || '';
+      el.style.color = isError ? '#fecaca' : '#e2e8f0';
+    }
+
+    function loadLib() {
+      if (typeof window.jsQR === 'function') return Promise.resolve();
+      if (!libPromise) {
+        libPromise = new Promise(function(resolve, reject) {
+          const s = document.createElement('script');
+          s.src = LIB_URL;
+          s.async = true;
+          s.onload = function() { typeof window.jsQR === 'function' ? resolve() : reject(new Error('lib')); };
+          s.onerror = function() { reject(new Error('net')); };
+          document.head.appendChild(s);
+        }).catch(function(e) { libPromise = null; throw e; });
+      }
+      return libPromise;
+    }
+
+    // Mã QR trên CCCD có dạng: số CCCD|số CMND|Họ tên|Ngày sinh|Giới tính|Địa chỉ|Ngày cấp
+    function looksLikeCCCD(t) {
+      const p = String(t || '').split('|');
+      return p.length >= 6 && /^\d{9,12}$/.test(p[0].trim());
+    }
+
+    function accept(text) {
+      const input = $('modal-qr-input');
+      if (input) input.value = text;
+      handleQRInputParse(text);
+      setStatus('Đã đọc mã QR, đang điền thông tin...', false);
+    }
+
+    function stopLive() {
+      scanning = false;
+      if (timer) { clearTimeout(timer); timer = null; }
+      if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+      if (stream) { stream.getTracks().forEach(function(t) { t.stop(); }); stream = null; }
+      const v = $('qr-video');
+      if (v) { try { v.pause(); } catch (e) {} v.srcObject = null; }
+      const o = $('qr-scan-overlay');
+      if (o) o.style.display = 'none';
+    }
+
+    async function openLive() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setStatus('Trang này không được mở camera trực tiếp. Hãy bấm "Chụp ảnh mã QR".', true);
+        return;
+      }
+      setStatus('Đang chuẩn bị bộ giải mã QR...', false);
+      try { await loadLib(); } catch (e) {
+        setStatus('Không tải được bộ giải mã QR (kiểm tra kết nối mạng). Bạn vẫn có thể dán chuỗi QR vào ô trên.', true);
+        return;
+      }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          audio: false
+        });
+      } catch (err) {
+        const name = err && err.name;
+        let msg = 'Không mở được camera.';
+        if (name === 'NotAllowedError' || name === 'SecurityError') msg = 'Camera đang bị chặn (chưa cấp quyền hoặc khung trang không cho phép). Hãy bấm "Chụp ảnh mã QR" để dùng camera của điện thoại.';
+        else if (name === 'NotFoundError' || name === 'OverconstrainedError') msg = 'Thiết bị không có camera phù hợp. Hãy bấm "Chọn ảnh có sẵn".';
+        else if (name === 'NotReadableError') msg = 'Camera đang được ứng dụng khác sử dụng.';
+        setStatus(msg, true);
+        return;
+      }
+      const video = $('qr-video');
+      video.srcObject = stream;
+      try { await video.play(); } catch (e) {}
+      $('qr-scan-overlay').style.display = 'flex';
+      setStatus('', false);
+      setOverlayMsg('Đưa mã QR ở mặt trước CCCD vào khung, giữ máy thẳng và đủ sáng.', false);
+      scanning = true;
+      hintTimer = setTimeout(function() {
+        setOverlayMsg('Chưa đọc được? Đưa thẻ lại gần hơn, tránh chói sáng, hoặc bấm "Chụp ảnh" bên dưới.', false);
+      }, 12000);
+      loop();
+    }
+
+    function loop() {
+      if (!scanning) return;
+      const video = $('qr-video'), canvas = $('qr-canvas');
+      if (video && video.readyState >= 2 && video.videoWidth > 0) {
+        const w = Math.min(video.videoWidth, 1280);
+        const h = Math.round(video.videoHeight * w / video.videoWidth);
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(video, 0, 0, w, h);
+        const img = ctx.getImageData(0, 0, w, h);
+        const code = window.jsQR(img.data, w, h, { inversionAttempts: 'attemptBoth' });
+        if (code && code.data) {
+          if (looksLikeCCCD(code.data)) {
+            const text = code.data;
+            stopLive();
+            accept(text);
+            return;
+          }
+          setOverlayMsg('Đã thấy một mã QR nhưng không phải mã trên CCCD. Hãy quét đúng mã QR ở mặt trước thẻ.', true);
+        }
+      }
+      timer = setTimeout(loop, 120);
+    }
+
+    function toBitmap(file) {
+      if (window.createImageBitmap) {
+        return createImageBitmap(file, { imageOrientation: 'from-image' }).catch(function() { return createImageBitmap(file); });
+      }
+      return new Promise(function(resolve, reject) {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = function() { URL.revokeObjectURL(url); resolve(img); };
+        img.onerror = function() { URL.revokeObjectURL(url); reject(new Error('img')); };
+        img.src = url;
+      });
+    }
+
+    // Thử giải mã ở nhiều kích thước (ảnh chụp điện thoại thường rất lớn)
+    function decodeBitmap(src) {
+      const sw = src.width || src.naturalWidth, sh = src.height || src.naturalHeight;
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const tried = {};
+      const targets = [1600, 1000, 2200, 700];
+      for (let i = 0; i < targets.length; i++) {
+        const scale = Math.min(1, targets[i] / Math.max(sw, sh));   // chỉ thu nhỏ, không phóng to
+        const w = Math.max(1, Math.round(sw * scale)), h = Math.max(1, Math.round(sh * scale));
+        if (tried[w + 'x' + h]) continue;
+        tried[w + 'x' + h] = true;
+        canvas.width = w; canvas.height = h;
+        ctx.drawImage(src, 0, 0, w, h);
+        const img = ctx.getImageData(0, 0, w, h);
+        const code = window.jsQR(img.data, w, h, { inversionAttempts: 'attemptBoth' });
+        if (code && code.data) return code.data;
+      }
+      return null;
+    }
+
+    async function onPhoto(inputEl) {
+      const file = inputEl && inputEl.files && inputEl.files[0];
+      if (!file) return;
+      setStatus('Đang đọc mã QR từ ảnh...', false);
+      try { await loadLib(); } catch (e) {
+        setStatus('Không tải được bộ giải mã QR (kiểm tra kết nối mạng).', true);
+        return;
+      }
+      try {
+        const bmp = await toBitmap(file);
+        const text = decodeBitmap(bmp);
+        if (bmp && bmp.close) bmp.close();
+        if (!text) {
+          setStatus('Không đọc được mã QR trong ảnh. Hãy chụp gần hơn (mã QR chiếm khoảng 1/3 khung hình), đủ sáng, giữ máy không rung rồi thử lại.', true);
+          return;
+        }
+        if (!looksLikeCCCD(text)) {
+          setStatus('Đã đọc được một mã QR nhưng không phải mã trên CCCD.', true);
+          return;
+        }
+        accept(text);
+      } catch (e) {
+        setStatus('Không xử lý được ảnh này. Hãy thử ảnh khác.', true);
+      }
+    }
+
+    function pickPhoto(useCamera) {
+      const input = $(useCamera ? 'qr-photo-camera' : 'qr-photo-file');
+      if (!input) return;
+      input.value = '';
+      input.click();
+    }
+
+    return { openLive: openLive, stop: stopLive, pickPhoto: pickPhoto, onPhoto: onPhoto, reset: function() { stopLive(); setStatus('', false); } };
+  })();
+
+  // ---- Chống chèn mã (XSS): mọi dữ liệu người dùng/Excel/QR phải đi qua các hàm này trước khi đưa vào HTML ----
+  function idEsc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function(c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  // Dùng khi nhét giá trị vào chuỗi JavaScript nằm trong thuộc tính onclick="...('GIÁ_TRỊ')"
+  function idJs(v) {
+    return idEsc(String(v == null ? '' : v).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[\r\n\u2028\u2029]+/g, ' '));
+  }
+  // Chỉ cho phép liên kết https (ảnh CCCD lưu trên Drive); chặn javascript:, data:...
+  function idUrl(u) {
+    var t = String(u == null ? '' : u).trim();
+    return /^https:\/\/[^\s"'<>]+$/i.test(t) ? idEsc(t) : '';
+  }
+
+  function showToast(message, type = 'info') {
+    if (window.HAP_shouldSuppressAuthToast_ && window.HAP_shouldSuppressAuthToast_(message)) return;
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast-card ${type}`;
+    toast.innerHTML = `
+      <span class="toast-msg" style="flex:1;"></span>
+      <button onclick="this.parentElement.remove()" style="background:none; border:none; color:#fff; cursor:pointer; font-weight:bold; font-size:1.1rem; padding:0 4px;">&times;</button>
+    `;
+    toast.querySelector('.toast-msg').textContent = message;   // textContent: không bao giờ chạy mã
+
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(100%)';
+      toast.style.transition = 'all 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
+  }
+
+  /* 2. CUSTOM CONFIRM MODAL SANG TRỌNG */
+  function showCustomConfirm(message, onConfirm, isDanger = true, title = "Xác nhận Thao Tác", okText = "Xác nhận") {
+    document.getElementById('custom-confirm-title').textContent = title;
+    document.getElementById('custom-confirm-message').textContent = message;
+    
+    const iconBox = document.getElementById('confirm-icon-box');
+    const okBtn = document.getElementById('btn-custom-confirm-ok');
+
+    if (isDanger) {
+      iconBox.style.background = '#fef2f2';
+      iconBox.style.color = '#dc2626';
+      okBtn.style.background = '#dc2626';
+      okBtn.textContent = okText || "Xác nhận Xóa";
+    } else {
+      iconBox.style.background = '#ecfdf5';
+      iconBox.style.color = '#059669';
+      okBtn.style.background = '#059669';
+      okBtn.textContent = okText || "Xác nhận Thêm";
+    }
+
+    pendingConfirmCallback = onConfirm;
+    document.getElementById('modal-custom-confirm').style.display = 'flex';
+  }
+
+  function closeCustomConfirm(isSuccess) {
+    document.getElementById('modal-custom-confirm').style.display = 'none';
+    if (isSuccess && typeof pendingConfirmCallback === 'function') {
+      pendingConfirmCallback();
+    }
+    pendingConfirmCallback = null;
+  }
+
+  document.getElementById('btn-custom-confirm-ok').onclick = function() {
+    closeCustomConfirm(true);
+  };
+
+  /* QUẢN LÝ CỘT HIỂN THỊ */
+  function getColumnVisibilityState() {
+    const saved = localStorage.getItem('HAP_HRMID_GROUPED_COLS');
+    if (saved) {
+      try { return JSON.parse(saved); } catch(e) {}
+    }
+    let initial = {};
+    HRMID_COL_GROUPS.forEach(c => initial[c.key] = true);
+    return initial;
+  }
+
+  function initColumnDropdown() {
+    const container = document.getElementById('col-checkboxes-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const visibilityState = getColumnVisibilityState();
+
+    HRMID_COL_GROUPS.forEach(col => {
+      const isChecked = visibilityState[col.key] !== false;
+      const label = document.createElement('label');
+      label.style.cssText = "display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: #334155; cursor: pointer;";
+      label.innerHTML = `
+        <input type="checkbox" data-col-key="${col.key}" ${isChecked ? 'checked' : ''} onchange="toggleColumnVisibility('${col.key}', this.checked)">
+        <span>${col.label}</span>
+      `;
+      container.appendChild(label);
+    });
+  }
+
+  function toggleColumnDropdown() {
+    const dropdown = document.getElementById('col-toggle-dropdown');
+    dropdown.style.display = (dropdown.style.display === 'none' || !dropdown.style.display) ? 'block' : 'none';
+  }
+
+  document.addEventListener('click', function(e) {
+    const dropdown = document.getElementById('col-toggle-dropdown');
+    const btn = e.target.closest('button');
+    if (dropdown && dropdown.style.display === 'block') {
+      if (!dropdown.contains(e.target) && (!btn || !btn.getAttribute('onclick')?.includes('toggleColumnDropdown'))) {
+        dropdown.style.display = 'none';
+      }
+    }
+  });
+
+  function toggleColumnVisibility(colKey, isVisible) {
+    let state = getColumnVisibilityState();
+    state[colKey] = isVisible;
+    localStorage.setItem('HAP_HRMID_GROUPED_COLS', JSON.stringify(state));
+    applyColumnVisibility();
+  }
+
+  function applyColumnVisibility() {
+    const state = getColumnVisibilityState();
+
+    HRMID_COL_GROUPS.forEach(col => {
+      const isVisible = state[col.key] !== false;
+      const displayStyle = isVisible ? '' : 'none';
+
+      const ths = document.querySelectorAll(`#table-hrm-id th[data-col="${col.key}"]`);
+      ths.forEach(th => th.style.display = displayStyle);
+
+      const tds = document.querySelectorAll(`#table-hrm-id td[data-col="${col.key}"]`);
+      tds.forEach(td => td.style.display = displayStyle);
+    });
+  }
+
+  function reloadHRMIDData() {
+    currentPage = 1;
+    fetchPaginatedData();
+  }
+
+  function changePageSize(val) {
+    pageSize = parseInt(val, 10);
+    currentPage = 1;
+    fetchPaginatedData();
+  }
+
+  function goToPage(page) {
+    if (page < 1 || page > totalPages || page === currentPage) return;
+    currentPage = page;
+    fetchPaginatedData();
+  }
+
+  function fetchPaginatedData() {
+    if (!window.HAP_IS_AUTHED || !window.HAP_IS_AUTHED()) return;
+    const tbody = document.getElementById('tbody-hrm-id');
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 24px; color: #94a3b8;">Đang tải dữ liệu hồ sơ CCCD/CMND...</td></tr>';
+
+    resetBulkUI();
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.success) {
+          applyHRMIDPermissions(res.permissions);
+          totalServerRows = res.totalRows || 0;
+          rawHRMIDData = res.list || [];
+          totalPages = Math.ceil(totalServerRows / pageSize) || 1;
+
+          renderHRMIDTable(rawHRMIDData);
+          renderPaginationControls();
+        } else {
+          tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: #dc2626; padding: 24px;">Không thể tải dữ liệu. Vui lòng thử lại.</td></tr>';
+          if (window.HAP_handleAuthFailure_(res)) return;
+          showToast(res.message || "Lỗi tải dữ liệu", 'error');
+        }
+      })
+      .withFailureHandler(function(err) {
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: #dc2626; padding: 24px;">Lỗi kết nối máy chủ.</td></tr>';
+        showToast("Kết nối máy chủ bị ngắt đoạn", 'error');
+      })
+      .fetchHRMIDListPaginated(HAP_TOKEN(), currentPage, pageSize);
+  }
+
+  function exportAllHRMIDToExcel() {
+    if (!canUseHRMIDPermission('export')) return;
+    if (typeof XLSX === 'undefined') {
+      showToast("Thư viện xuất Excel đang khởi tạo, vui lòng thử lại sau vài giây!", 'warning');
+      return;
+    }
+
+    const btn = document.getElementById('btn-export-excel');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span>Đang xuất...</span>';
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+
+        if (res && res.success && res.list) {
+          if (res.list.length === 0) {
+            showToast("Bảng dữ liệu hiện tại đang trống!", 'warning');
+            return;
+          }
+
+          const excelData = res.list.map((item, index) => ({
+            "STT": index + 1,
+            "Mã QR Raw": item.raw_qr || "",
+            "Số CCCD": item.cccd_no || "",
+            "Số CMND Cũ": item.cmnd_no || "",
+            "Họ và Tên": item.full_name || "",
+            "Giới tính": item.gender || "",
+            "Ngày sinh": item.dob || "",
+            "ĐC Thường trú Gốc": item.perm_addr || "",
+            "ĐC Thường trú Sau SN": item.merged_addr || "",
+            "Nơi ở Hiện tại": item.curr_addr || "",
+            "Ngày cấp": item.issue_date || "",
+            "Nơi cấp": item.issue_place || "",
+            "Người tạo": item.created_by || "",
+            "Thời gian tạo": item.created_at || ""
+          }));
+
+          const worksheet = XLSX.utils.json_to_sheet(excelData);
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, "Ho_So_CCCD");
+
+          const nowStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+          XLSX.writeFile(workbook, `Ho_So_CCCD_${nowStr}.xlsx`);
+          showToast("Xuất file Excel thành công!", 'success');
+        } else {
+          showToast(res.message || "Xuất file Excel thất bại", 'error');
+        }
+      })
+      .withFailureHandler(function(err) {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        showToast("Không thể tải file Excel từ máy chủ", 'error');
+      })
+      .fetchAllHRMIDRecords(HAP_TOKEN());
+  }
+
+  function renderPaginationControls() {
+    const startIdx = totalServerRows > 0 ? (currentPage - 1) * pageSize + 1 : 0;
+    const endIdx = Math.min(currentPage * pageSize, totalServerRows);
+    
+    document.getElementById('txt-page-info').textContent = `Hiển thị ${startIdx} - ${endIdx} trong tổng số ${totalServerRows} hồ sơ`;
+
+    document.getElementById('btn-prev-page').disabled = (currentPage === 1);
+    document.getElementById('btn-next-page').disabled = (currentPage === totalPages || totalPages === 0);
+
+    const container = document.getElementById('pagination-numbers');
+    container.innerHTML = '';
+
+    let pagesToRender = [];
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) pagesToRender.push(i);
+    } else {
+      if (currentPage <= 3) {
+        pagesToRender = [1, 2, 3, 4, '...', totalPages];
+      } else if (currentPage >= totalPages - 2) {
+        pagesToRender = [1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+      } else {
+        pagesToRender = [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+      }
+    }
+
+    pagesToRender.forEach(p => {
+      if (p === '...') {
+        const dots = document.createElement('span');
+        dots.style.cssText = "padding: 4px 6px; color: #94a3b8; font-size: 0.83rem;";
+        dots.textContent = '...';
+        container.appendChild(dots);
+      } else {
+        const btn = document.createElement('button');
+        btn.className = `pagination-btn ${p === currentPage ? 'active' : ''}`;
+        btn.textContent = p;
+        btn.onclick = () => goToPage(p);
+        container.appendChild(btn);
+      }
+    });
+  }
+
+  function renderHRMIDTable(data) {
+    const tbody = document.getElementById('tbody-hrm-id');
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 24px; color: #64748b;">Chưa có dữ liệu hồ sơ CCCD/CMND.</td></tr>';
+      return;
+    }
+
+    const rowStartNumber = (currentPage - 1) * pageSize;
+
+    let html = '';
+    data.forEach((item, idx) => {
+      const idNumbersHtml = `
+        <div style="font-weight: 700; color: #0f172a;">${idEsc(item.cccd_no || '-')}</div>
+        ${item.cmnd_no ? `<div style="font-size: 0.78rem; color: #64748b;">CMND: ${idEsc(item.cmnd_no)}</div>` : ''}
+      `;
+
+      const datesHtml = `
+        <div><span style="color: #64748b; font-size: 0.75rem;">NS:</span> <strong>${idEsc(item.dob || '-')}</strong></div>
+        <div><span style="color: #64748b; font-size: 0.75rem;">NC:</span> ${idEsc(item.issue_date || '-')}</div>
+      `;
+
+      let addrHtml = `<div style="color: #1e293b;"><span style="font-weight:600; color:#475569;">Gốc:</span> ${idEsc(item.perm_addr || '-')}</div>`;
+      if (item.merged_addr) {
+        addrHtml += `<div style="color: #0369a1; font-size: 0.8rem; margin-top: 2px;"><span style="font-weight:600;">Sau SN:</span> ${idEsc(item.merged_addr)}</div>`;
+      }
+      if (item.curr_addr) {
+        addrHtml += `<div style="color: #15803d; font-size: 0.8rem; margin-top: 2px;"><span style="font-weight:600;">Hiện tại:</span> ${idEsc(item.curr_addr)}</div>`;
+      }
+
+      const frontBtn = (item.has_img_front || item.img_front) ? `<button type="button" onclick="openHRMIDImage('${idJs(item.cccd_no)}','front')" style="background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:600; cursor:pointer;">Trước</button>` : '';
+      const backBtn = (item.has_img_back || item.img_back) ? `<button type="button" onclick="openHRMIDImage('${idJs(item.cccd_no)}','back')" style="background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:600; cursor:pointer;">Sau</button>` : '';
+      const imagesHtml = (frontBtn || backBtn) ? `<div style="display:flex; gap:4px; justify-content:center;">${frontBtn} ${backBtn}</div>` : '<span style="color:#cbd5e1;">-</span>';
+
+      const createdHtml = `
+        <div style="font-weight: 500; color: #334155;">${idEsc(item.created_by || 'HỆ THỐNG')}</div>
+        <div style="font-size: 0.75rem; color: #94a3b8;">${idEsc(item.created_at || '')}</div>
+      `;
+
+      html += `
+        <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#ffffff'">
+          <td style="padding: 10px; text-align: center;">
+            <input type="checkbox" class="chk-item-hrm-id" value="${idEsc(item.cccd_no)}" onchange="updateBulkActionButtons()"${hrmIdPermissions && !hrmIdPermissions.delete && !hrmIdPermissions.addEmployee ? ' style="display:none;"' : ''}>
+          </td>
+          <td style="padding: 10px; text-align: center; color: #64748b;">${rowStartNumber + idx + 1}</td>
+          <td data-col="id_numbers" style="padding: 10px; white-space: nowrap;">${idNumbersHtml}</td>
+          <td data-col="full_name" style="padding: 10px; font-weight: 600; color: #2563eb;">${idEsc(item.full_name || '')}</td>
+          <td data-col="gender" style="padding: 10px;">${idEsc(item.gender || '')}</td>
+          <td data-col="dates" style="padding: 10px; white-space: nowrap;">${datesHtml}</td>
+          <td data-col="addresses" style="padding: 10px;">${addrHtml}</td>
+          <td data-col="issue_place" style="padding: 10px; font-size: 0.8rem; color: #475569;">${idEsc(item.issue_place || '')}</td>
+          <td data-col="images" style="padding: 10px; text-align: center;">${imagesHtml}</td>
+          <td data-col="created_info" style="padding: 10px; white-space: nowrap;">${createdHtml}</td>
+          <td style="padding: 10px; text-align: center; white-space: nowrap;">
+            ${hrmIdPermissions && !hrmIdPermissions.addEmployee ? '' : `<button onclick="addSingleRecordToEmp('${idJs(item.cccd_no)}', '${idJs(item.full_name)}')" style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; font-weight: 600; cursor: pointer; margin-right: 4px;" title="Thêm nhân sự này vào Danh sách nhân sự">Thêm</button>`}
+            ${hrmIdPermissions && !hrmIdPermissions.update ? '' : `<button onclick="editHRMIDRecord('${idJs(item.cccd_no)}')" style="background: #f1f5f9; color: #2563eb; border: 1px solid #cbd5e1; padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; font-weight: 600; cursor: pointer; margin-right: 4px;">Sửa</button>`}
+            ${hrmIdPermissions && !hrmIdPermissions.delete ? '' : `<button onclick="deleteHRMIDRecord('${idJs(item.cccd_no)}', '${idJs(item.full_name)}')" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; font-weight: 600; cursor: pointer;">Xóa</button>`}
+          </td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = html;
+
+    applyColumnVisibility();
+  }
+
+  function filterHRMIDTable() {
+    const q = document.getElementById('hrm-id-search-input').value.toLowerCase().trim();
+    const g = document.getElementById('hrm-id-gender-filter').value;
+
+    const filtered = rawHRMIDData.filter(item => {
+      const matchText = !q || (
+        (item.full_name && item.full_name.toLowerCase().includes(q)) ||
+        (item.cccd_no && item.cccd_no.toLowerCase().includes(q)) ||
+        (item.cmnd_no && item.cmnd_no.toLowerCase().includes(q)) ||
+        (item.perm_addr && item.perm_addr.toLowerCase().includes(q)) ||
+        (item.merged_addr && item.merged_addr.toLowerCase().includes(q)) ||
+        (item.curr_addr && item.curr_addr.toLowerCase().includes(q))
+      );
+      const matchGender = !g || (item.gender === g);
+      return matchText && matchGender;
+    });
+
+    renderHRMIDTable(filtered);
+  }
+
+  function toggleSelectAllHRMID(master) {
+    const checkboxes = document.querySelectorAll('.chk-item-hrm-id');
+    checkboxes.forEach(c => c.checked = master.checked);
+    updateBulkActionButtons();
+  }
+
+  /* RESET TRẠNG THÁI NÚT THAO TÁC HÀNG LOẠT */
+  function resetBulkUI() {
+    const chkAll = document.getElementById('chk-select-all');
+    if (chkAll) chkAll.checked = false;
+
+    const btnDelete = document.getElementById('btn-bulk-delete');
+    if (btnDelete) {
+      btnDelete.style.display = 'none';
+      btnDelete.disabled = false;
+      btnDelete.innerHTML = `
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        <span id="bulk-delete-text">Xóa đã chọn (0)</span>
+      `;
+    }
+
+    const btnAddEmp = document.getElementById('btn-bulk-add-emp');
+    if (btnAddEmp) {
+      btnAddEmp.style.display = 'none';
+      btnAddEmp.disabled = false;
+      btnAddEmp.innerHTML = `
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        <span id="bulk-add-emp-text">Thêm nhân sự (0)</span>
+      `;
+    }
+  }
+
+  function updateBulkActionButtons() {
+    const selected = document.querySelectorAll('.chk-item-hrm-id:checked');
+    const btnDelete = document.getElementById('btn-bulk-delete');
+    const deleteText = document.getElementById('bulk-delete-text');
+    const btnAddEmp = document.getElementById('btn-bulk-add-emp');
+    const addEmpText = document.getElementById('bulk-add-emp-text');
+
+    if (selected.length > 0) {
+      btnDelete.style.display = !hrmIdPermissions || hrmIdPermissions.delete ? 'inline-flex' : 'none';
+      if (deleteText) deleteText.textContent = `Xóa đã chọn (${selected.length})`;
+
+      btnAddEmp.style.display = !hrmIdPermissions || hrmIdPermissions.addEmployee ? 'inline-flex' : 'none';
+      if (addEmpText) addEmpText.textContent = `Thêm nhân sự (${selected.length})`;
+    } else {
+      btnDelete.style.display = 'none';
+      btnAddEmp.style.display = 'none';
+    }
+  }
+
+  /* HÀM THỰC THI CHUYỂN DỮ LIỆU SANG BẢNG NHÂN SỰ */
+  function executeCopyHRMIDToEmp(cccdList, ignoreDuplicates) {
+    if (!canUseHRMIDPermission('addEmployee')) return;
+    showToast("Đang cập nhật Danh sách nhân sự...", 'info');
+    
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.success) {
+          showToast(res.message, 'success');
+          resetBulkUI();
+        } else if (res && res.hasDuplicates) {
+          // XỬ LÝ TRƯỜNG HỢP PHÁT HIỆN TRÙNG LẶP CCCD
+          let dupMessage = "";
+          if (res.duplicates.length === 1) {
+            const dup = res.duplicates[0];
+            dupMessage = `Số CCCD (${dup.cccd_no}) của "${dup.full_name || 'nhân sự này'}" đã tồn tại trong Danh sách nhân sự.<br><br>Bạn có muốn tiếp tục thêm hồ sơ mới này không?`;
+          } else {
+            dupMessage = `Có ${res.duplicates.length} số CCCD đã tồn tại trong Danh sách nhân sự.<br><br>Bạn có muốn tiếp tục thêm các hồ sơ đã chọn không?`;
+          }
+
+          showCustomConfirm(
+            dupMessage,
+            function() {
+              executeCopyHRMIDToEmp(cccdList, true);
+            },
+            false,
+            "Cảnh báo trùng lặp hồ sơ",
+            "Tiếp tục thêm"
+          );
+        } else {
+          showToast(res.message || "Thêm nhân sự không thành công", 'error');
+        }
+      })
+      .withFailureHandler(function(err) {
+        showToast("Lỗi kết nối máy chủ khi cập nhật Danh sách nhân sự", 'error');
+      })
+      .copyHRMIDToHRMEMP(HAP_TOKEN(), cccdList, ignoreDuplicates || false);
+  }
+
+  /* THÊM 1 NGƯỜI SANG DANH SÁCH NHÂN SỰ */
+  function addSingleRecordToEmp(cccdNo, fullName) {
+    if (!canUseHRMIDPermission('addEmployee')) return;
+    showCustomConfirm(
+      `Bạn có muốn thêm nhân sự "${fullName}" (CCCD: ${cccdNo}) vào Danh sách nhân sự không?`,
+      function() {
+        executeCopyHRMIDToEmp([cccdNo], false);
+      },
+      false,
+      "Xác nhận Thêm Nhân Sự",
+      "Thêm vào danh sách"
+    );
+  }
+
+  /* THÊM HÀNG LOẠT SANG DANH SÁCH NHÂN SỰ */
+  function confirmBulkAddHRMEMP() {
+    if (!canUseHRMIDPermission('addEmployee')) return;
+    const selected = document.querySelectorAll('.chk-item-hrm-id:checked');
+    const cccdList = Array.from(selected).map(c => c.value);
+
+    if (cccdList.length === 0) return;
+
+    showCustomConfirm(
+      `Bạn có muốn thêm ${cccdList.length} nhân sự đã chọn vào Danh sách nhân sự không?`,
+      function() {
+        executeCopyHRMIDToEmp(cccdList, false);
+      },
+      false,
+      "Xác nhận Thêm Hàng Loạt",
+      "Thêm tất cả"
+    );
+  }
+
+  function confirmBulkDeleteHRMID() {
+    if (!canUseHRMIDPermission('delete')) return;
+    const selected = document.querySelectorAll('.chk-item-hrm-id:checked');
+    const cccdList = Array.from(selected).map(c => c.value);
+
+    if (cccdList.length === 0) return;
+
+    showCustomConfirm(
+      `Chuyển ${cccdList.length} hồ sơ đã chọn vào Thùng rác? SuperAdmin có thể khôi phục sau này.`,
+      function() {
+        const btn = document.getElementById('btn-bulk-delete');
+        btn.disabled = true;
+        btn.innerHTML = '<span>Đang xử lý xóa...</span>';
+
+        google.script.run
+          .withSuccessHandler(function(res) {
+            if (res && res.success) {
+              showToast(res.message, 'success');
+              reloadHRMIDData();
+            } else {
+              showToast(res.message || "Xóa thất bại", 'error');
+              resetBulkUI();
+            }
+          })
+          .withFailureHandler(function(err) {
+            showToast("Lỗi máy chủ trong quá trình xóa dữ liệu", 'error');
+            resetBulkUI();
+          })
+          .deleteBulkHRMIDRecords(HAP_TOKEN(), cccdList);
+      },
+      true,
+      "Xác nhận xóa dữ liệu",
+      "Xóa các bản ghi"
+    );
+  }
+
+  function openHRMIDModal() {
+    if (!canUseHRMIDPermission('create')) return;
+    document.getElementById('modal-hrm-id-title').textContent = "THÊM MỚI HỒ SƠ CCCD / CMND";
+    document.getElementById('modal-qr-input').value = "";
+    HapQrScan.reset();
+    document.getElementById('form-cccd-no').value = "";
+    document.getElementById('form-cccd-no').readOnly = false;
+    document.getElementById('form-cmnd-no').value = "";
+    document.getElementById('form-full-name').value = "";
+    document.getElementById('form-gender').value = "Nam";
+    document.getElementById('form-dob').value = "";
+    document.getElementById('form-issue-date').value = "";
+    document.getElementById('form-issue-place').value = "Cục Cảnh sát QLHC về TTXH";
+    document.getElementById('form-perm-addr').value = "";
+    document.getElementById('form-merged-addr').value = "";
+    document.getElementById('form-curr-addr').value = "";
+    document.getElementById('img-preview-front').src = "";
+    document.getElementById('img-preview-back').src = "";
+    base64Front = "";
+    base64Back = "";
+
+    document.getElementById('modal-hrm-id').style.display = 'flex';
+  }
+
+  function loadHRMIDImagePreview(cccdNo, side, elementId) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.success) document.getElementById(elementId).src = res.dataUrl;
+      })
+      .withFailureHandler(function() {
+        showToast('Không thể tải ảnh CCCD.', 'error');
+      })
+      .getHRMIDImage(HAP_TOKEN(), cccdNo, side);
+  }
+
+  function openHRMIDImage(cccdNo, side) {
+    const imageWindow = window.open('about:blank', '_blank');
+    if (!imageWindow) {
+      showToast('Trình duyệt đã chặn cửa sổ xem ảnh.', 'warning');
+      return;
+    }
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (!res || !res.success) {
+          imageWindow.close();
+          showToast(res ? res.message : 'Không thể tải ảnh CCCD.', 'error');
+          return;
+        }
+        imageWindow.document.title = 'Ảnh CCCD';
+        const image = imageWindow.document.createElement('img');
+        image.src = res.dataUrl;
+        image.style.maxWidth = '100%';
+        image.style.maxHeight = '100vh';
+        imageWindow.document.body.style.margin = '0';
+        imageWindow.document.body.style.display = 'grid';
+        imageWindow.document.body.style.placeItems = 'center';
+        imageWindow.document.body.appendChild(image);
+      })
+      .withFailureHandler(function() {
+        imageWindow.close();
+        showToast('Không thể tải ảnh CCCD.', 'error');
+      })
+      .getHRMIDImage(HAP_TOKEN(), cccdNo, side);
+  }
+
+  function closeHRMIDModal() {
+    HapQrScan.reset();
+    document.getElementById('modal-hrm-id').style.display = 'none';
+  }
+
+  function handleQRInputParse(qrRaw) {
+    if (!qrRaw || qrRaw.trim().length < 10) return;
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.success) {
+          const d = res.data;
+          if (d.cccd_no) document.getElementById('form-cccd-no').value = d.cccd_no;
+          if (d.cmnd_no) document.getElementById('form-cmnd-no').value = d.cmnd_no;
+          if (d.full_name) document.getElementById('form-full-name').value = d.full_name;
+          if (d.gender) document.getElementById('form-gender').value = d.gender;
+          if (d.dob) document.getElementById('form-dob').value = d.dob;
+          if (d.issue_date) document.getElementById('form-issue-date').value = d.issue_date;
+          if (d.perm_addr) document.getElementById('form-perm-addr').value = d.perm_addr;
+          showToast("Đã trích xuất thông tin từ mã QR thành công", 'info');
+        } else {
+          // Báo rõ lý do thay vì im lặng
+          showToast((res && res.message) ? res.message : "Không tách được mã QR (máy chủ không phản hồi đúng)", 'error');
+        }
+      })
+      .withFailureHandler(function(err) {
+        showToast("Lỗi kết nối máy chủ khi tách mã QR: " + (err && err.message ? err.message : err), 'error');
+      })
+      .parseCCCDQRCode(HAP_TOKEN(), qrRaw.trim());
+  }
+
+  function previewImage(input, previewId) {
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById(previewId).src = e.target.result;
+        if (previewId === 'img-preview-front') base64Front = e.target.result;
+        if (previewId === 'img-preview-back') base64Back = e.target.result;
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+
+  function submitHRMIDForm() {
+    if (!canUseHRMIDPermission(document.getElementById('form-cccd-no').readOnly ? 'update' : 'create')) return;
+    const cccdNo = document.getElementById('form-cccd-no').value.trim();
+    const fullName = document.getElementById('form-full-name').value.trim();
+
+    if (!cccdNo || !fullName) {
+      showToast("Vui lòng điền đầy đủ Số CCCD và Họ tên!", 'warning');
+      return;
+    }
+
+    const btnSave = document.getElementById('btn-save-hrm-id');
+    btnSave.disabled = true;
+    btnSave.textContent = "Đang lưu...";
+
+    if (base64Front || base64Back) {
+      google.script.run
+        .withSuccessHandler(function(imgRes) {
+          saveRecordToSheet(imgRes.frontUrl, imgRes.backUrl);
+        })
+        .withFailureHandler(function(err) {
+          btnSave.disabled = false;
+          btnSave.textContent = "Lưu Hồ Sơ";
+          showToast("Lỗi lưu trữ hình ảnh", 'error');
+        })
+        .uploadCCCDImages(HAP_TOKEN(), base64Front, base64Back, cccdNo);
+    } else {
+      saveRecordToSheet("", "");
+    }
+  }
+
+  function saveRecordToSheet(frontUrl, backUrl) {
+    const btnSave = document.getElementById('btn-save-hrm-id');
+    
+    let userSession = {};
+    try { userSession = JSON.parse(localStorage.getItem('HAP_USER_SESSION') || '{}'); } catch(e) {}
+
+    const record = {
+      raw_qr: document.getElementById('modal-qr-input').value.trim(),
+      cccd_no: document.getElementById('form-cccd-no').value.trim(),
+      cmnd_no: document.getElementById('form-cmnd-no').value.trim(),
+      full_name: document.getElementById('form-full-name').value.trim(),
+      gender: document.getElementById('form-gender').value,
+      dob: document.getElementById('form-dob').value,
+      perm_addr: document.getElementById('form-perm-addr').value.trim(),
+      merged_addr: document.getElementById('form-merged-addr').value.trim(),
+      curr_addr: document.getElementById('form-curr-addr').value.trim(),
+      issue_date: document.getElementById('form-issue-date').value,
+      issue_place: document.getElementById('form-issue-place').value.trim(),
+      img_front: frontUrl,
+      img_back: backUrl,
+      created_by: userSession.fullName || userSession.username || "HỆ THỐNG"
+    };
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        btnSave.disabled = false;
+        btnSave.textContent = "Lưu Hồ Sơ";
+        if (res && res.success) {
+          showToast(res.message, 'success');
+          closeHRMIDModal();
+          reloadHRMIDData();
+        } else {
+          showToast(res.message || "Lưu hồ sơ không thành công", 'error');
+        }
+      })
+      .withFailureHandler(function(err) {
+        btnSave.disabled = false;
+        btnSave.textContent = "Lưu Hồ Sơ";
+        showToast("Lỗi kết nối máy chủ", 'error');
+      })
+      .saveHRMIDRecord(HAP_TOKEN(), record);
+  }
+
+  function editHRMIDRecord(cccdNo) {
+    if (!canUseHRMIDPermission('update')) return;
+    const item = rawHRMIDData.find(i => i.cccd_no === cccdNo);
+    if (!item) return;
+
+    document.getElementById('modal-hrm-id-title').textContent = "CẬP NHẬT HỒ SƠ CCCD / CMND";
+    document.getElementById('modal-qr-input').value = item.raw_qr || "";
+    document.getElementById('form-cccd-no').value = item.cccd_no || "";
+    document.getElementById('form-cccd-no').readOnly = true;
+    document.getElementById('form-cmnd-no').value = item.cmnd_no || "";
+    document.getElementById('form-full-name').value = item.full_name || "";
+    document.getElementById('form-gender').value = item.gender || "Nam";
+    document.getElementById('form-dob').value = item.dob || "";
+    document.getElementById('form-issue-date').value = item.issue_date || "";
+    document.getElementById('form-issue-place').value = item.issue_place || "Cục Cảnh sát QLHC về TTXH";
+    document.getElementById('form-perm-addr').value = item.perm_addr || "";
+    document.getElementById('form-merged-addr').value = item.merged_addr || "";
+    document.getElementById('form-curr-addr').value = item.curr_addr || "";
+    document.getElementById('img-preview-front').src = "";
+    document.getElementById('img-preview-back').src = "";
+    if (item.has_img_front || item.img_front) loadHRMIDImagePreview(cccdNo, 'front', 'img-preview-front');
+    if (item.has_img_back || item.img_back) loadHRMIDImagePreview(cccdNo, 'back', 'img-preview-back');
+    base64Front = "";
+    base64Back = "";
+
+    document.getElementById('modal-hrm-id').style.display = 'flex';
+  }
+
+  function deleteHRMIDRecord(cccdNo, fullName) {
+    if (!canUseHRMIDPermission('delete')) return;
+    showCustomConfirm(
+      `Chuyển hồ sơ của "${fullName}" (Số CCCD: ${cccdNo}) vào Thùng rác? SuperAdmin có thể khôi phục sau này.`,
+      function() {
+        google.script.run
+          .withSuccessHandler(function(res) {
+            if (res && res.success) {
+              showToast(res.message, 'success');
+              reloadHRMIDData();
+            } else {
+              showToast(res.message || "Không thể xóa hồ sơ này", 'error');
+            }
+          })
+          .withFailureHandler(function(err) {
+            showToast("Lỗi máy chủ trong quá trình xóa", 'error');
+          })
+          .deleteHRMIDRecord(HAP_TOKEN(), cccdNo);
+      },
+      true,
+      "Xác nhận xóa hồ sơ",
+      "Xóa hồ sơ"
+    );
+  }
+
+  /* LOGIC DÁN & PREVIEW EXCEL */
+  function openPasteExcelModal() {
+    if (!canUseHRMIDPermission('import')) return;
+    document.getElementById('paste-excel-input').value = "";
+    parsedExcelRecords = [];
+    renderExcelPreviewTable([]);
+    document.getElementById('modal-paste-excel').style.display = 'flex';
+  }
+
+  function closePasteExcelModal() {
+    document.getElementById('modal-paste-excel').style.display = 'none';
+  }
+
+  function previewExcelDataOnInput() {
+    // Chỉ cắt dòng trống đầu/cuối. KHÔNG dùng trim() cho cả khối vì sẽ làm mất ô trống đầu tiên
+    // (cột Mã QR Raw để trống) của dòng đầu tiên -> lệch toàn bộ cột dòng đó.
+    const rawText = document.getElementById('paste-excel-input').value.replace(/^[\r\n]+/, '').replace(/\s+$/, '');
+    if (!rawText) {
+      parsedExcelRecords = [];
+      renderExcelPreviewTable([]);
+      return;
+    }
+
+    const lines = rawText.split('\n');
+    parsedExcelRecords = [];
+
+    lines.forEach(line => {
+      if (line.trim()) {
+        const cols = line.split('\t');
+        if (cols.length >= 2) {
+          parsedExcelRecords.push({
+            raw_qr: cols[0] ? cols[0].trim() : "",
+            cccd_no: cols[1] ? cols[1].trim() : "",
+            cmnd_no: cols[2] ? cols[2].trim() : "",
+            full_name: cols[3] ? cols[3].trim() : "",
+            gender: cols[4] ? cols[4].trim() : "Nam",
+            dob: cols[5] ? cols[5].trim() : "",
+            perm_addr: cols[6] ? cols[6].trim() : "",
+            merged_addr: cols[7] ? cols[7].trim() : "",
+            curr_addr: cols[8] ? cols[8].trim() : "",
+            issue_date: cols[9] ? cols[9].trim() : "",
+            issue_place: cols[10] ? cols[10].trim() : "Cục Cảnh sát QLHC về TTXH",
+            img_front: cols[11] ? cols[11].trim() : "",
+            img_back: cols[12] ? cols[12].trim() : "",
+            created_by: cols[13] ? cols[13].trim() : "",
+            created_at: cols[14] ? cols[14].trim() : ""
+          });
+        }
+      }
+    });
+
+    renderExcelPreviewTable(parsedExcelRecords);
+  }
+
+  function renderExcelPreviewTable(records) {
+    const tbody = document.getElementById('tbody-paste-preview');
+    const badge = document.getElementById('excel-preview-badge');
+    const btnSubmit = document.getElementById('btn-submit-excel');
+
+    if (!records || records.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #94a3b8;">Chưa có dữ liệu. Vui lòng dán văn bản từ Excel vào ô phía trên.</td></tr>';
+      badge.textContent = "0 dòng hợp lệ";
+      badge.style.background = "#e2e8f0";
+      badge.style.color = "#475569";
+      btnSubmit.disabled = true;
+      btnSubmit.style.opacity = "0.6";
+      return;
+    }
+
+    let validCount = 0;
+    let html = '';
+
+    records.forEach((r, idx) => {
+      const isValid = r.cccd_no && r.full_name;
+      if (isValid) validCount++;
+
+      const statusHtml = isValid 
+        ? '<span style="color: #16a34a; font-weight: 600;">Hợp lệ</span>'
+        : '<span style="color: #dc2626; font-weight: 600;">Thiếu CCCD/Họ tên</span>';
+
+      html += `
+        <tr style="border-bottom: 1px solid #f1f5f9; background: ${isValid ? '#ffffff' : '#fef2f2'};">
+          <td style="padding: 6px 8px; text-align: center; color: #64748b;">${idx + 1}</td>
+          <td style="padding: 6px 8px; font-weight: 600; color: #0f172a;">${idEsc(r.cccd_no || '-')}</td>
+          <td style="padding: 6px 8px; font-weight: 600; color: #2563eb;">${idEsc(r.full_name || '-')}</td>
+          <td style="padding: 6px 8px;">${idEsc(r.gender || 'Nam')}</td>
+          <td style="padding: 6px 8px;">${idEsc(r.dob || '-')}</td>
+          <td style="padding: 6px 8px; color: #334155;">${idEsc(r.perm_addr || '-')}</td>
+          <td style="padding: 6px 8px;">${statusHtml}</td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+    badge.textContent = `${validCount}/${records.length} dòng hợp lệ`;
+    
+    if (validCount > 0) {
+      badge.style.background = "#dcfce7";
+      badge.style.color = "#15803d";
+      btnSubmit.disabled = false;
+      btnSubmit.style.opacity = "1";
+    } else {
+      badge.style.background = "#fef2f2";
+      badge.style.color = "#dc2626";
+      btnSubmit.disabled = true;
+      btnSubmit.style.opacity = "0.6";
+    }
+  }
+
+  function processPasteExcelData() {
+    if (!canUseHRMIDPermission('import')) return;
+    if (!parsedExcelRecords || parsedExcelRecords.length === 0) {
+      showToast("Vui lòng dán nội dung từ Excel vào ô nhập liệu!", 'warning');
+      return;
+    }
+
+    const validRecords = parsedExcelRecords.filter(r => r.cccd_no && r.full_name);
+    if (validRecords.length === 0) {
+      showToast("Không có dòng nào hợp lệ (cần đủ Số CCCD và Họ tên)!", 'warning');
+      return;
+    }
+
+    const btnSubmit = document.getElementById('btn-submit-excel');
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = "Đang nhập " + validRecords.length + " bản ghi...";
+
+    let currentUser = "HỆ THỐNG";
+    try {
+      const u = JSON.parse(localStorage.getItem('HAP_USER_SESSION') || '{}');
+      if (u.fullName || u.username) currentUser = u.fullName || u.username;
+    } catch(e) {}
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = "Xác nhận Nhập Dữ Liệu";
+        if (res && res.success) {
+          showToast(res.message, 'success');
+          closePasteExcelModal();
+          reloadHRMIDData();
+        } else {
+          showToast(res.message || "Nhập dữ liệu không thành công", 'error');
+        }
+      })
+      .withFailureHandler(function(err) {
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = "Xác nhận Nhập Dữ Liệu";
+        showToast("Lỗi kết nối máy chủ", 'error');
+      })
+      .saveBulkHRMIDRecords(HAP_TOKEN(), validRecords);
+  }
+
+  window.addEventListener('DOMContentLoaded', function() {
+    initColumnDropdown();
+    // Dữ liệu sẽ được nạp sau khi xác thực xong (HAP_onAuthenticated trong UI_Scripts)
+  });
+</script>

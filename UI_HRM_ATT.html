@@ -1,0 +1,2166 @@
+<!-- UI_HRM_ATT.html - HAP HOLDING ERP SYSTEM (ULTIMATE FIXED & FINAL) -->
+
+<style>
+  .pagination-btn {
+    background: #ffffff; color: #334155; border: 1px solid #cbd5e1;
+    padding: 6px 12px; border-radius: 6px; font-size: 0.83rem; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+  }
+  .pagination-btn:hover:not(:disabled) { background: #f1f5f9; border-color: #94a3b8; }
+  .pagination-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .pagination-btn.active { background: #2563eb; color: #ffffff; border-color: #2563eb; }
+
+  .view-tab-btn {
+    padding: 7px 14px; border-radius: 6px; font-size: 0.83rem; font-weight: 600;
+    border: 1px solid #cbd5e1; background: #ffffff; color: #475569; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; transition: all 0.2s;
+  }
+  .view-tab-btn:hover { background: #f8fafc; color: #1e293b; }
+  .view-tab-btn.active { background: #2563eb; color: #ffffff; border-color: #2563eb; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2); }
+
+  #toast-container-att { position: fixed; top: 20px; right: 20px; z-index: 999999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  .toast-card {
+    pointer-events: auto; min-width: 280px; max-width: 380px; padding: 10px 14px; border-radius: 8px;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15); display: flex; align-items: center; gap: 10px;
+    font-size: 0.83rem; font-weight: 500; color: #ffffff; animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .toast-card.success { background: #0f766e; }
+  .toast-card.error { background: #be123c; }
+  .toast-card.warning { background: #b45309; }
+  .toast-card.info { background: #1d4ed8; }
+
+  @keyframes toastIn { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  #tbody-hrm-att tr { cursor: pointer; transition: background 0.15s; }
+  #tbody-hrm-att tr:hover { background-color: #f8fafc !important; }
+
+  .enum-dropdown { position: relative; display: inline-block; }
+  .enum-btn { 
+    background: #ffffff; border: 1px solid #cbd5e1; padding: 7px 12px; border-radius: 6px; 
+    font-size: 0.83rem; font-weight: 500; color: #334155; cursor: pointer; 
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 150px; 
+  }
+  .enum-btn:hover { border-color: #94a3b8; background: #f8fafc; }
+  .enum-menu { 
+    position: absolute; top: 105%; right: 0; z-index: 100; background: #ffffff; 
+    border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 20px -3px rgba(0,0,0,0.12); 
+    width: 250px; max-height: 320px; overflow-y: auto; padding: 8px; display: none; 
+  }
+  .enum-menu.show { display: block; }
+  .enum-item { display: flex; align-items: center; gap: 8px; padding: 7px 8px; font-size: 0.8rem; cursor: pointer; border-radius: 4px; color: #334155; }
+  .enum-item:hover { background: #f1f5f9; }
+
+  .pivot-table-container { width: 100%; overflow-x: auto; max-height: 680px; position: relative; }
+  .pivot-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.78rem; text-align: center; }
+  .pivot-table th, .pivot-table td { border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; padding: 6px 4px; white-space: nowrap; }
+  .pivot-table thead th { background: #f8fafc; color: #334155; font-weight: 700; position: sticky; top: 0; z-index: 10; border-top: 1px solid #e2e8f0; }
+  
+  .pivot-sticky-1 { position: sticky; left: 0; background: #ffffff; z-index: 11; width: 40px; }
+  .pivot-sticky-2 { position: sticky; left: 40px; background: #ffffff; z-index: 11; text-align: left; min-width: 160px; max-width: 180px; }
+  .pivot-sticky-3 { position: sticky; left: 200px; background: #ffffff; z-index: 11; text-align: left; min-width: 120px; border-right: 2px solid #cbd5e1 !important; }
+  
+  .pivot-table thead th.pivot-sticky-1,
+  .pivot-table thead th.pivot-sticky-2,
+  .pivot-table thead th.pivot-sticky-3 { background: #f1f5f9; z-index: 12; }
+
+  .p-cell { display: inline-block; width: 28px; height: 22px; line-height: 22px; border-radius: 4px; font-weight: 700; font-size: 0.72rem; }
+  .p-work-full { background: #dcfce7; color: #15803d; }
+  .p-work-half { background: #fef9c3; color: #a16207; }
+  .p-leave { background: #e0e7ff; color: #4338ca; }
+  .p-absent { color: #cbd5e1; }
+
+  #att-drawer-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(2px);
+    z-index: 99998; opacity: 0; visibility: hidden; transition: all 0.3s ease;
+  }
+  #att-drawer-overlay.active { opacity: 1; visibility: visible; }
+
+  #att-drawer-panel {
+    position: fixed; top: 0; right: -750px; width: 680px; max-width: 95vw; height: 100vh;
+    background: #ffffff; box-shadow: -10px 0 25px rgba(0, 0, 0, 0.15);
+    z-index: 99999; transition: right 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex; flex-direction: column; font-family: system-ui, -apple-system, sans-serif;
+  }
+  #att-drawer-panel.active { right: 0; }
+
+  .info-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; }
+  .info-card-title { font-size: 0.78rem; font-weight: 700; color: #2563eb; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 6px; }
+  .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .info-item { display: flex; flex-direction: column; gap: 2px; }
+  .info-label { font-size: 0.73rem; color: #64748b; font-weight: 500; }
+  .info-value { font-size: 0.83rem; color: #0f172a; font-weight: 600; word-break: break-word; }
+
+  .att-svg-icon { width: 16px; height: 16px; fill: currentColor; display: inline-block; vertical-align: middle; flex-shrink: 0; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  .spinning { animation: spin 0.8s linear infinite; }
+
+  .erp-input {
+    width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px;
+    font-size: 0.85rem; color: #0f172a; outline: none; transition: all 0.2s; background: #ffffff;
+  }
+  .erp-input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+  .erp-input:disabled { background: #f1f5f9; cursor: not-allowed; opacity: 0.7; }
+  .erp-label { font-size: 0.78rem; font-weight: 600; color: #334155; margin-bottom: 4px; display: block; }
+
+  .preview-table-container { width: 100%; max-height: 220px; overflow-x: auto; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 6px; background: #fafafa; }
+  .preview-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; text-align: left; }
+  .preview-table th { background: #e2e8f0; color: #1e293b; font-weight: 700; padding: 6px 8px; border: 1px solid #cbd5e1; white-space: nowrap; position: sticky; top: 0; z-index: 5; }
+  .preview-table td { padding: 6px 8px; border: 1px solid #e2e8f0; white-space: nowrap; color: #334155; }
+  .preview-table tr:nth-child(even) { background: #ffffff; }
+  .preview-table tr:hover { background: #eff6ff; }
+
+  .btn-act {
+    padding: 4px 8px; border-radius: 5px; font-size: 0.75rem; font-weight: 600;
+    border: 1px solid transparent; cursor: pointer; display: inline-flex;
+    align-items: center; gap: 4px; transition: all 0.15s; line-height: 1.2;
+  }
+  .btn-act-view { background: #f1f5f9; color: #2563eb; border-color: #cbd5e1; }
+  .btn-act-view:hover { background: #e0e7ff; border-color: #93c5fd; }
+  .btn-act-approve { background: #dcfce7; color: #15803d; border-color: #86efac; }
+  .btn-act-approve:hover { background: #bbf7d0; }
+  .btn-act-reject { background: #ffe4e6; color: #be123c; border-color: #fca5a5; }
+  .btn-act-reject:hover { background: #fecdd3; }
+</style>
+
+<div id="toast-container-att"></div>
+
+<div style="display: flex; flex-direction: column; gap: 16px;">
+
+  <!-- TOOLBAR CHÍNH -->
+  <div style="background: #ffffff; padding: 14px 16px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 12px;">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        
+        <div style="display: flex; gap: 4px; background: #f1f5f9; padding: 3px; border-radius: 8px; border: 1px solid #cbd5e1; margin-right: 6px;">
+          <button id="tab-btn-list" class="view-tab-btn active" onclick="switchATTViewMode('list')">
+            <svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+            <span>Danh sách</span>
+          </button>
+          <button id="tab-btn-pivot" class="view-tab-btn" onclick="switchATTViewMode('pivot')">
+            <svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M10 3H3v5h7V3zm11 0h-9v5h9V3zm0 7h-9v5h9v-5zm0 7h-9v5h9v-5zM10 10H3v12h7V10z"/></svg>
+            <span>Bảng Pivot (31 ngày)</span>
+          </button>
+        </div>
+
+        <input type="text" id="att-search-input" placeholder="Tìm Họ tên, Mã NV, CCCD..." onkeyup="filterATTTable()" class="erp-input" style="width: 200px;">
+
+        <div style="display: flex; align-items: center; gap: 4px; background: #f8fafc; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.8rem; color: #475569;">
+          <svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.89-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></svg>
+          <span>Từ:</span>
+          <input type="date" id="att-date-from" onchange="onATTDateChange()" style="border: none; background: transparent; font-size: 0.8rem; outline: none;">
+          <span>Đến:</span>
+          <input type="date" id="att-date-to" onchange="onATTDateChange()" style="border: none; background: transparent; font-size: 0.8rem; outline: none;">
+          <label style="display: flex; align-items: center; gap: 2px; cursor: pointer; margin-left: 4px; font-weight: 600;">
+            <input type="checkbox" id="att-date-all" onchange="toggleATTAllDates(this.checked)"> Tất cả
+          </label>
+        </div>
+
+        <div class="enum-dropdown">
+          <button class="enum-btn" onclick="toggleATTEnumMenu('enum-att-dept-menu')">
+            <span id="enum-att-dept-label">Tất cả Phòng ban</span>
+            <svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+          </button>
+          <div id="enum-att-dept-menu" class="enum-menu">
+            <label class="enum-item" style="font-weight: 700; border-bottom: 1px dashed #cbd5e1;">
+              <input type="checkbox" id="enum-att-dept-all" onchange="toggleAllEnumItems('enum-att-dept-item', this.checked); filterATTTable();"> Chọn tất cả
+            </label>
+            <div id="enum-att-dept-container"></div>
+          </div>
+        </div>
+
+        <div id="wrapper-col-toggle-menu" class="enum-dropdown">
+          <button class="enum-btn" onclick="toggleATTEnumMenu('enum-att-cols-menu')" style="min-width: 130px;">
+            <svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/></svg>
+            <span>Ẩn/Hiện Cột</span>
+            <svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+          </button>
+          <div id="enum-att-cols-menu" class="enum-menu">
+            <label class="enum-item"><input type="checkbox" class="col-toggle-chk" data-col-idx="col-att-id" onchange="toggleColumnVisibility()"> Mã Đơn (att_id)</label>
+            <label class="enum-item"><input type="checkbox" class="col-toggle-chk" data-col-idx="col-emp-info" checked onchange="toggleColumnVisibility()"> Nhân Viên (emp_id, full_name, cccd_no)</label>
+            <label class="enum-item"><input type="checkbox" class="col-toggle-chk" data-col-idx="col-dept" checked onchange="toggleColumnVisibility()"> Phòng / Đơn Vị (dept_code, unit_code)</label>
+            <label class="enum-item"><input type="checkbox" class="col-toggle-chk" data-col-idx="col-date" checked onchange="toggleColumnVisibility()"> Thời Gian (work_date, work_month)</label>
+            <label class="enum-item"><input type="checkbox" class="col-toggle-chk" data-col-idx="col-shift" checked onchange="toggleColumnVisibility()"> Ca Làm Việc (work_shift)</label>
+            <label class="enum-item"><input type="checkbox" class="col-toggle-chk" data-col-idx="col-type" checked onchange="toggleColumnVisibility()"> Loại Công / Phép (att_type)</label>
+            <label class="enum-item"><input type="checkbox" class="col-toggle-chk" data-col-idx="col-val" checked onchange="toggleColumnVisibility()"> Quy Đổi Công (work_day_value)</label>
+            <label class="enum-item"><input type="checkbox" class="col-toggle-chk" data-col-idx="col-time" checked onchange="toggleColumnVisibility()"> Giờ Vào / Ra (check_in, check_out)</label>
+            <label class="enum-item"><input type="checkbox" class="col-toggle-chk" data-col-idx="col-gps" checked onchange="toggleColumnVisibility()"> Định Vị GPS & Ảnh (location_latlong, selfie_img)</label>
+            <label class="enum-item"><input type="checkbox" class="col-toggle-chk" data-col-idx="col-extra" onchange="toggleColumnVisibility()"> Chi Tiết Khác (meal_qty, leave_reason, approval_status)</label>
+            <label class="enum-item"><input type="checkbox" class="col-toggle-chk" data-col-idx="col-meta" onchange="toggleColumnVisibility()"> Thông Tin Tạo (created_by, created_at, reject_reason)</label>
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-reload-att" onclick="reloadATTData(true)" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+        <svg id="icon-reload-att" class="att-svg-icon" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        <span id="txt-reload-att">Tải lại</span>
+      </button>
+    </div>
+
+    <!-- ACTION BUTTONS -->
+    <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed #e2e8f0; padding-top: 10px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button id="btn-attendance-self" onclick="openSelfTimekeepingModal()" style="background: #2563eb; color: #ffffff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(37,99,235,0.2);">
+          <svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+          Chấm công
+        </button>
+        <button id="btn-attendance-proxy" onclick="openProxyTimekeepingModal()" style="background: #0d9488; color: #ffffff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(13,148,136,0.2);">
+          <svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9 0c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4zm9 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45v1.5h6v-1.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+          Chấm công thay
+        </button>
+        
+        <button id="btn-leave-create" onclick="openMultiDayLeaveModal()" style="background: #4f46e5; color: #ffffff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+          <svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm0 16H5V8h14v11z"/></svg>
+          Tạo phép
+        </button>
+        
+        <button id="btn-attendance-import" onclick="openExcelPasteModal()" style="background: #10b981; color: #ffffff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(16,185,129,0.2);">
+          <svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+          Import Excel
+        </button>
+      </div>
+
+      <button id="btn-bulk-delete-att" onclick="confirmBulkDeleteATT()" style="display: none; background: #be123c; color: #ffffff; border: none; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+        <span id="txt-bulk-delete-att">Xóa đã chọn (0)</span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- VIEW 1: BẢNG DỮ LIỆU DANH SÁCH MAIN -->
+  <div id="view-container-list" style="background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; overflow-x: auto;">
+    <table id="table-hrm-att" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+      <thead>
+        <tr style="background: #f8fafc; color: #475569; border-bottom: 2px solid #e2e8f0; font-weight: 600;">
+          <th style="padding: 12px 10px; width: 40px; text-align: center;"><input type="checkbox" id="chk-att-select-all" onchange="toggleSelectAllATT(this)"></th>
+          <th style="padding: 12px 10px; width: 40px; text-align: center;">STT</th>
+          <th class="col-att-id" style="padding: 12px; white-space: nowrap; display: none;">Mã Đơn</th>
+          <th class="col-emp-info" style="padding: 12px; white-space: nowrap;">Nghỉ / Nhân Viên</th>
+          <th class="col-dept" style="padding: 12px; white-space: nowrap;">Phòng / Đơn Vị</th>
+          <th class="col-date" style="padding: 12px; white-space: nowrap;">Thời Gian Làm Việc</th>
+          <th class="col-shift" style="padding: 12px; white-space: nowrap;">Ca Làm Việc</th>
+          <th class="col-type" style="padding: 12px; white-space: nowrap;">Loại Công / Phép</th>
+          <th class="col-val" style="padding: 12px; white-space: nowrap;">Quy Đổi</th>
+          <th class="col-time" style="padding: 12px; white-space: nowrap;">Giờ Vào / Ra</th>
+          <th class="col-gps" style="padding: 12px; white-space: nowrap;">GPS & Chụp Ảnh</th>
+          <th class="col-extra" style="padding: 12px; white-space: nowrap; display: none;">Chi Tiết Khác</th>
+          <th class="col-meta" style="padding: 12px; white-space: nowrap; display: none;">Thông Tin Khởi Tạo</th>
+          <th style="padding: 12px; text-align: center; white-space: nowrap;">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-hrm-att">
+        <tr><td colspan="14" style="text-align: center; padding: 24px; color: #94a3b8;">Đang tải dữ liệu chấm công...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- VIEW 2: BẢNG LƯỚI PIVOT CHẤM CÔNG 31 NGÀY NGANG -->
+  <div id="view-container-pivot" style="display: none; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 12px;">
+    <div class="pivot-table-container">
+      <table class="pivot-table">
+        <thead id="thead-hrm-pivot"></thead>
+        <tbody id="tbody-hrm-pivot"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PHÂN TRANG -->
+  <div id="wrapper-att-pagination" style="background: #ffffff; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <span id="txt-att-page-info" style="font-size: 0.83rem; color: #64748b;">Hiển thị 0 - 0 trong tổng số 0 bản ghi</span>
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <button id="btn-att-prev" class="pagination-btn" onclick="goToATTPage(window.currentATTPage - 1)">
+        <svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+      <div id="att-pagination-numbers" style="display: flex; gap: 4px;"></div>
+      <button id="btn-att-next" class="pagination-btn" onclick="goToATTPage(window.currentATTPage + 1)">
+        <svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL NGHỈ PHÉP BATCH -->
+<div id="modal-leave-batch" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(3px); z-index: 99999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 750px; max-width: 95%; max-height: 90vh; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); overflow-y: auto; padding: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 16px;">
+      <h3 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px;">
+        <svg class="att-svg-icon" style="width:20px; height:20px; color:#2563eb;" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm0 16H5V8h14v11z"/></svg>
+        Đơn Xin Nghỉ Phép / Đi Công Tác (Nhiều Ngày)
+      </h3>
+      <button onclick="closeLeaveModal()" style="background: transparent; border: none; cursor: pointer; font-size: 1.4rem; color: #64748b;">&times;</button>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+      <div>
+        <label class="erp-label">Từ Ngày (*)</label>
+        <input type="date" id="leave-start-date" class="erp-input" onchange="generateLeaveDaysTable()">
+      </div>
+      <div>
+        <label class="erp-label">Đến Ngày (*)</label>
+        <input type="date" id="leave-end-date" class="erp-input" onchange="generateLeaveDaysTable()">
+      </div>
+    </div>
+
+    <div style="margin-bottom: 12px;">
+      <label class="erp-label">Lý do nghỉ chung (Áp dụng tự động cho tất cả các ngày)</label>
+      <input type="text" id="leave-common-reason" class="erp-input" placeholder="Nhập lý do chung..." onkeyup="syncCommonReason()">
+    </div>
+
+    <h4 style="margin-top: 12px; font-size: 0.8rem; color: #64748b; font-weight: 700;">Danh sách ngày nghỉ chi tiết (Hệ thống tự tạo, tự loại Chủ nhật):</h4>
+    <div style="max-height: 250px; overflow-y: auto; margin-bottom: 16px; border: 1px solid #cbd5e1; border-radius: 6px; margin-top: 6px;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+        <thead>
+          <tr style="background: #f8fafc; color: #334155;">
+            <th style="padding: 8px; border: 1px solid #e2e8f0; width: 110px; text-align: center;">Ngày</th>
+            <th style="padding: 8px; border: 1px solid #e2e8f0; width: 110px;">Buổi</th>
+            <th style="padding: 8px; border: 1px solid #e2e8f0; width: 150px;">Loại Phép</th>
+            <th style="padding: 8px; border: 1px solid #e2e8f0;">Lý Do Chi Tiết</th>
+            <th style="padding: 8px; border: 1px solid #e2e8f0; width: 40px; text-align: center;">Xóa</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-leave-days">
+          <tr><td colspan="5" style="text-align: center; padding: 16px; color: #94a3b8;">Vui lòng chọn Từ ngày và Đến ngày...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+      <button onclick="closeLeaveModal()" style="background: #ffffff; border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; color: #334155;">Hủy Bỏ</button>
+      <button id="btn-submit-leave-batch" onclick="submitLeaveBatchForm()" style="background: #10b981; color: #fff; border: none; padding: 8px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+        <svg id="icon-submit-leave-batch" class="att-svg-icon" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        <span id="txt-submit-leave-batch">Nộp Đơn Phép Batch</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL IMPORT PASTE EXCEL -->
+<div id="modal-excel-paste" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(3px); z-index: 99999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 920px; max-width: 95%; max-height: 94vh; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); overflow-y: auto; display: flex; flex-direction: column;">
+    
+    <div style="padding: 16px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+      <div>
+        <h3 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0;">IMPORT DỮ LIỆU PASTE TỪ EXCEL</h3>
+        <p style="font-size: 0.78rem; color: #64748b; margin: 2px 0 0 0;">Sao chép các cột từ file Excel và dán trực tiếp vào ô bên dưới</p>
+      </div>
+      <button onclick="closeExcelPasteModal()" style="background: transparent; border: none; cursor: pointer; font-size: 1.4rem; color: #64748b;">&times;</button>
+    </div>
+
+    <div style="padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+      
+      <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px;">
+        <div style="font-size: 0.78rem; font-weight: 700; color: #1e40af; margin-bottom: 6px;">Thứ tự các cột dữ liệu trong Excel (tách nhau bằng Tab):</div>
+        <div style="background: #ffffff; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.75rem; color: #2563eb; overflow-x: auto; white-space: nowrap; font-weight: 600;">
+          Mã Đơn [Tab] Số CCCD [Tab] Mã NV [Tab] Họ và Tên [Tab] Phòng Ban [Tab] Đơn Vị [Tab] Ngày Làm Việc [Tab] Tháng [Tab] Ca Làm [Tab] Loại Công/Phép [Tab] Công Quy Đổi [Tab] Giờ Vào [Tab] Giờ Ra [Tab] Suất Cơm [Tab] Tọa Độ GPS [Tab] Link Ảnh Selfie [Tab] Lý Do Xin Nghỉ/Công Tác [Tab] Nhật Ký Ghi Chú [Tab] Trạng Thái Duyệt [Tab] Người Tạo [Tab] Thời Gian Tạo [Tab] Mã Định Danh Duy Nhất
+        </div>
+        <small style="font-size: 0.72rem; color: #475569; display: block; margin-top: 6px;">
+          * Chọn khối ô dữ liệu từ Excel (Ctrl+C) và dán (Ctrl+V) vào khung bên dưới.
+        </small>
+      </div>
+
+      <div>
+        <label class="erp-label">Dán (Paste) dữ liệu từ Excel vào đây (*):</label>
+        <textarea id="txt-excel-paste-input" rows="5" class="erp-input" style="font-family: monospace; font-size: 0.8rem;" placeholder="Dán dữ liệu từ Excel vào đây..." oninput="onExcelPasteInputChanged()"></textarea>
+      </div>
+
+      <div id="wrapper-excel-preview" style="display: none; flex-direction: column; gap: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.78rem; font-weight: 700; color: #059669; display: flex; align-items: center; gap: 4px;">
+            <svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            Xem trước dữ liệu nhận diện (<span id="txt-preview-count">0</span> dòng)
+          </span>
+          <span style="font-size: 0.72rem; color: #64748b;">Cuộn ngang/dọc để kiểm tra các cột</span>
+        </div>
+        <div class="preview-table-container">
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th>STT</th><th>Mã Đơn</th><th>Số CCCD</th><th>Mã NV</th><th>Họ và Tên</th>
+                <th>Phòng Ban</th><th>Đơn Vị</th><th>Ngày Làm</th><th>Tháng</th><th>Ca Làm</th>
+                <th>Loại Công / Phép</th><th>Quy Đổi</th><th>Giờ Vào</th><th>Giờ Ra</th><th>Suất Cơm</th>
+                <th>Tọa Độ GPS</th><th>Ảnh Selfie</th><th>Lý Do Xin Nghỉ</th><th>Ghi Chú Log</th>
+                <th>Trạng Thái</th><th>Người Tạo</th><th>Thời Gian Tạo</th><th>Mã Duy Nhất</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-excel-preview"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="padding: 14px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; background: #f8fafc;">
+      <button onclick="closeExcelPasteModal()" style="background: #ffffff; border: 1px solid #cbd5e1; padding: 9px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; color: #334155;">Hủy</button>
+      <button id="btn-submit-excel-paste" onclick="submitExcelPasteData()" style="background: #10b981; color: #fff; border: none; padding: 9px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(16,185,129,0.2);">
+        <svg id="icon-excel-paste" class="att-svg-icon" viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-2 16H9v-6h6v6zm1-10H5V5h10v4z"/></svg>
+        <span id="txt-excel-paste">Thực Hiện Import</span>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- DRAWER CHI TIẾT DỮ LIỆU -->
+<div id="att-drawer-overlay" onclick="closeATTDrawer()"></div>
+
+<div id="att-drawer-panel">
+  <div style="padding: 20px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #ffffff; position: relative;">
+    <button onclick="closeATTDrawer()" style="position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">&times;</button>
+    
+    <div style="display: flex; gap: 16px; align-items: center;">
+      <img id="d-att-selfie" src="" style="width: 68px; height: 68px; border-radius: 50%; object-fit: cover; border: 2px solid #38bdf8;" onerror="this.src='https://ui-avatars.com/api/?name=No+Image&background=0284c7&color=fff'">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <h3 id="d-att-full-name" style="margin: 0; font-size: 1.1rem; font-weight: 700; color: #ffffff;">---</h3>
+        <div style="font-size: 0.83rem; color: #94a3b8; display: flex; gap: 10px;">
+          <span>Mã Đơn: <strong id="d-att-id" style="color: #38bdf8;">---</strong></span>
+          <span>|</span>
+          <span>Mã NV: <strong id="d-att-emp-id" style="color: #60a5fa;">---</strong></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex: 1; overflow-y: auto; padding: 16px;">
+    <div class="info-card">
+      <div class="info-card-title">1. Thông Tin Chi Tiết Chấm Công & Nghỉ Phép</div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Số CCCD</span><span class="info-value" id="d-att-cccd">-</span></div>
+        <div class="info-item"><span class="info-label">Phòng ban</span><span class="info-value" id="d-att-dept">-</span></div>
+        <div class="info-item"><span class="info-label">Đơn vị</span><span class="info-value" id="d-att-unit">-</span></div>
+        <div class="info-item"><span class="info-label">Ngày làm việc</span><span class="info-value" id="d-att-date">-</span></div>
+        <div class="info-item"><span class="info-label">Tháng làm việc</span><span class="info-value" id="d-att-month">-</span></div>
+        <div class="info-item"><span class="info-label">Ca làm việc</span><span class="info-value" id="d-att-shift">-</span></div>
+        <div class="info-item"><span class="info-label">Loại công / phép</span><span class="info-value" id="d-att-type" style="color:#2563eb;">-</span></div>
+        <div class="info-item"><span class="info-label">Quy đổi công</span><span class="info-value" id="d-att-work-val">-</span></div>
+        <div class="info-item"><span class="info-label">Báo cơm</span><span class="info-value" id="d-att-meal">-</span></div>
+        <div class="info-item"><span class="info-label">Giờ Vào</span><span class="info-value" id="d-att-checkin" style="color:#059669;">-</span></div>
+        <div class="info-item"><span class="info-label">Giờ Ra</span><span class="info-value" id="d-att-checkout" style="color:#dc2626;">-</span></div>
+        <div class="info-item"><span class="info-label">Trạng thái</span><span class="info-value" id="d-att-status" style="color:#059669;">-</span></div>
+      </div>
+      <div class="info-item" style="margin-top: 10px;"><span class="info-label">Lý do xin nghỉ / Đi công tác</span><span class="info-value" id="d-att-reason" style="color:#64748b;">-</span></div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">2. Xác Thực GPS & Ảnh Chụp</div>
+      <div class="info-item"><span class="info-label">Tọa độ GPS LatLong</span><span class="info-value" id="d-att-latlong">-</span></div>
+      <div style="margin-top: 8px;">
+        <a id="d-att-map-link" href="#" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: #eff6ff; color: #2563eb; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 0.8rem; font-weight: 600;">Xem Google Maps</a>
+      </div>
+    </div>
+
+    <div class="info-card" style="background:#f1f5f9; border:none;">
+      <div class="info-card-title" style="color:#2563eb;">3. Nhật Ký Lịch Sử Bấm Công & Duyệt Đơn</div>
+      <div class="info-item" style="margin-bottom: 8px;">
+        <span class="info-label">Chuỗi Log lịch sử bấm công</span>
+        <div class="info-value" id="d-att-log-text" style="color:#0f172a; font-family: monospace; font-size: 0.8rem; background: #ffffff; padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1; white-space: pre-wrap;">-</div>
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Người khởi tạo</span><span class="info-value" id="d-att-created-by">-</span></div>
+        <div class="info-item"><span class="info-label">Thời gian tạo</span><span class="info-value" id="d-att-created-at">-</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding: 12px 16px; border-top: 1px solid #e2e8f0; background: #f8fafc; display: flex; justify-content: space-between; align-items: center;">
+    <div id="d-approval-actions" style="display: flex; gap: 8px;"></div>
+    <div style="display: flex; gap: 8px;">
+      <button id="d-btn-delete-att" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer;">Xóa Bản Ghi</button>
+      <button onclick="closeATTDrawer()" style="background: #ffffff; border: 1px solid #cbd5e1; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer;">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRM DIALOG -->
+<div id="modal-att-custom-confirm" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.5); z-index: 99999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 400px; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+    <h4 style="margin: 0; font-size: 0.98rem; color: #0f172a; font-weight: 700;">Xác nhận thao tác</h4>
+    <p id="att-confirm-message" style="margin: 0; font-size: 0.85rem; color: #475569;"></p>
+    <div style="display: flex; justify-content: flex-end; gap: 8px;">
+      <button onclick="closeATTConfirm(false)" style="padding: 7px 14px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer;">Hủy</button>
+      <button onclick="closeATTConfirm(true)" style="padding: 7px 14px; border-radius: 6px; border: none; background: #be123c; color: #fff; cursor: pointer;">Đồng ý</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TỪ CHỐI ĐƠN TÍNH TẾ (CUSTOM ERP REJECT MODAL) -->
+<div id="modal-att-reject-reason" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(2px); z-index: 99999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 440px; max-width: 90vw; border-radius: 10px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); padding: 20px; display: flex; flex-direction: column; gap: 14px; border: 1px solid #e2e8f0;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">
+      <h4 style="margin: 0; font-size: 1rem; color: #be123c; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+        <svg class="att-svg-icon" style="width: 18px; height: 18px; color: #be123c;" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+        Từ Chối Đơn Yêu Cầu
+      </h4>
+      <button onclick="closeRejectReasonModal()" style="background: none; border: none; font-size: 1.3rem; color: #94a3b8; cursor: pointer;">&times;</button>
+    </div>
+    
+    <div>
+      <label class="erp-label" style="margin-bottom: 6px;">Lý do từ chối (*):</label>
+      <textarea id="txt-reject-reason-input" rows="3" class="erp-input" placeholder="Vui lòng nhập chi tiết lý do từ chối để gửi phản hồi..." style="resize: vertical; font-size: 0.83rem;"></textarea>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
+      <button onclick="closeRejectReasonModal()" style="padding: 8px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; font-weight: 600; cursor: pointer;">Hủy Bỏ</button>
+      <button onclick="confirmRejectWithReason()" style="padding: 8px 18px; border-radius: 6px; border: none; background: #be123c; color: #ffffff; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+        <span>Xác Nhận Từ Chối</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- FORM ĐĂNG KÝ ERP HIGH-END MODAL -->
+<div id="modal-hrm-att" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(3px); z-index: 999; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; width: 720px; max-width: 95%; max-height: 92vh; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); overflow-y: auto; display: flex; flex-direction: column;">
+    
+    <div style="padding: 16px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+      <div>
+        <h3 id="modal-att-title" style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0;">GHI NHẬN CHẤM CÔNG & NGHỈ PHÉP</h3>
+        <p style="font-size: 0.78rem; color: #64748b; margin: 2px 0 0 0;">Hệ thống xác thực và quản lý dữ liệu nhân sự HAP HOLDING</p>
+      </div>
+      <button onclick="closeATTModal()" style="background: transparent; border: none; cursor: pointer; font-size: 1.4rem; color: #64748b;">&times;</button>
+    </div>
+
+    <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+      <div id="user-info-badge" style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: #2563eb; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem;" id="badge-avatar">NV</div>
+          <div>
+            <div style="font-size: 0.88rem; font-weight: 700; color: #1e3a8a;" id="badge-emp-name">Đang xác thực tài khoản...</div>
+            <div style="font-size: 0.75rem; color: #3b82f6;" id="badge-emp-sub">Mã NV: -- | CCCD: --</div>
+          </div>
+        </div>
+        <span id="badge-mode-tag" style="background: #dbeafe; color: #1e40af; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 4px;">TỰ CHẤM CÔNG</span>
+      </div>
+
+      <div id="wrapper-att-type-select" style="display: flex; flex-direction: column; gap: 4px;">
+        <label class="erp-label">Loại Thao Tác (*)</label>
+        <select id="f-att-type" onchange="toggleATTFormContext(this.value)" class="erp-input" style="font-weight: 700; color: #2563eb;">
+          <option value="Chấm công bình thường">Chấm công bình thường (Đi làm / GPS / Selfie)</option>
+          <option value="Phép năm">Phép năm (PN)</option>
+          <option value="Nghỉ không lương">Nghỉ không lương (KL)</option>
+          <option value="Đi công tác">Đi công tác (CT)</option>
+          <option value="Xin đi trễ">Xin đi trễ (ĐT)</option>
+          <option value="Xin về sớm">Xin về sớm (VS)</option>
+          <option value="Nghỉ bù">Nghỉ bù (NB)</option>
+          <option value="Nghỉ việc riêng">Nghỉ việc riêng (HH)</option>
+          <option value="Nghỉ ốm BHXH">Nghỉ ốm BHXH (BH)</option>
+          <option value="Nghỉ TS BHXH">Nghỉ Thai sản BHXH (TS)</option>
+        </select>
+      </div>
+
+      <div id="wrapper-admin-emp-select" style="display: none; flex-direction: column; gap: 4px;">
+        <label class="erp-label">Chọn Nhân Viên Được Chấm Công Thay (*)</label>
+        <select id="f-att-emp-select" class="erp-input">
+          <option value="">-- Đang tải danh sách nhân viên... --</option>
+        </select>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;">
+        <div>
+          <label class="erp-label">Ngày Thực Hiện (*)</label>
+          <input type="date" id="f-att-work-date" class="erp-input">
+        </div>
+
+        <div>
+          <label class="erp-label">Ca Làm Việc (*)</label>
+          <select id="f-att-work-shift" class="erp-input">
+            <option value="Hành chính">Hành chính</option>
+            <option value="Sáng">Sáng</option>
+            <option value="Chiều">Chiều</option>
+            <option value="Cả ngày">Cả ngày</option>
+            <option value="Farm">Farm</option>
+            <option value="Sản xuất">Sản xuất</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="erp-label">Báo Cơm (Suất ăn)</label>
+          <input type="number" id="f-att-meal-qty" value="0" min="0" max="3" class="erp-input">
+        </div>
+      </div>
+
+      <div id="ctx-area-timekeeping" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb; letter-spacing: 0.5px; text-transform: uppercase;">Xác thực hình ảnh & Vị trí GPS</div>
+        
+        <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
+          <div style="display: flex; flex-direction: column; gap: 8px; align-items: center;">
+            <div style="width: 200px; height: 140px; background: #0f172a; border-radius: 8px; overflow: hidden; position: relative;">
+              <video id="att-cam-video" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+              <canvas id="att-cam-canvas" style="display: none;"></canvas>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" onclick="startATTCamera()" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; font-size: 0.78rem; font-weight: 600; cursor: pointer;">Mở Cam</button>
+              <button type="button" onclick="takeATTSelfie()" style="padding: 6px 12px; border: none; border-radius: 6px; background: #059669; color: #fff; font-size: 0.78rem; font-weight: 600; cursor: pointer;">Chụp Ảnh</button>
+            </div>
+          </div>
+
+          <div style="flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 8px;">
+            <div>
+              <label class="erp-label">Tọa Độ GPS Tự Động</label>
+              <input type="text" id="f-att-latlong" readonly class="erp-input" style="background: #f1f5f9; font-weight: 600;" placeholder="Đang bắt vị trí GPS...">
+            </div>
+            <p style="font-size: 0.75rem; color: #64748b; margin: 0;">Vị trí địa lý sẽ được tự động đính kèm vào bản ghi để đảm bảo tính minh bạch.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="ctx-area-leave" style="display: none; flex-direction: column; gap: 12px;">
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
+          <div>
+            <label class="erp-label">Thời Gian Vào (Dự kiến)</label>
+            <input type="time" id="f-att-check-in" step="1" class="erp-input">
+          </div>
+          <div>
+            <label class="erp-label">Thời Gian Ra (Dự kiến)</label>
+            <input type="time" id="f-att-check-out" step="1" class="erp-input">
+          </div>
+        </div>
+        <div>
+          <label class="erp-label">Lý Do Chi Tiết (*)</label>
+          <input type="text" id="f-att-leave-reason" placeholder="Nhập lý do xin nghỉ hoặc thông tin chuyến công tác..." class="erp-input">
+        </div>
+      </div>
+
+    </div>
+
+    <div style="padding: 14px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+      <span style="font-size: 0.75rem; color: #2563eb; font-weight: 600;">* Mọi lượt chấm công trong cùng ngày/ca sẽ tự động lưu Log lịch sử.</span>
+      <div style="display: flex; gap: 10px;">
+        <button onclick="closeATTModal()" style="background: #ffffff; border: 1px solid #cbd5e1; padding: 9px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; color: #334155;">Hủy</button>
+        <button id="btn-save-att" onclick="submitATTForm()" style="background: #2563eb; color: #fff; border: none; padding: 9px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(37,99,235,0.2);">
+          <svg id="icon-save-att" class="att-svg-icon" viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-2 16H9v-6h6v6zm1-10H5V5h10v4z"/></svg>
+          <span id="txt-save-att">Xác Nhận & Lưu Dữ Liệu</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+window.rawATTData = window.rawATTData || [];
+window.filteredATTData = window.filteredATTData || [];
+window.currentATTPage = window.currentATTPage || 1;
+window.attPageSize = window.attPageSize || 20;
+window.totalATTRows = window.totalATTRows || 0;
+window.totalATTPages = window.totalATTPages || 1;
+window.pendingATTConfirm = window.pendingATTConfirm || null;
+window.pendingRejectContext = window.pendingRejectContext || null;
+window.attSelfieSnapBase64 = "";
+
+window.currentUserEmpProfile = null;
+window.cachedEmpList = null;
+window.isFetchingEmpList = false;
+
+window.isSelfModeActive = true;
+window.isProxyModeActive = false;
+window.currentATTViewMode = 'list';
+window.attFeaturePermissions = null;
+
+window.applyATTFeaturePermissions = function(permissions) {
+  if (!permissions) return;
+  window.attFeaturePermissions = permissions;
+  [
+    ['btn-attendance-self', permissions.attendanceSelf],
+    ['btn-attendance-proxy', permissions.attendanceProxy],
+    ['btn-leave-create', permissions.leaveCreate],
+    ['btn-attendance-import', permissions.import]
+  ].forEach(function(entry) {
+    var button = document.getElementById(entry[0]);
+    if (button) button.style.display = entry[1] ? 'flex' : 'none';
+  });
+  var leaveTypeSelect = document.getElementById('f-att-type');
+  if (leaveTypeSelect) {
+    Array.from(leaveTypeSelect.options).forEach(function(option) {
+      if (option.value === 'Chấm công bình thường') return;
+      option.disabled = !permissions.leaveCreate;
+      option.hidden = !permissions.leaveCreate;
+    });
+  }
+};
+
+window.canUseATTFeature = function(permissionKey) {
+  if (!window.attFeaturePermissions || window.attFeaturePermissions[permissionKey]) return true;
+  window.showATTToast('Bạn chưa được cấp quyền cho thao tác này.', 'warning');
+  return false;
+};
+
+/* --- BỘ SVG ICONS TIÊU CHUẨN DÙNG CHUNG --- */
+window.SVG_ICONS = {
+  plus: '<svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>',
+  minus: '<svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z"/></svg>',
+  check: '<svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
+  cross: '<svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
+  eye: '<svg class="att-svg-icon" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>',
+  spinner: '<svg class="att-svg-icon spinning" viewBox="0 0 24 24"><path d="M12 4V2C6.48 2 2 6.48 2 12h2c0-4.41 3.59-8 8-8zm0 14c-4.41 0-8-3.59-8-8H2c0 5.52 4.48 10 10 10v-2z"/></svg>'
+};
+
+window.getCurrentLoggedInUser = function() {
+  try {
+    var sessionStr = localStorage.getItem('HAP_USER_SESSION');
+    if (sessionStr) {
+      var userObj = JSON.parse(sessionStr);
+      if (userObj && userObj.username) return userObj.username.trim();
+    }
+  } catch (e) {
+    console.error("Lỗi đọc Session user:", e);
+  }
+  return "hr.hap.admin";
+};
+
+window.preloadCurrentUserProfile = function(callback) {
+  var username = window.getCurrentLoggedInUser();
+
+  var applyProfile = function(data, cccd) {
+    window.currentUserEmpProfile = {
+      emp_id: data.emp_id || "20260009",
+      full_name: data.full_name || "HAP Admin",
+      cccd_no: cccd || data.cccd_no || "001099000001",
+      dept_code: data.dept_code || data.department || "Phòng Hệ thống Quản trị",
+      unit_code: data.unit_code || data.unit || "HAP HOLDING",
+      _cachedUser: username
+    };
+
+    var elName = document.getElementById('badge-emp-name');
+    var elSub = document.getElementById('badge-emp-sub');
+    var elAvt = document.getElementById('badge-avatar');
+
+    if (elName) elName.textContent = window.currentUserEmpProfile.full_name;
+    if (elSub) elSub.textContent = "Mã NV: " + window.currentUserEmpProfile.emp_id + " | CCCD: " + window.currentUserEmpProfile.cccd_no;
+    if (elAvt) elAvt.textContent = (window.currentUserEmpProfile.full_name || "NV").substring(0, 2).toUpperCase();
+
+    if (typeof callback === 'function') callback(window.currentUserEmpProfile);
+  };
+
+  if (typeof google !== 'undefined' && google.script && google.script.run &&
+      (!window.HAP_IS_AUTHED || window.HAP_IS_AUTHED())) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.success && res.data) {
+          applyProfile(res.data, res.cccd_no);
+        } else {
+          var localItem = window.rawATTData.find(function(i) {
+            return i.created_by === username || (i.hr_email && i.hr_email.indexOf(username) !== -1);
+          });
+          if (localItem) {
+            applyProfile(localItem, localItem.cccd_no);
+          } else {
+            applyProfile({}, "");
+          }
+        }
+      })
+      .getEmployeeProfileByUsername(HAP_TOKEN());
+  } else {
+    applyProfile({}, "");
+  }
+};
+
+window.getPivotDateRange = function() {
+  var isDateAll = document.getElementById('att-date-all').checked;
+  var dFromVal = document.getElementById('att-date-from').value;
+  var dToVal = document.getElementById('att-date-to').value;
+
+  var startDate, endDate;
+  var today = new Date();
+
+  if (isDateAll || (!dFromVal && !dToVal)) {
+    var sampleDateStr = "";
+    if (window.filteredATTData && window.filteredATTData.length > 0) {
+      sampleDateStr = window.filteredATTData[0].work_date || "";
+    }
+    
+    if (sampleDateStr) {
+      var str = sampleDateStr.toString().split('T')[0].trim();
+      if (str.indexOf('-') !== -1) {
+        var parts = str.split('-');
+        if (parts.length === 3) {
+          if (parts[0].length === 4) {
+            var y = parseInt(parts[0], 10);
+            var m = parseInt(parts[1], 10) - 1;
+            startDate = new Date(y, m, 1);
+            endDate = new Date(y, m + 1, 0);
+          } else {
+            var m = parseInt(parts[1], 10) - 1;
+            var y = parseInt(parts[2], 10);
+            startDate = new Date(y, m, 1);
+            endDate = new Date(y, m + 1, 0);
+          }
+        }
+      } else if (str.indexOf('/') !== -1) {
+        var parts = str.split('/');
+        if (parts.length === 3) {
+          var m = parseInt(parts[1], 10) - 1;
+          var y = parseInt(parts[2], 10);
+          startDate = new Date(y, m, 1);
+          endDate = new Date(y, m + 1, 0);
+        }
+      }
+    }
+    
+    if (!startDate) {
+      startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    }
+  } else {
+    startDate = dFromVal ? new Date(dFromVal) : new Date(today.getFullYear(), today.getMonth(), 1);
+    endDate = dToVal ? new Date(dToVal) : new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+  }
+
+  var dates = [];
+  var curr = new Date(startDate);
+  while (curr <= endDate && dates.length < 31) {
+    var pad = function(n) { return n < 10 ? '0' + n : n; };
+    var yyyy = curr.getFullYear();
+    var mm = pad(curr.getMonth() + 1);
+    var dd = pad(curr.getDate());
+    
+    dates.push({
+      fullDate: yyyy + '-' + mm + '-' + dd,
+      displayDate: dd + '/' + mm,
+      dayName: ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][curr.getDay()]
+    });
+    curr.setDate(curr.getDate() + 1);
+  }
+
+  return dates;
+};
+
+window.switchATTViewMode = function(mode) {
+  window.currentATTViewMode = mode;
+  var btnList = document.getElementById('tab-btn-list');
+  var btnPivot = document.getElementById('tab-btn-pivot');
+  var viewList = document.getElementById('view-container-list');
+  var viewPivot = document.getElementById('view-container-pivot');
+  var colMenu = document.getElementById('wrapper-col-toggle-menu');
+  var pagWrapper = document.getElementById('wrapper-att-pagination');
+
+  if (mode === 'list') {
+    btnList.classList.add('active');
+    btnPivot.classList.remove('active');
+    viewList.style.display = 'block';
+    viewPivot.style.display = 'none';
+    colMenu.style.display = 'inline-block';
+    pagWrapper.style.display = 'flex';
+    window.renderATTTable();
+  } else {
+    btnPivot.classList.add('active');
+    btnList.classList.remove('active');
+    viewPivot.style.display = 'block';
+    viewList.style.display = 'none';
+    colMenu.style.display = 'none';
+    pagWrapper.style.display = 'none';
+    window.renderATTPivotTable();
+  }
+};
+
+window.renderATTPivotTable = function() {
+  var thead = document.getElementById('thead-hrm-pivot');
+  var tbody = document.getElementById('tbody-hrm-pivot');
+  if (!thead || !tbody) return;
+
+  var dateRange = window.getPivotDateRange();
+
+  var hHtml = '<tr>' +
+    '<th class="pivot-sticky-1">STT</th>' +
+    '<th class="pivot-sticky-2">Họ & Tên NV</th>' +
+    '<th class="pivot-sticky-3">Phòng / Đơn Vị</th>';
+
+  dateRange.forEach(function(d) {
+    var isWeekend = (d.dayName === 'CN' || d.dayName === 'T7');
+    var bgStyle = isWeekend ? 'background: #f1f5f9; color: #dc2626;' : '';
+    hHtml += '<th style="min-width: 36px; ' + bgStyle + '">' + d.displayDate + '<br><span style="font-size: 0.68rem; opacity: 0.8;">' + d.dayName + '</span></th>';
+  });
+
+  hHtml += '<th style="min-width: 65px; background: #eff6ff; color: #1e40af;">Tổng Công</th></tr>';
+  thead.innerHTML = hHtml;
+
+  var empMap = {};
+  window.filteredATTData.forEach(function(item) {
+    if (!item.emp_id) return;
+    if (!empMap[item.emp_id]) {
+      empMap[item.emp_id] = {
+        emp_id: item.emp_id,
+        full_name: item.full_name || 'Chưa rõ',
+        dept_code: item.dept_code || item.department || '-',
+        atts: {}
+      };
+    }
+    
+    var formattedDate = "";
+    if (item.work_date) {
+      var rawD = item.work_date.toString().split('T')[0].trim();
+      if (rawD.indexOf('-') !== -1) {
+        var parts = rawD.split('-');
+        if (parts.length === 3) {
+          if (parts[0].length === 4) {
+            formattedDate = rawD;
+          } else {
+            formattedDate = parts[2] + '-' + parts[1].padStart(2, '0') + '-' + parts[0].padStart(2, '0');
+          }
+        }
+      } else if (rawD.indexOf('/') !== -1) {
+        var parts = rawD.split('/');
+        if (parts.length === 3) {
+          var d = parts[0].padStart(2, '0');
+          var m = parts[1].padStart(2, '0');
+          var y = parts[2];
+          formattedDate = y + '-' + m + '-' + d;
+        }
+      }
+    }
+    
+    if (formattedDate) {
+      empMap[item.emp_id].atts[formattedDate] = item;
+    }
+  });
+
+  var empList = Object.values(empMap);
+  if (empList.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="' + (dateRange.length + 4) + '" style="padding: 24px; color: #94a3b8;">Không có dữ liệu chấm công.</td></tr>';
+    return;
+  }
+
+  var bHtml = '';
+  empList.forEach(function(emp, idx) {
+    var totalWorkDay = 0;
+
+    bHtml += '<tr>' +
+      '<td class="pivot-sticky-1" style="color:#64748b;">' + (idx + 1) + '</td>' +
+      '<td class="pivot-sticky-2"><strong>' + emp.full_name + '</strong><br><span style="font-size:0.72rem; color:#2563eb;">' + emp.emp_id + '</span></td>' +
+      '<td class="pivot-sticky-3">' + emp.dept_code + '</td>';
+
+    dateRange.forEach(function(d) {
+      var att = emp.atts[d.fullDate];
+      if (att) {
+        var val = parseFloat(att.work_day_value);
+        if (isNaN(val)) val = 1;
+        
+        totalWorkDay += val;
+
+        var cellBadge = '';
+        var typeStr = (att.att_type || '').toLowerCase();
+
+        if (typeStr.indexOf('phép') !== -1 || typeStr.indexOf('pn') !== -1) {
+          cellBadge = '<span class="p-cell p-leave" title="Phép năm">PN</span>';
+        } else if (typeStr.indexOf('tác') !== -1 || typeStr.indexOf('ct') !== -1) {
+          cellBadge = '<span class="p-cell p-leave" style="background:#fef3c7; color:#d97706;" title="Đi công tác">CT</span>';
+        } else if (typeStr.indexOf('không lương') !== -1 || typeStr.indexOf('kl') !== -1) {
+          cellBadge = '<span class="p-cell" style="background:#fee2e2; color:#dc2626;" title="Nghỉ không lương">KL</span>';
+        } else {
+          if (val >= 1) {
+            cellBadge = '<span class="p-cell p-work-full" title="Đủ 1 công">1</span>';
+          } else if (val > 0) {
+            cellBadge = '<span class="p-cell p-work-half" title="' + val + ' công">' + val + '</span>';
+          } else {
+            cellBadge = '<span class="p-cell p-work-full" title="Đủ công">1</span>';
+          }
+        }
+
+        bHtml += '<td onclick="openATTDrawer(\'' + att.att_id + '\')" style="cursor:pointer;" title="Bấm xem chi tiết">' + cellBadge + '</td>';
+      } else {
+        bHtml += '<td><span class="p-cell p-absent">•</span></td>';
+      }
+    });
+
+    bHtml += '<td style="font-weight: 700; color: #2563eb; background: #f8fafc;">' + totalWorkDay.toFixed(1).replace('.0', '') + '</td></tr>';
+  });
+
+  tbody.innerHTML = bHtml;
+};
+
+window.formatDateTimeUI = function(val, type) {
+  if (!val && val !== 0) return "-";
+  var str = val.toString().trim();
+
+  if (type === "time") {
+    if (str.indexOf(":") !== -1 && str.indexOf("GMT") === -1 && str.indexOf("Indochina") === -1) {
+      var timeParts = str.split(" ");
+      var lastPart = timeParts[timeParts.length - 1];
+      if (lastPart.split(":").length >= 2) return lastPart;
+    }
+  }
+
+  if (type === "date" && str.indexOf("-") !== -1) {
+    var p = str.split("T")[0].split("-");
+    if (p.length === 3 && p[0].length === 4) {
+      return p[2] + "/" + p[1] + "/" + p[0];
+    }
+  }
+  
+  if (str.indexOf("GMT") !== -1 || str.indexOf("Indochina Time") !== -1) {
+    var d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      var pad = function(n) { return n < 10 ? '0' + n : n; };
+      if (type === "time") return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+      if (type === "date") return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear();
+      if (type === "month") return pad(d.getMonth() + 1) + "/" + d.getFullYear();
+      if (type === "full") return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear() + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+    }
+  }
+  return str;
+};
+
+window.showATTToast = function(msg, type, duration) {
+  type = type || 'info'; duration = duration || 3000;
+  if (window.HAP_shouldSuppressAuthToast_ && window.HAP_shouldSuppressAuthToast_(msg)) return;
+  var container = document.getElementById('toast-container-att');
+  if (!container) return;
+  var t = document.createElement('div');
+  t.className = 'toast-card ' + type;
+  t.innerHTML = '<span style="flex:1;">' + msg + '</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:#fff;cursor:pointer;font-weight:bold;">&times;</button>';
+  container.appendChild(t);
+  setTimeout(function() { if (t.parentElement) t.remove(); }, duration);
+};
+
+window.showATTConfirm = function(msg, callback) {
+  document.getElementById('att-confirm-message').textContent = msg;
+  window.pendingATTConfirm = callback;
+  document.getElementById('modal-att-custom-confirm').style.display = 'flex';
+};
+
+window.closeATTConfirm = function(isOk) {
+  document.getElementById('modal-att-custom-confirm').style.display = 'none';
+  if (isOk && typeof window.pendingATTConfirm === 'function') window.pendingATTConfirm();
+  window.pendingATTConfirm = null;
+};
+
+/* --- BỔ SUNG MODAL TỪ CHỐI TÍNH TẾ --- */
+window.openRejectReasonModal = function(targetIdOrArray, isDrawer, btnEl) {
+  document.getElementById('txt-reject-reason-input').value = "";
+  window.pendingRejectContext = {
+    target: targetIdOrArray,
+    isDrawer: isDrawer,
+    btnEl: btnEl
+  };
+  document.getElementById('modal-att-reject-reason').style.display = 'flex';
+  setTimeout(function() {
+    document.getElementById('txt-reject-reason-input').focus();
+  }, 100);
+};
+
+window.closeRejectReasonModal = function() {
+  document.getElementById('modal-att-reject-reason').style.display = 'none';
+  window.pendingRejectContext = null;
+};
+
+window.confirmRejectWithReason = function() {
+  var reasonInput = document.getElementById('txt-reject-reason-input').value.trim();
+  if (!reasonInput) {
+    window.showATTToast("Vui lòng nhập lý do từ chối!", 'warning');
+    return;
+  }
+
+  var ctx = window.pendingRejectContext;
+  window.closeRejectReasonModal();
+
+  if (ctx) {
+    if (ctx.isDrawer) {
+      window.executeApprovalApi(ctx.target, 'REJECT', reasonInput, ctx.btnEl, true);
+    } else {
+      window.executeApprovalApi(ctx.target, 'REJECT', reasonInput, ctx.btnEl, false);
+    }
+  }
+};
+
+window.reloadATTData = function(showToastNotice) {
+  if (!window.HAP_IS_AUTHED || !window.HAP_IS_AUTHED()) return;
+  var spinIcon = document.getElementById('icon-reload-att');
+  var txtBtn = document.getElementById('txt-reload-att');
+  if (spinIcon) spinIcon.classList.add('spinning');
+  if (txtBtn) txtBtn.textContent = 'Đang tải...';
+
+  if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (spinIcon) spinIcon.classList.remove('spinning');
+      if (txtBtn) txtBtn.textContent = 'Tải lại';
+
+      if (res && res.success) {
+        window.applyATTFeaturePermissions(res.permissions);
+        window.rawATTData = res.list || [];
+        window.populateDeptEnumContainer(window.rawATTData);
+        window.filterATTTable();
+        window.preloadCurrentUserProfile();
+        if (showToastNotice) window.showATTToast("Đã cập nhật dữ liệu mới nhất", 'info', 2000);
+      } else {
+        if (window.HAP_handleAuthFailure_(res)) return;
+        window.showATTToast(res.message || "Lỗi tải dữ liệu", 'error');
+      }
+    })
+    .fetchHRMATTListPaginated(HAP_TOKEN(), 1, 1000);
+};
+
+window.filterATTTable = function() {
+  var q = (document.getElementById('att-search-input').value || '').toLowerCase().trim();
+  var isDateAll = document.getElementById('att-date-all').checked;
+  var dFrom = document.getElementById('att-date-from').value;
+  var dTo = document.getElementById('att-date-to').value;
+
+  var selectedDepts = Array.from(document.querySelectorAll('.enum-att-dept-item:checked')).map(function(c) { return c.value; });
+
+  window.filteredATTData = window.rawATTData.filter(function(item) {
+    var deptVal = item.dept_code || item.department || "";
+    var matchQ = !q || (item.att_id && item.att_id.toLowerCase().indexOf(q) !== -1) ||
+                        (item.emp_id && item.emp_id.toLowerCase().indexOf(q) !== -1) ||
+                        (item.full_name && item.full_name.toLowerCase().indexOf(q) !== -1) ||
+                        (item.cccd_no && item.cccd_no.indexOf(q) !== -1);
+
+    var matchDate = isDateAll;
+    if (!isDateAll && item.work_date) {
+      matchDate = (!dFrom || item.work_date >= dFrom) && (!dTo || item.work_date <= dTo);
+    }
+
+    var matchDept = selectedDepts.length === 0 || selectedDepts.indexOf(deptVal) !== -1;
+
+    return matchQ && matchDate && matchDept;
+  });
+
+  if (window.currentATTViewMode === 'pivot') {
+    window.renderATTPivotTable();
+  } else {
+    window.renderATTTable();
+    window.renderATTPagination();
+  }
+};
+
+window.toggleColumnVisibility = function() {
+  document.querySelectorAll('.col-toggle-chk').forEach(function(chk) {
+    var colClass = chk.dataset.colIdx;
+    var elements = document.querySelectorAll('.' + colClass);
+    elements.forEach(function(el) {
+      el.style.display = chk.checked ? '' : 'none';
+    });
+  });
+};
+
+window.toggleSubRows = function(batchId, btnEl) {
+  var subRows = document.querySelectorAll('.sub-row-' + batchId);
+  var isHidden = true;
+  subRows.forEach(function(row) {
+    if (row.style.display === 'none') {
+      row.style.display = 'table-row';
+      isHidden = false;
+    } else {
+      row.style.display = 'none';
+    }
+  });
+  if (btnEl) {
+    btnEl.innerHTML = isHidden ? window.SVG_ICONS.plus : window.SVG_ICONS.minus;
+  }
+};
+
+/* --- RENDER BẢNG VỚI NÚT DUYỆT / TỪ CHỐI TÍNH TẾ DÒNG CHA & CON --- */
+window.renderATTTable = function() {
+  var tbody = document.getElementById('tbody-hrm-att');
+  if (!tbody) return;
+
+  if (window.filteredATTData.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="14" style="text-align: center; padding: 24px; color: #64748b;">Không có dữ liệu phù hợp.</td></tr>';
+    window.updateATTBulkBtn();
+    return;
+  }
+
+  var batchMap = {};
+  var groupedList = [];
+
+  window.filteredATTData.forEach(function(item) {
+    var explicitBatchId = item.batch_id || item.parent_id || item.group_id;
+    var isLeaveType = item.att_type && (
+      item.att_type.indexOf('Phép') !== -1 || 
+      item.att_type.indexOf('Nghỉ') !== -1 || 
+      item.att_type.indexOf('công tác') !== -1
+    );
+
+    var groupKey = null;
+
+    if (explicitBatchId) {
+      groupKey = explicitBatchId;
+    } else if (isLeaveType && item.emp_id) {
+      var timeKey = item.created_at ? item.created_at.toString().substring(0, 16) : 'single';
+      var reasonKey = item.leave_reason ? item.leave_reason.trim() : '';
+      groupKey = 'GROUP_' + item.emp_id + '_' + item.att_type + '_' + timeKey + '_' + reasonKey;
+    }
+
+    if (groupKey) {
+      if (!batchMap[groupKey]) batchMap[groupKey] = [];
+      batchMap[groupKey].push(item);
+    } else {
+      groupedList.push({ isGroup: false, data: item });
+    }
+  });
+
+  var rawGroupedKeys = Object.keys(batchMap);
+  var processedGroups = [];
+
+  rawGroupedKeys.forEach(function(gKey) {
+    var items = batchMap[gKey];
+    if (items.length > 1) {
+      items.sort(function(a, b) {
+        return (a.work_date || '') > (b.work_date || '') ? 1 : -1;
+      });
+
+      var firstItem = items[0];
+      var safeBatchId = gKey.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+      // Trạng thái tổng quan của dòng cha
+      var hasPendingChild = items.some(function(c) { return c.approval_status === "Chờ duyệt"; });
+      var groupStatus = hasPendingChild ? "Chờ duyệt" : (firstItem.approval_status || "Đã duyệt");
+      var pendingRef = items.filter(function(c) { return c.approval_status === "Chờ duyệt"; })[0] || firstItem;
+
+      items.forEach(function(c) { c.batch_id = safeBatchId; });
+      processedGroups.push({
+        isGroup: true,
+        batch_id: safeBatchId,
+        emp_id: firstItem.emp_id,
+        full_name: firstItem.full_name,
+        cccd_no: firstItem.cccd_no,
+        dept_code: firstItem.dept_code || firstItem.department || '',
+        unit_code: firstItem.unit_code || firstItem.unit || '',
+        att_type: firstItem.att_type,
+        approval_status: groupStatus,
+        can_approve: items.some(function(c) { return c.can_approve; }),
+        can_reject: items.some(function(c) { return c.can_reject; }),
+        approval_step: pendingRef.approval_step || 0,
+        approval_total: pendingRef.approval_total || 0,
+        current_approver_id: pendingRef.current_approver_id || '',
+        current_approver_name: pendingRef.current_approver_name || '',
+        approval_due_at: pendingRef.approval_due_at || '',
+        is_auto_approved: items.every(function(c) { return c.is_auto_approved; }),
+        created_by: firstItem.created_by,
+        created_at: firstItem.created_at,
+        items: items
+      });
+    } else {
+      groupedList.push({ isGroup: false, data: items[0] });
+    }
+  });
+
+  var finalDisplayList = processedGroups.concat(groupedList);
+
+  window.totalATTRows = finalDisplayList.length;
+  window.totalATTPages = Math.ceil(window.totalATTRows / window.attPageSize) || 1;
+
+  var startIdx = (window.currentATTPage - 1) * window.attPageSize;
+  var endIdx = Math.min(startIdx + window.attPageSize, finalDisplayList.length);
+  var pageItems = finalDisplayList.slice(startIdx, endIdx);
+
+  var html = '';
+  pageItems.forEach(function(rowObj, idx) {
+    if (rowObj.isGroup) {
+      var item = rowObj;
+      var startDate = item.items[0].work_date;
+      var endDate = item.items[item.items.length - 1].work_date;
+      var dateStr = window.formatDateTimeUI(startDate, "date") + " ➔ " + window.formatDateTimeUI(endDate, "date");
+      var deptDisplay = (item.dept_code || '-') + (item.unit_code ? ' / ' + item.unit_code : '');
+
+      var isPending = (item.approval_status === "Chờ duyệt");
+      var actionBtnsHtml = '<div style="display:flex; align-items:center; justify-content:center; gap:4px;">';
+      actionBtnsHtml += '<button class="btn-act btn-act-view" onclick="event.stopPropagation(); window.toggleSubRows(\'' + item.batch_id + '\')" title="Xem danh sách ngày">' + window.SVG_ICONS.eye + ' Chi tiết (' + item.items.length + ')</button>';
+
+      if (isPending && (item.can_approve || item.can_reject)) {
+        if (item.can_approve) {
+          actionBtnsHtml += '<button class="btn-act btn-act-approve" onclick="event.stopPropagation(); window.processApprovalInRow(\'' + item.batch_id + '\', \'APPROVE\', this)" title="Duyệt cả đơn">' + window.SVG_ICONS.check + ' Duyệt</button>';
+        }
+        if (item.can_reject) {
+          actionBtnsHtml += '<button class="btn-act btn-act-reject" onclick="event.stopPropagation(); window.processApprovalInRow(\'' + item.batch_id + '\', \'REJECT\', this)" title="Từ chối đơn">' + window.SVG_ICONS.cross + '</button>';
+        }
+      } else {
+        actionBtnsHtml += window.approvalBadge(item);
+      }
+      actionBtnsHtml += '</div>';
+
+      html += '<tr style="background: #f0fdf4; border-bottom: 1px solid #cbd5e1; font-weight: 600;">' +
+        '<td style="padding: 10px; text-align: center;"><button onclick="event.stopPropagation(); window.toggleSubRows(\'' + item.batch_id + '\', this)" style="background:none; border:none; cursor:pointer; color:#2563eb;">' + window.SVG_ICONS.plus + '</button></td>' +
+        '<td style="padding: 10px; text-align: center; color: #64748b;">' + (startIdx + idx + 1) + '</td>' +
+        '<td class="col-att-id" style="padding: 10px; display:none;">' + item.batch_id + '</td>' +
+        '<td class="col-emp-info" style="padding: 10px;"><strong>' + item.full_name + '</strong><br><span style="font-size:0.75rem; color:#2563eb;">' + item.emp_id + '</span> ' + (item.cccd_no ? '<span style="font-size:0.72rem; color:#94a3b8;">(' + item.cccd_no + ')</span>' : '') + '</td>' +
+        '<td class="col-dept" style="padding: 10px;">' + deptDisplay + '</td>' +
+        '<td class="col-date" style="padding: 10px; color:#15803d;">' + dateStr + ' <br><span style="font-size:0.75rem; color:#166534;">(' + item.items.length + ' ngày nghỉ)</span></td>' +
+        '<td class="col-shift" style="padding: 10px;">Nhiều ca</td>' +
+        '<td class="col-type" style="padding: 10px; color: #4338ca;">' + item.att_type + ' (Đơn ' + item.items.length + ' ngày)</td>' +
+        '<td class="col-val" style="padding: 10px; font-weight: 700; color: #2563eb;">' + item.items.length + '</td>' +
+        '<td class="col-time" style="padding: 10px;">--</td>' +
+        '<td class="col-gps" style="padding: 10px;">--</td>' +
+        '<td class="col-extra" style="padding: 10px; display:none;">Trạng thái: ' + item.approval_status + '</td>' +
+        '<td class="col-meta" style="padding: 10px; display:none;">' + (item.created_by || '') + '</td>' +
+        '<td style="padding: 10px; text-align: center;">' + actionBtnsHtml + '</td>' +
+      '</tr>';
+
+      item.items.forEach(function(child) {
+        var childDate = window.formatDateTimeUI(child.work_date, "date");
+        var childDept = (child.dept_code || child.department || '-') + ((child.unit_code || child.unit) ? ' / ' + (child.unit_code || child.unit) : '');
+        var childPending = (child.approval_status === "Chờ duyệt");
+        var childReasonDisplay = child.leave_reason || child.ly_do || child.reason || item.leave_reason || '--';
+
+        var childActionHtml = '<div style="display:flex; align-items:center; justify-content:center; gap:4px;">';
+        childActionHtml += '<button class="btn-act btn-act-view" onclick="event.stopPropagation(); openATTDrawer(\'' + child.att_id + '\')">' + window.SVG_ICONS.eye + ' Xem</button>';
+        if (childPending && (child.can_approve || child.can_reject)) {
+          if (child.can_approve) {
+            childActionHtml += '<button class="btn-act btn-act-approve" onclick="event.stopPropagation(); window.processApprovalInRow(\'' + child.att_id + '\', \'APPROVE\', this)" title="Duyệt ngày này">' + window.SVG_ICONS.check + '</button>';
+          }
+          if (child.can_reject) {
+            childActionHtml += '<button class="btn-act btn-act-reject" onclick="event.stopPropagation(); window.processApprovalInRow(\'' + child.att_id + '\', \'REJECT\', this)" title="Từ chối">' + window.SVG_ICONS.cross + '</button>';
+          }
+        } else {
+          childActionHtml += window.approvalBadge(child, true);
+        }
+        childActionHtml += '</div>';
+
+        html += '<tr class="sub-row-' + item.batch_id + '" onclick="openATTDrawer(\'' + child.att_id + '\')" style="display: none; background: #ffffff; border-bottom: 1px dashed #e2e8f0;">' +
+          '<td style="padding: 8px 10px; text-align: center;"><input type="checkbox" class="chk-att-item" value="' + child.att_id + '" onclick="event.stopPropagation()" onchange="updateATTBulkBtn()"></td>' +
+          '<td style="padding: 8px 10px; text-align: center; color: #94a3b8; font-size:0.75rem;">└─</td>' +
+          '<td class="col-att-id" style="padding: 8px; display:none;">' + child.att_id + '</td>' +
+          '<td class="col-emp-info" style="padding: 8px; padding-left: 20px; color:#475569;">' + child.full_name + '</td>' +
+          '<td class="col-dept" style="padding: 8px;">' + childDept + '</td>' +
+          '<td class="col-date" style="padding: 8px; font-weight:600;">' + childDate + '</td>' +
+          '<td class="col-shift" style="padding: 8px;">' + (child.work_shift || 'Cả ngày') + '</td>' +
+          '<td class="col-type" style="padding: 8px; color:#059669;">' + child.att_type + '</td>' +
+          '<td class="col-val" style="padding: 8px;">' + (child.work_day_value || 1) + '</td>' +
+          '<td class="col-time" style="padding: 8px;">--</td>' +
+          '<td class="col-gps" style="padding: 8px;">--</td>' +
+          '<td class="col-extra" style="padding: 8px; display:none;">' + childReasonDisplay + '</td>' +
+          '<td class="col-meta" style="padding: 8px; display:none;">' + (child.created_by || '') + '</td>' +
+          '<td style="padding: 8px; text-align: center;">' + childActionHtml + '</td>' +
+        '</tr>';
+      });
+
+    } else {
+      var item = rowObj.data;
+      var workDateClean = window.formatDateTimeUI(item.work_date, "date");
+      var workMonthClean = window.formatDateTimeUI(item.work_month, "month");
+      var checkInClean = window.formatDateTimeUI(item.check_in, "time");
+      var checkOutClean = window.formatDateTimeUI(item.check_out, "time");
+      var createdAtClean = window.formatDateTimeUI(item.created_at, "full");
+      var deptDisplay = (item.dept_code || item.department || '-') + ((item.unit_code || item.unit) ? ' / ' + (item.unit_code || item.unit) : '');
+
+      var isPending = (item.approval_status === "Chờ duyệt");
+
+      var gpsHtml = '-';
+      if (item.location_latlong) {
+        var firstGps = item.location_latlong.split('|')[0].trim();
+        gpsHtml = '<a href="https://maps.google.com/?q=' + encodeURIComponent(firstGps) + '" target="_blank" onclick="event.stopPropagation()" style="color:#2563eb; text-decoration:none; font-weight:600;">Vị trí GPS</a>';
+      }
+
+      var rowActionHtml = '<div style="display:flex; align-items:center; justify-content:center; gap:4px;">';
+      rowActionHtml += '<button class="btn-act btn-act-view" onclick="event.stopPropagation(); openATTDrawer(\'' + item.att_id + '\')">' + window.SVG_ICONS.eye + ' Xem</button>';
+      
+      if (isPending && (item.can_approve || item.can_reject)) {
+        if (item.can_approve) {
+          rowActionHtml += '<button class="btn-act btn-act-approve" onclick="event.stopPropagation(); window.processApprovalInRow(\'' + item.att_id + '\', \'APPROVE\', this)" title="Duyệt đơn">' + window.SVG_ICONS.check + ' Duyệt</button>';
+        }
+        if (item.can_reject) {
+          rowActionHtml += '<button class="btn-act btn-act-reject" onclick="event.stopPropagation(); window.processApprovalInRow(\'' + item.att_id + '\', \'REJECT\', this)" title="Từ chối">' + window.SVG_ICONS.cross + '</button>';
+        }
+      } else {
+        rowActionHtml += window.approvalBadge(item);
+      }
+      rowActionHtml += '</div>';
+
+      html += '<tr onclick="openATTDrawer(\'' + item.att_id + '\')" style="border-bottom: 1px solid #f1f5f9;">' +
+        '<td style="padding: 10px; text-align: center;"><input type="checkbox" class="chk-att-item" value="' + item.att_id + '" onclick="event.stopPropagation()" onchange="updateATTBulkBtn()"></td>' +
+        '<td style="padding: 10px; text-align: center; color: #64748b;">' + (startIdx + idx + 1) + '</td>' +
+        '<td class="col-att-id" style="padding: 10px; font-weight: 700; color: #38bdf8; display:none;">' + item.att_id + '</td>' +
+        '<td class="col-emp-info" style="padding: 10px;"><strong>' + item.full_name + '</strong><br><span style="font-size:0.75rem; color:#2563eb;">' + item.emp_id + '</span> ' + (item.cccd_no ? '<span style="font-size:0.72rem; color:#94a3b8;">(' + item.cccd_no + ')</span>' : '') + '</td>' +
+        '<td class="col-dept" style="padding: 10px;">' + deptDisplay + '</td>' +
+        '<td class="col-date" style="padding: 10px;">' + workDateClean + '<br><span style="font-size:0.75rem; color:#64748b;">Tháng ' + workMonthClean + '</span></td>' +
+        '<td class="col-shift" style="padding: 10px;">' + item.work_shift + '</td>' +
+        '<td class="col-type" style="padding: 10px; font-weight: 600; color: #059669;">' + item.att_type + '</td>' +
+        '<td class="col-val" style="padding: 10px; font-weight: 700; color: #2563eb;">' + item.work_day_value + '</td>' +
+        '<td class="col-time" style="padding: 10px; font-size: 0.8rem; font-family: monospace;">' + (checkInClean || '--:--:--') + ' - ' + (checkOutClean || '--:--:--') + '</td>' +
+        '<td class="col-gps" style="padding: 10px;">' + gpsHtml + '</td>' +
+        '<td class="col-extra" style="padding: 10px; display:none;">Cơm: ' + item.meal_qty + ' | Trạng thái: ' + item.approval_status + '</td>' +
+        '<td class="col-meta" style="padding: 10px; display:none; font-size:0.75rem;">' + item.created_by + '<br>' + createdAtClean + '</td>' +
+        '<td style="padding: 10px; text-align: center;">' + rowActionHtml + '</td>' +
+      '</tr>';
+    }
+  });
+
+  tbody.innerHTML = html;
+  window.toggleColumnVisibility();
+  window.updateATTBulkBtn();
+  window.renderATTPagination();
+};
+
+window.renderATTPagination = function() {
+  var startIdx = window.totalATTRows > 0 ? (window.currentATTPage - 1) * window.attPageSize + 1 : 0;
+  var endIdx = Math.min(window.currentATTPage * window.attPageSize, window.totalATTRows);
+
+  document.getElementById('txt-att-page-info').textContent = 'Hiển thị ' + startIdx + ' - ' + endIdx + ' trong tổng số ' + window.totalATTRows + ' bản ghi';
+  document.getElementById('btn-att-prev').disabled = (window.currentATTPage === 1);
+  document.getElementById('btn-att-next').disabled = (window.currentATTPage === window.totalATTPages || window.totalATTPages === 0);
+
+  var container = document.getElementById('att-pagination-numbers');
+  if (!container) return; container.innerHTML = '';
+
+  for (var i = 1; i <= window.totalATTPages; i++) {
+    var btn = document.createElement('button');
+    btn.className = 'pagination-btn ' + (i === window.currentATTPage ? 'active' : '');
+    btn.textContent = i;
+    btn.onclick = (function(p) { return function() { window.goToATTPage(p); }; })(i);
+    container.appendChild(btn);
+  }
+};
+
+window.goToATTPage = function(p) { if (p >= 1 && p <= window.totalATTPages) { window.currentATTPage = p; window.renderATTTable(); } };
+
+window.toggleSelectAllATT = function(master) {
+  document.querySelectorAll('.chk-att-item').forEach(function(c) { c.checked = master.checked; });
+  window.updateATTBulkBtn();
+};
+
+window.updateATTBulkBtn = function() {
+  var selected = Array.from(document.querySelectorAll('.chk-att-item:checked')).map(function(c) { return c.value; });
+  var btn = document.getElementById('btn-bulk-delete-att');
+  var txt = document.getElementById('txt-bulk-delete-att');
+
+  if (selected.length > 0) {
+    btn.style.display = 'inline-block';
+    txt.textContent = 'Xóa đã chọn (' + selected.length + ')';
+  } else {
+    btn.style.display = 'none';
+    var master = document.getElementById('chk-att-select-all');
+    if (master) master.checked = false;
+  }
+};
+
+window.confirmBulkDeleteATT = function() {
+  var selected = Array.from(document.querySelectorAll('.chk-att-item:checked')).map(function(c) { return c.value; });
+  if (selected.length === 0) return;
+
+  window.showATTConfirm('Chuyển ' + selected.length + ' bản ghi đã chọn vào Thùng rác? SuperAdmin có thể khôi phục sau này.', function() {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.success) {
+          window.showATTToast('Đã xóa thành công ' + selected.length + ' bản ghi!', 'success');
+          window.rawATTData = window.rawATTData.filter(function(i) { return selected.indexOf(i.att_id) === -1; });
+          window.filterATTTable();
+        } else {
+          window.showATTToast(res.message || "Xóa thất bại", 'error');
+        }
+      })
+      .deleteBulkHRMATTRecords(HAP_TOKEN(), selected);
+  });
+};
+
+window.openMultiDayLeaveModal = function() {
+  if (!window.canUseATTFeature('leaveCreate')) return;
+  var todayStr = new Date().toISOString().split('T')[0];
+  document.getElementById("leave-start-date").value = todayStr;
+  document.getElementById("leave-end-date").value = todayStr;
+  document.getElementById("leave-common-reason").value = "";
+  document.getElementById("modal-leave-batch").style.display = "flex";
+  window.generateLeaveDaysTable();
+};
+
+window.closeLeaveModal = function() {
+  document.getElementById("modal-leave-batch").style.display = "none";
+};
+
+window.generateLeaveDaysTable = function() {
+  var startStr = document.getElementById("leave-start-date").value;
+  var endStr = document.getElementById("leave-end-date").value;
+  var tbody = document.getElementById("tbody-leave-days");
+
+  if (!startStr || !endStr) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: #94a3b8; padding: 12px;">Vui lòng chọn Từ ngày và Đến ngày...</td></tr>';
+    return;
+  }
+
+  var startDate = new Date(startStr);
+  var endDate = new Date(endStr);
+
+  if (startDate > endDate) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: #dc2626; padding: 12px;">Ngày bắt đầu không được lớn hơn ngày kết thúc!</td></tr>';
+    return;
+  }
+
+  var html = "";
+  var curr = new Date(startDate);
+  var commonReason = document.getElementById("leave-common-reason").value || "";
+
+  while (curr <= endDate) {
+    if (curr.getDay() !== 0) {
+      var dateStr = curr.toISOString().split('T')[0];
+      html += '<tr class="leave-row" data-date="' + dateStr + '">';
+      html += '  <td style="padding:6px; border:1px solid #e2e8f0; text-align:center;"><b>' + dateStr + '</b></td>';
+      html += '  <td style="padding:6px; border:1px solid #e2e8f0;">';
+      html += '    <select class="leave-shift-sel erp-input" style="padding:2px 4px; font-size:0.75rem;">';
+      html += '      <option value="Cả ngày">Cả ngày</option>';
+      html += '      <option value="Sáng">Sáng</option>';
+      html += '      <option value="Chiều">Chiều</option>';
+      html += '    </select>';
+      html += '  </td>';
+      html += '  <td style="padding:6px; border:1px solid #e2e8f0;">';
+      html += '    <select class="leave-type-sel erp-input" style="padding:2px 4px; font-size:0.75rem;">';
+      html += '      <option value="Phép năm">Phép năm</option>';
+      html += '      <option value="Đi công tác">Đi công tác</option>';
+      html += '      <option value="Nghỉ không lương">Nghỉ không lương</option>';
+      html += '      <option value="Nghỉ ốm BHXH">Nghỉ ốm BHXH</option>';
+      html += '    </select>';
+      html += '  </td>';
+      html += '  <td style="padding:6px; border:1px solid #e2e8f0;"><input type="text" class="leave-reason-inp erp-input" style="padding:2px 6px; font-size:0.75rem;" value="' + commonReason + '" placeholder="Lý do riêng..."></td>';
+      html += '  <td style="padding:6px; border:1px solid #e2e8f0; text-align:center;"><button style="background:#be123c; color:#fff; border:none; border-radius:4px; padding:3px 6px; cursor:pointer;" onclick="this.closest(\'tr\').remove()">' + window.SVG_ICONS.cross + '</button></td>';
+      html += '</tr>';
+    }
+    curr.setDate(curr.getDate() + 1);
+  }
+
+  if (!html) html = '<tr><td colspan="5" style="text-align:center; color: #94a3b8; padding: 12px;">Khoảng ngày chọn chỉ chứa Chủ nhật!</td></tr>';
+  tbody.innerHTML = html;
+};
+
+window.syncCommonReason = function() {
+  var val = document.getElementById("leave-common-reason").value;
+  document.querySelectorAll(".leave-reason-inp").forEach(function(inp) { inp.value = val; });
+};
+
+window.submitLeaveBatchForm = function() {
+  var activeUser = window.getCurrentLoggedInUser();
+  var empProfile = window.currentUserEmpProfile;
+
+  if (!empProfile) {
+    window.showATTToast("Chưa xác thực được thông tin nhân viên!", 'error');
+    return;
+  }
+
+  var rows = document.querySelectorAll(".leave-row");
+  if (rows.length === 0) {
+    window.showATTToast("Danh sách ngày nghỉ trống!", 'warning');
+    return;
+  }
+
+  var items = [];
+  rows.forEach(function(r) {
+    items.push({
+      work_date: r.getAttribute("data-date"),
+      work_shift: r.querySelector(".leave-shift-sel").value,
+      att_type: r.querySelector(".leave-type-sel").value,
+      leave_reason: r.querySelector(".leave-reason-inp").value
+    });
+  });
+
+  var payload = {
+    emp_id: empProfile.emp_id,
+    full_name: empProfile.full_name,
+    cccd_no: empProfile.cccd_no || "",
+    dept_code: empProfile.dept_code || empProfile.department || "",
+    unit_code: empProfile.unit_code || empProfile.unit || "",
+    created_by: activeUser,
+    items: items
+  };
+
+  var btnSubmit = document.getElementById('btn-submit-leave-batch');
+  var txtBtn = document.getElementById('txt-submit-leave-batch');
+  var iconBtn = document.getElementById('icon-submit-leave-batch');
+
+  btnSubmit.disabled = true;
+  if (txtBtn) txtBtn.textContent = "Đang nộp đơn...";
+  if (iconBtn) iconBtn.outerHTML = '<svg id="icon-submit-leave-batch" class="att-svg-icon spinning" viewBox="0 0 24 24"><path d="M12 4V2C6.48 2 2 6.48 2 12h2c0-4.41 3.59-8 8-8zm0 14c-4.41 0-8-3.59-8-8H2c0 5.52 4.48 10 10 10v-2z"/></svg>';
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btnSubmit.disabled = false;
+      if (txtBtn) txtBtn.textContent = "Nộp Đơn Phép Batch";
+
+      if (res && res.success) {
+        window.showATTToast(res.message, 'success');
+        window.closeLeaveModal();
+        window.reloadATTData(false);
+      } else {
+        window.showATTToast(res ? res.message : "Lỗi gửi đơn", 'error');
+      }
+    })
+    .submitHRMLeaveBatchRequest(HAP_TOKEN(), payload);
+};
+
+window.openExcelPasteModal = function() {
+  if (!window.canUseATTFeature('import')) return;
+  document.getElementById('txt-excel-paste-input').value = "";
+  document.getElementById('wrapper-excel-preview').style.display = "none";
+  document.getElementById('tbody-excel-preview').innerHTML = "";
+
+  var btnSubmit = document.getElementById('btn-submit-excel-paste');
+  var txtBtn = document.getElementById('txt-excel-paste');
+  var spinIcon = document.getElementById('icon-excel-paste');
+  btnSubmit.disabled = false;
+  if (txtBtn) txtBtn.textContent = 'Thực Hiện Import';
+  if (spinIcon) spinIcon.classList.remove('spinning');
+  
+  document.getElementById('modal-excel-paste').style.display = 'flex';
+};
+
+window.closeExcelPasteModal = function() {
+  document.getElementById('modal-excel-paste').style.display = 'none';
+};
+
+window.onExcelPasteInputChanged = function() {
+  var rawText = document.getElementById('txt-excel-paste-input').value;
+  var previewWrapper = document.getElementById('wrapper-excel-preview');
+  var tbody = document.getElementById('tbody-excel-preview');
+  var txtCount = document.getElementById('txt-preview-count');
+
+  if (!rawText || !rawText.trim()) {
+    previewWrapper.style.display = "none";
+    tbody.innerHTML = "";
+    return;
+  }
+
+  // Không trim() cả khối / từng dòng: ô đầu tiên (att_id) có thể để trống
+  var lines = rawText.replace(/^[\r\n]+/, '').replace(/\s+$/, '').split(/\r?\n/);
+  var validRows = [];
+
+  lines.forEach(function(line, idx) {
+    line = line.replace(/\s+$/, '');
+    if (!line.trim()) return;
+
+    var cols = line.split("\t");
+    if (idx === 0 && (cols[0].toLowerCase().indexOf("att_id") !== -1 || cols[0].toLowerCase().indexOf("mã đơn") !== -1 || (cols[2] || "").toLowerCase().indexOf("emp_id") !== -1 || (cols[2] || "").toLowerCase().indexOf("mã nv") !== -1)) {
+      return;
+    }
+
+    while (cols.length < 22) cols.push("");
+    validRows.push(cols);
+  });
+
+  if (validRows.length === 0) {
+    previewWrapper.style.display = "none";
+    tbody.innerHTML = "";
+    return;
+  }
+
+  var pHtml = "";
+  validRows.forEach(function(cols, rIdx) {
+    pHtml += "<tr>" +
+      "<td style='font-weight:bold; color:#64748b; text-align:center;'>" + (rIdx + 1) + "</td>" +
+      "<td>" + (cols[0] || "<i style='color:#94a3b8;'>Tự tạo</i>") + "</td>" +
+      "<td>" + (cols[1] || "-") + "</td>" +
+      "<td style='font-weight:bold; color:#2563eb;'>" + (cols[2] || "<span style='color:#dc2626;'>Thiếu</span>") + "</td>" +
+      "<td><strong>" + (cols[3] || "-") + "</strong></td>" +
+      "<td>" + (cols[4] || "-") + "</td>" +
+      "<td>" + (cols[5] || "-") + "</td>" +
+      "<td style='font-weight:bold; color:#059669;'>" + (cols[6] || "<span style='color:#dc2626;'>Thiếu</span>") + "</td>" +
+      "<td>" + (cols[7] || "<i style='color:#94a3b8;'>Tự tính</i>") + "</td>" +
+      "<td>" + (cols[8] || "Hành chính") + "</td>" +
+      "<td>" + (cols[9] || "Chấm công bình thường") + "</td>" +
+      "<td>" + (cols[10] || "1") + "</td>" +
+      "<td>" + (cols[11] || "-") + "</td>" +
+      "<td>" + (cols[12] || "-") + "</td>" +
+      "<td>" + (cols[13] || "0") + "</td>" +
+      "<td>" + (cols[14] || "-") + "</td>" +
+      "<td>" + (cols[15] ? "Có" : "-") + "</td>" +
+      "<td>" + (cols[16] || "-") + "</td>" +
+      "<td>" + (cols[17] || "-") + "</td>" +
+      "<td>" + (cols[18] || "Đã duyệt") + "</td>" +
+      "<td>" + (cols[19] || "<i style='color:#94a3b8;'>User hiện tại</i>") + "</td>" +
+      "<td>" + (cols[20] || "<i style='color:#94a3b8;'>Hôm nay</i>") + "</td>" +
+      "<td>" + (cols[21] || "<i style='color:#94a3b8;'>Tự ghép</i>") + "</td>" +
+    "</tr>";
+  });
+
+  tbody.innerHTML = pHtml;
+  txtCount.textContent = validRows.length;
+  previewWrapper.style.display = "flex";
+};
+
+window.submitExcelPasteData = function() {
+  var rawText = document.getElementById('txt-excel-paste-input').value;
+  if (!rawText || !rawText.trim()) {
+    window.showATTToast("Vui lòng dán dữ liệu từ Excel trước khi bấm Import!", 'warning');
+    return;
+  }
+
+  var btnSubmit = document.getElementById('btn-submit-excel-paste');
+  var spinIcon = document.getElementById('icon-excel-paste');
+  var txtBtn = document.getElementById('txt-excel-paste');
+
+  btnSubmit.disabled = true;
+  if (spinIcon) spinIcon.classList.add('spinning');
+  if (txtBtn) txtBtn.textContent = 'Đang import dữ liệu...';
+
+  var activeUsername = window.getCurrentLoggedInUser();
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.success) {
+        window.showATTToast(res.message, 'success');
+        window.closeExcelPasteModal();
+        window.reloadATTData(false);
+      } else {
+        window.showATTToast(res.message || "Lỗi khi import dữ liệu Excel", 'error');
+        btnSubmit.disabled = false;
+        if (spinIcon) spinIcon.classList.remove('spinning');
+        if (txtBtn) txtBtn.textContent = 'Thực Hiện Import';
+      }
+    })
+    .importHRMATTExcelPaste(HAP_TOKEN(), rawText);
+};
+
+window.openSelfTimekeepingModal = function() {
+  if (!window.canUseATTFeature('attendanceSelf')) return;
+  window.openATTModalContext("Chấm công bình thường", true, false);
+};
+window.openProxyTimekeepingModal = function() {
+  if (!window.canUseATTFeature('attendanceProxy')) return;
+  window.openATTModalContext("Chấm công bình thường", false, true);
+};
+window.openSelfLeaveModal = function() {
+  if (!window.canUseATTFeature('leaveCreate')) return;
+  window.openATTModalContext("Phép năm", true, false);
+};
+
+window.openATTModalContext = function(defaultType, isSelfMode, isProxyMode) {
+  window.isSelfModeActive = isSelfMode;
+  window.isProxyModeActive = isProxyMode;
+
+  var modalTitle = "TỰ CHẤM CÔNG / GỬI ĐƠN PHÉP";
+  var badgeTagText = "TỰ CHẤM CÔNG";
+
+  if (isProxyMode) {
+    modalTitle = "CHẤM CÔNG THAY ĐỒNG NGHIỆP";
+    badgeTagText = "CHẤM CÔNG THAY";
+  }
+
+  document.getElementById('modal-att-title').textContent = modalTitle;
+  document.getElementById('badge-mode-tag').textContent = badgeTagText;
+
+  document.getElementById('f-att-leave-reason').value = "";
+  document.getElementById('f-att-latlong').value = "";
+  document.getElementById('f-att-meal-qty').value = "0";
+  document.getElementById('f-att-work-shift').value = "Hành chính";
+  document.getElementById('f-att-work-date').valueAsDate = new Date();
+  window.attSelfieSnapBase64 = "";
+
+  var typeWrapper = document.getElementById('wrapper-att-type-select');
+  var typeSelect = document.getElementById('f-att-type');
+
+  if (isProxyMode) {
+    typeWrapper.style.display = 'none';
+    typeSelect.value = "Chấm công bình thường";
+  } else {
+    typeWrapper.style.display = 'flex';
+    typeSelect.value = defaultType;
+  }
+
+  document.getElementById('f-att-check-in').value = isProxyMode ? "08:00:00" : "";
+  document.getElementById('f-att-check-out').value = isProxyMode ? "17:00:00" : "";
+
+  var btnSave = document.getElementById('btn-save-att');
+  var txtBtn = document.getElementById('txt-save-att');
+  var spinIcon = document.getElementById('icon-save-att');
+  btnSave.disabled = false;
+  if (txtBtn) txtBtn.textContent = 'Xác Nhận & Lưu Dữ Liệu';
+  if (spinIcon) spinIcon.classList.remove('spinning');
+
+  var badgeBox = document.getElementById('user-info-badge');
+  var adminSelectWrapper = document.getElementById('wrapper-admin-emp-select');
+
+  if (isSelfMode) {
+    badgeBox.style.display = 'flex';
+    adminSelectWrapper.style.display = 'none';
+    window.preloadCurrentUserProfile();
+  } else {
+    badgeBox.style.display = 'none';
+    adminSelectWrapper.style.display = 'flex';
+
+    var sel = document.getElementById('f-att-emp-select');
+
+    var populateEmpDropdown = function(list) {
+      sel.innerHTML = '<option value="">-- Chọn Nhân Viên --</option>';
+      list.forEach(function(e) {
+        var opt = document.createElement('option');
+        opt.value = e.emp_id;
+        opt.textContent = e.emp_id + " - " + e.full_name + ((e.dept_code || e.department) ? " (" + (e.dept_code || e.department) + ")" : "");
+        opt.dataset.json = JSON.stringify(e);
+        sel.appendChild(opt);
+      });
+      sel.disabled = false;
+    };
+
+    if (window.cachedEmpList && window.cachedEmpList.length > 0) {
+      populateEmpDropdown(window.cachedEmpList);
+    } else {
+      sel.disabled = true;
+      sel.innerHTML = '<option value="">-- Đang tải danh sách nhân viên... --</option>';
+
+      if (!window.isFetchingEmpList) {
+        window.isFetchingEmpList = true;
+        google.script.run.withSuccessHandler(function(res) {
+          window.isFetchingEmpList = false;
+          if (res && res.success) {
+            window.cachedEmpList = res.list || [];
+            populateEmpDropdown(window.cachedEmpList);
+          } else {
+            sel.innerHTML = '<option value="">-- Lỗi tải danh sách NV --</option>';
+          }
+        }).fetchHRMEMPListPaginated(HAP_TOKEN(), 1, 3000);
+      }
+    }
+  }
+
+  window.toggleATTFormContext(isProxyMode ? "Chấm công bình thường" : defaultType);
+  document.getElementById('modal-hrm-att').style.display = 'flex';
+};
+
+window.closeATTModal = function() { document.getElementById('modal-hrm-att').style.display = 'none'; };
+
+window.toggleATTFormContext = function(attType) {
+  var isTimekeeping = (attType === "Chấm công bình thường");
+  
+  if (window.isProxyModeActive) {
+    document.getElementById('ctx-area-timekeeping').style.display = 'none';
+    document.getElementById('ctx-area-leave').style.display = 'flex';
+  } else {
+    document.getElementById('ctx-area-timekeeping').style.display = isTimekeeping ? 'flex' : 'none';
+    document.getElementById('ctx-area-leave').style.display = isTimekeeping ? 'none' : 'flex';
+  }
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function(pos) {
+      document.getElementById('f-att-latlong').value = pos.coords.latitude.toFixed(6) + ", " + pos.coords.longitude.toFixed(6);
+    }, function(err) {
+      console.warn("Chưa lấy được GPS:", err);
+    });
+  }
+};
+
+window.startATTCamera = function() {
+  var video = document.getElementById('att-cam-video');
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+    .then(function(s) { video.srcObject = s; })
+    .catch(function(e) { window.showATTToast("Không thể mở Camera: " + e, 'error'); });
+};
+
+window.takeATTSelfie = function() {
+  var video = document.getElementById('att-cam-video');
+  var canvas = document.getElementById('att-cam-canvas');
+  var ctx = canvas.getContext('2d');
+  canvas.width = 200; canvas.height = 140;
+  ctx.drawImage(video, 0, 0, 200, 140);
+  window.attSelfieSnapBase64 = canvas.toDataURL('image/jpeg');
+  window.showATTToast("Đã chụp ảnh xác thực!", 'success');
+};
+
+window.submitATTForm = function() {
+  var btnSave = document.getElementById('btn-save-att');
+  var spinIcon = document.getElementById('icon-save-att');
+  var txtBtn = document.getElementById('txt-save-att');
+
+  if (btnSave.disabled) return;
+  btnSave.disabled = true;
+  if (spinIcon) spinIcon.classList.add('spinning');
+  if (txtBtn) txtBtn.textContent = 'Đang xử lý...';
+
+  var targetEmp = null;
+
+  if (window.isSelfModeActive) {
+    if (!window.currentUserEmpProfile) {
+      window.showATTToast("Hồ sơ tài khoản chưa được xác thực thành công!", 'error');
+      btnSave.disabled = false;
+      if (spinIcon) spinIcon.classList.remove('spinning');
+      if (txtBtn) txtBtn.textContent = 'Xác Nhận & Lưu Dữ Liệu';
+      return;
+    }
+    targetEmp = window.currentUserEmpProfile;
+  } else {
+    var empSel = document.getElementById('f-att-emp-select');
+    if (!empSel.value) {
+      window.showATTToast("Vui lòng chọn nhân viên!", 'warning');
+      btnSave.disabled = false;
+      if (spinIcon) spinIcon.classList.remove('spinning');
+      if (txtBtn) txtBtn.textContent = 'Xác Nhận & Lưu Dữ Liệu';
+      return;
+    }
+    targetEmp = JSON.parse(empSel.options[empSel.selectedIndex].dataset.json);
+  }
+
+  var loggedInUser = window.getCurrentLoggedInUser();
+
+  var rec = {
+    cccd_no: targetEmp.cccd_no || "",
+    emp_id: targetEmp.emp_id || "",
+    full_name: targetEmp.full_name || "",
+    dept_code: targetEmp.dept_code || targetEmp.department || "",
+    unit_code: targetEmp.unit_code || targetEmp.unit || "",
+    work_date: document.getElementById('f-att-work-date').value,
+    work_shift: document.getElementById('f-att-work-shift').value,
+    att_type: window.isProxyModeActive ? "Chấm công bình thường" : document.getElementById('f-att-type').value,
+    meal_qty: parseInt(document.getElementById('f-att-meal-qty').value, 10) || 0,
+    check_in: document.getElementById('f-att-check-in').value || "",
+    check_out: document.getElementById('f-att-check-out').value || "",
+    leave_reason: document.getElementById('f-att-leave-reason').value,
+    location_latlong: document.getElementById('f-att-latlong').value,
+    selfie_base64: window.attSelfieSnapBase64,
+    approval_status: "Đã duyệt",
+    created_by: loggedInUser,
+    is_proxy: window.isProxyModeActive
+  };
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.success) {
+        window.showATTToast(res.message, 'success');
+        window.closeATTModal();
+        window.reloadATTData(false);
+      } else {
+        window.showATTToast(res.message || "Lỗi khi lưu dữ liệu", 'error');
+        btnSave.disabled = false;
+        if (spinIcon) spinIcon.classList.remove('spinning');
+        if (txtBtn) txtBtn.textContent = 'Xác Nhận & Lưu Dữ Liệu';
+      }
+    })
+    .saveHRMATTRecord(HAP_TOKEN(), rec);
+};
+
+/* --- HÀM THỰC THI DUYỆT / TỪ CHỐI TẬP TRUNG --- */
+window.executeApprovalApi = function(targetIdOrArray, action, note, btnEl, isDrawer) {
+  var activeUser = window.getCurrentLoggedInUser();
+  var originalHtml = btnEl ? btnEl.innerHTML : "";
+
+  if (btnEl) {
+    btnEl.disabled = true;
+    btnEl.style.opacity = "0.75";
+    btnEl.innerHTML = window.SVG_ICONS.spinner + (action === 'APPROVE' ? ' Đang duyệt...' : ' Đang xử lý...');
+  }
+
+  // Optimistic Update UI ngay lập tức
+  var targetStatus = (action === 'APPROVE') ? 'Đã duyệt' : 'Từ chối';
+  var targetIds = Array.isArray(targetIdOrArray) ? targetIdOrArray : [targetIdOrArray];
+
+  // Chỉ cập nhật tạm trên giao diện khi TỪ CHỐI. Duyệt có thể mới qua 1 cấp nên chờ kết quả từ máy chủ.
+  if (action === 'REJECT') {
+    window.rawATTData.forEach(function(item) {
+      if (targetIds.indexOf(item.att_id) !== -1) {
+        item.approval_status = targetStatus;
+      }
+    });
+  }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.success) {
+        window.showATTToast(res.message || (action === 'APPROVE' ? "Đã duyệt đơn thành công!" : "Đã từ chối đơn thành công!"), 'success');
+        if (isDrawer) window.closeATTDrawer();
+        window.reloadATTData(false);
+      } else {
+        if (btnEl) {
+          btnEl.disabled = false;
+          btnEl.style.opacity = "1";
+          btnEl.innerHTML = originalHtml;
+        }
+        window.showATTToast(res ? res.message : "Lỗi xử lý duyệt đơn", 'error');
+        window.reloadATTData(false); // Rollback
+      }
+    })
+    .approveHRMLeaveBatchRecord(HAP_TOKEN(), targetIdOrArray, action, note || "");
+};
+
+/* --- NHÃN TRẠNG THÁI DUYỆT THEO CẤP --- */
+window.escAtt = function(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, function(c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+};
+window.approvalBadge = function(item, compact) {
+  var base = 'font-size:' + (compact ? '0.72rem' : '0.75rem') + '; font-weight:700; padding:2px 6px; border-radius:4px; display:inline-block; ';
+  var st = item.approval_status || 'Đã duyệt';
+  if (st === 'Chờ duyệt') {
+    var lv = item.approval_total ? ('Chờ cấp ' + item.approval_step + '/' + item.approval_total) : 'Chờ duyệt';
+    var who = item.current_approver_name || item.current_approver_id || '';
+    var isLast = item.approval_total && item.approval_step === item.approval_total;
+    var tip = (isLast && item.approval_due_at) ? ' title="Cấp cuối: tự động duyệt nếu chưa xử lý trước ' + window.escAtt(item.approval_due_at) + '"' : '';
+    return '<span style="' + base + 'background:#fef3c7; color:#a16207;"' + tip + '>' + lv + (who ? ' · ' + window.escAtt(who) : '') + '</span>';
+  }
+  if (st === 'Từ chối') return '<span style="' + base + 'background:#ffe4e6; color:#be123c;">Từ chối</span>';
+  return '<span style="' + base + 'background:#dcfce7; color:#059669;">Đã duyệt' + (item.is_auto_approved ? ' (tự động)' : '') + '</span>';
+};
+
+/* --- XỬ LÝ DUYỆT / TỪ CHỐI BẰNG POPUP CHO CẢ CHA LẪN CON --- */
+/* --- XỬ LÝ DUYỆT / TỪ CHỐI CHO CẢ DÒNG CHA (NHÓM) LẪN DÒNG CON --- */
+window.processApprovalInRow = function(attId, action, btnEl) {
+  var targetIds = [];
+
+  // 1. Trường hợp truyền vào mảng hoặc danh sách ID phân cách dấu phẩy
+  if (Array.isArray(attId)) {
+    targetIds = attId;
+  } else if (typeof attId === 'string' && attId.indexOf(',') !== -1) {
+    targetIds = attId.split(',');
+  } else {
+    // 2. Tìm tất cả dòng con thuộc nhóm dựa theo batch_id hoặc tiền tố mã đơn
+    var children = (window.rawATTData || []).filter(function(item) {
+      var itemBatch = item.batch_id || item.parent_id || item.group_id;
+      return itemBatch === attId || 
+             (itemBatch && itemBatch.replace(/[^a-zA-Z0-9_-]/g, '_') === attId) ||
+             (item.att_id && item.att_id.indexOf(attId + '_') === 0);
+    });
+
+    if (children && children.length > 0) {
+      // Gom toàn bộ att_id thực tế của các dòng con
+      targetIds = children.map(function(c) { return c.att_id; });
+    } else {
+      // Nếu là 1 đơn lẻ
+      targetIds = [attId];
+    }
+  }
+
+  var finalTarget = targetIds.length === 1 ? targetIds[0] : targetIds;
+
+  if (action === "REJECT") {
+    // Mở popup nhập lý do từ chối
+    window.openRejectReasonModal(finalTarget, false, btnEl);
+  } else {
+    // Gửi mảng danh sách ID thực tế lên máy chủ để duyệt
+    window.executeApprovalApi(finalTarget, 'APPROVE', "", btnEl, false);
+  }
+};
+
+/* --- XỬ LÝ DUYỆT / TỪ CHỐI TRONG DRAWER PANEL --- */
+window.processApprovalInDrawer = function(attId, action, btnEl) {
+  if (action === "REJECT") {
+    window.openRejectReasonModal(attId, true, btnEl);
+  } else {
+    window.executeApprovalApi(attId, 'APPROVE', "", btnEl, true);
+  }
+};
+
+window.openATTDrawer = function(attId) {
+  var item = window.rawATTData.find(function(i) { return i.att_id === attId; });
+  if (!item) return;
+
+  document.getElementById('d-att-id').textContent = item.att_id;
+  document.getElementById('d-att-full-name').textContent = item.full_name;
+  document.getElementById('d-att-emp-id').textContent = item.emp_id;
+  document.getElementById('d-att-cccd').textContent = item.cccd_no || '-';
+  document.getElementById('d-att-dept').textContent = item.dept_code || item.department || '-';
+  document.getElementById('d-att-unit').textContent = item.unit_code || item.unit || '-';
+  document.getElementById('d-att-status').textContent = item.approval_status || 'Đã duyệt';
+  document.getElementById('d-att-date').textContent = window.formatDateTimeUI(item.work_date, "date");
+  document.getElementById('d-att-month').textContent = window.formatDateTimeUI(item.work_month, "month");
+  document.getElementById('d-att-shift').textContent = item.work_shift;
+  document.getElementById('d-att-type').textContent = item.att_type;
+  document.getElementById('d-att-work-val').textContent = item.work_day_value + " công";
+  document.getElementById('d-att-checkin').textContent = window.formatDateTimeUI(item.check_in, "time");
+  document.getElementById('d-att-checkout').textContent = window.formatDateTimeUI(item.check_out, "time");
+  document.getElementById('d-att-meal').textContent = item.meal_qty + " phần";
+  document.getElementById('d-att-reason').textContent = item.leave_reason || item.ly_do || item.reason || '-';
+  document.getElementById('d-att-latlong').textContent = item.location_latlong || 'Không có GPS';
+  document.getElementById('d-att-log-text').textContent = item.reject_reason || 'Không có log';
+  document.getElementById('d-att-created-by').textContent = item.created_by || 'system';
+  document.getElementById('d-att-created-at').textContent = window.formatDateTimeUI(item.created_at, "full");
+
+  var imgSelfie = document.getElementById('d-att-selfie');
+  var avatarUrl = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(item.full_name) + '&background=0284c7&color=fff';
+  imgSelfie.dataset.attId = attId;
+  imgSelfie.src = avatarUrl;
+  if (item.has_selfie_img) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (!res || !res.success) {
+          window.showATTToast((res && res.message) || 'Không tải được ảnh chấm công.', 'error');
+          return;
+        }
+        if (imgSelfie.dataset.attId === attId && res.image) imgSelfie.src = res.image;
+      })
+      .withFailureHandler(function(err) {
+        window.showATTToast('Không tải được ảnh chấm công: ' + (err && err.message ? err.message : err), 'error');
+      })
+      .getHRMATTImage(HAP_TOKEN(), attId);
+  }
+
+  var mapLink = document.getElementById('d-att-map-link');
+  if (item.location_latlong) {
+    var firstGps = item.location_latlong.split('|')[0].trim();
+    mapLink.href = 'https://maps.google.com/?q=' + encodeURIComponent(firstGps);
+  } else {
+    mapLink.href = '#';
+  }
+
+  var approvalActionsContainer = document.getElementById('d-approval-actions');
+  if (approvalActionsContainer) {
+    if (item.approval_status === "Chờ duyệt" && (item.can_approve || item.can_reject)) {
+      var actionButtons = [];
+      if (item.can_approve) {
+        actionButtons.push(
+          '<button onclick="window.processApprovalInDrawer(\'' + item.att_id + '\', \'APPROVE\', this)" style="background: #059669; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; display:flex; align-items:center; gap:6px;">' + window.SVG_ICONS.check + ' Duyệt Đơn</button>'
+        );
+      }
+      if (item.can_reject) {
+        actionButtons.push(
+          '<button onclick="window.processApprovalInDrawer(\'' + item.att_id + '\', \'REJECT\', this)" style="background: #be123c; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; display:flex; align-items:center; gap:6px;">' + window.SVG_ICONS.cross + ' Từ Chối</button>'
+        );
+      }
+      approvalActionsContainer.innerHTML = actionButtons.join('');
+    } else {
+      approvalActionsContainer.innerHTML = '<span style="font-size: 0.8rem; font-weight: 700; color: #64748b; margin-right: 6px;">Trạng thái:</span>' + window.approvalBadge(item);
+    }
+  }
+
+  document.getElementById('d-btn-delete-att').onclick = function() {
+    window.closeATTDrawer();
+    window.showATTConfirm('Chuyển bản ghi ' + item.att_id + ' vào Thùng rác? SuperAdmin có thể khôi phục sau này.', function() {
+      google.script.run.withSuccessHandler(function(res) {
+        if (res && res.success) {
+          window.showATTToast("Đã xóa bản ghi thành công!", 'success');
+          window.rawATTData = window.rawATTData.filter(function(i) { return i.att_id !== attId; });
+          window.filterATTTable();
+        }
+      }).deleteBulkHRMATTRecords(HAP_TOKEN(), [attId]);
+    });
+  };
+
+  document.getElementById('att-drawer-overlay').classList.add('active');
+  document.getElementById('att-drawer-panel').classList.add('active');
+};
+
+window.closeATTDrawer = function() {
+  document.getElementById('att-drawer-overlay').classList.remove('active');
+  document.getElementById('att-drawer-panel').classList.remove('active');
+};
+
+window.toggleATTEnumMenu = function(menuId) {
+  var menu = document.getElementById(menuId);
+  var isOpen = menu.classList.contains('show');
+  document.querySelectorAll('.enum-menu').forEach(function(m) { m.classList.remove('show'); });
+  if (!isOpen) menu.classList.add('show');
+};
+
+window.toggleAllEnumItems = function(cls, isChecked) {
+  document.querySelectorAll('.' + cls).forEach(function(c) { c.checked = isChecked; });
+};
+
+window.populateDeptEnumContainer = function(list) {
+  var container = document.getElementById('enum-att-dept-container');
+  if (!container) return;
+  var depts = new Set();
+  list.forEach(function(i) { 
+    var d = i.dept_code || i.department;
+    if (d) depts.add(d); 
+  });
+
+  container.innerHTML = '';
+  depts.forEach(function(d) {
+    var lbl = document.createElement('label');
+    lbl.className = 'enum-item';
+    lbl.innerHTML = '<input type="checkbox" class="enum-att-dept-item" value="' + d + '" onchange="filterATTTable()"> ' + d;
+    container.appendChild(lbl);
+  });
+};
+
+window.toggleATTAllDates = function(checked) {
+  document.getElementById('att-date-from').disabled = checked;
+  document.getElementById('att-date-to').disabled = checked;
+  window.filterATTTable();
+};
+
+window.onATTDateChange = function() {
+  document.getElementById('att-date-all').checked = false;
+  window.filterATTTable();
+};
+
+(function initHRMATTModule() {
+  document.getElementById('att-date-all').checked = true;
+  window.toggleATTAllDates(true);
+  // Dữ liệu được nạp sau khi đăng nhập/xác thực xong (HAP_onAuthenticated trong UI_Scripts)
+})();
+</script>

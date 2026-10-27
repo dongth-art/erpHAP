@@ -1,0 +1,1474 @@
+<script>
+  var wdocCurrentUser = function() { try { var s = JSON.parse(localStorage.getItem('HAP_USER_SESSION') || '{}'); return String(s.username || ''); } catch (e) { return ''; } };
+  var wdocState = {
+    PURCHASE_RECEIPT:{ key:'in', rows:[], selected:{}, page:1, pageSize:30, query:'', loadedQuery:null, permissions:{}, options:null, loading:false, pendingReload:false, pendingRefreshOptions:false, taskMap:{} },
+    SALES_ISSUE:{ key:'out', rows:[], selected:{}, page:1, pageSize:30, query:'', loadedQuery:null, permissions:{}, options:null, loading:false, pendingReload:false, pendingRefreshOptions:false, taskMap:{} }
+  };
+  var wdocActiveType = '';
+  var wdocReadOnly = false;
+  var wdocActiveSkuInput = null;
+  var wdocActiveSkuSuggestions = null;
+  var wdocImportRows = [];
+  var wdocPendingSubmit = null;
+  var wdocRequestVersion = { PURCHASE_RECEIPT:0, SALES_ISSUE:0 };
+  var wdocEscape = function(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function(char) {
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char];
+    });
+  };
+  var wdocNumber = function(value, digits) {
+    return new Intl.NumberFormat('vi-VN', { maximumFractionDigits:digits == null ? 3 : digits }).format(Number(value) || 0);
+  };
+  var wdocTypeLabel = function(type) { return type === 'PURCHASE_RECEIPT' ? 'Nhập kho' : 'Xuất kho'; };
+  var wdocInvoke = function(action, payload, onSuccess, onFailure) {
+    google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure)
+      .handleApiRoute('WMS', action, Object.assign({ token:window.HAP_TOKEN() }, payload));
+  };
+
+  function wdocScheduleHideSkuSuggestions(input) {
+    setTimeout(function() { wdocHideSkuSuggestions(input); }, 160);
+  }
+
+  function reloadWmsDocs(type, refreshOptions) {
+    if (!window.HAP_IS_AUTHED || !window.HAP_IS_AUTHED()) return;
+    var state = wdocState[type];
+    if (!state) return;
+    state.loading = false;
+    if (state.loading) {
+      state.pendingReload = true;
+      state.pendingRefreshOptions = state.pendingRefreshOptions || refreshOptions === true;
+      return;
+    }
+    if (typeof google === 'undefined' || !google.script || !google.script.run) {
+      window.showToast('Không thể kết nối Apps Script.', 'error');
+      return;
+    }
+
+    state.loading = true;
+    var request = ++wdocRequestVersion[type];
+    var button = document.getElementById('wdoc-reload-' + state.key);
+    var status = document.getElementById('wdoc-status-' + state.key);
+    if (button) { button.disabled = true; var svg = button.querySelector('svg'); if (svg) svg.classList.add('wdoc-spin'); }
+    if (status) status.textContent = '';
+    var finish = function(message) {
+      if (request !== wdocRequestVersion[type]) return;
+       state.loading = false;
+        if (button) { button.disabled = false; var svg = button.querySelector('svg'); if (svg) svg.classList.remove('wdoc-spin'); }
+        if (status) status.textContent = '';
+      if (state.pendingReload) {
+        var refreshPendingOptions = state.pendingRefreshOptions;
+        state.pendingReload = false;
+        state.pendingRefreshOptions = false;
+        reloadWmsDocs(type, refreshPendingOptions);
+      }
+    };
+    try {
+      var mustIncludeOptions = refreshOptions === true || !state.options;
+    wdocLoadRows(type, finish, request, mustIncludeOptions);
+    } catch (error) {
+      finish('Không thể tải danh sách.');
+      window.showToast('Không tải được danh sách phiếu: ' + (error && error.message || error), 'error');
+    }
+  }
+
+  function wdocLoadRows(type, finish, request, refreshOptions) {
+    var state = wdocState[type];
+    var query = state.query;
+    wdocInvoke('listDocs', {
+      docType:type, searchKey:query, page:state.page, pageSize:state.pageSize,
+      includeOptions:refreshOptions || !state.options
+    },
+      function(result) {
+        if (request !== wdocRequestVersion[type]) return;
+        if (!result || !result.success) {
+          finish('Tải dữ liệu thất bại.');
+          if (window.HAP_handleAuthFailure_(result)) return;
+          window.showToast(result && result.message || 'Không tải được danh sách phiếu.', 'error');
+          return;
+        }
+        if (result.warehouses && result.skus && result.locations) {
+          state.options = {
+            warehouses:result.warehouses,
+            skus:result.skus,
+            locations:result.locations,
+            workflows:result.workflows || [],
+            workflowAccess:result.workflowAccess !== false
+          };
+        }
+        state.rows = result.list || [];
+        state.page = result.page || 1;
+        state.loadedQuery = query;
+        state.permissions = result.permissions || {};
+        state.taskMap = result.myTaskMap || {}; // Lấy trực tiếp TaskMap từ API listDocs
+
+        document.getElementById('wdoc-create-' + state.key).style.display = state.permissions.create ? '' : 'none';
+        wdocRender(type, result);
+        finish('Đã tải ' + result.total + ' phiếu.');
+      }, function(error) {
+        finish('Tải dữ liệu thất bại.');
+        window.showToast('Lỗi kết nối máy chủ: ' + (error && error.message || error), 'error');
+      });
+  }
+
+  function wdocRender(type, result) {
+    var state = wdocState[type];
+    var body = document.getElementById('wdoc-body-' + state.key);
+    var rows = state.rows;
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="8" class="wdoc-muted">Chưa có phiếu nháp phù hợp.</td></tr>';
+    } else {
+      body.innerHTML = rows.map(function(item, index) {
+        var isDraft = item.doc_status === 'DRAFT' && item.posting_status === 'NOT_POSTED';
+        var isEditable = ['DRAFT', 'RETURNED'].indexOf(item.doc_status) >= 0 &&
+          item.posting_status === 'NOT_POSTED';
+        var user = wdocCurrentUser();
+        var check = state.permissions.delete && isDraft
+          ? '<input type="checkbox" aria-label="Chọn phiếu ' + wdocEscape(item.doc_no) + '" ' +
+            (state.selected[item.doc_id] ? 'checked ' : '') +
+            'onchange="wdocSelectOne(\'' + type + '\',\'' + wdocEscape(item.doc_id) + '\',this.checked)">'
+          : '';
+        var canEdit = state.permissions.update && isEditable;
+        var actions = '<button class="wdoc-icon-btn" type="button" title="Xem chi tiết" aria-label="Xem chi tiết phiếu ' +
+          wdocEscape(item.doc_no) + '" onclick="wdocOpenExisting(\'' + type + '\',' + index + ',false)"><svg viewBox="0 0 24 24" fill="none"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="1.7"/></svg></button>';
+        if (canEdit) actions += '<button class="wdoc-icon-btn" type="button" title="Sửa phiếu nháp" aria-label="Sửa phiếu ' +
+          wdocEscape(item.doc_no) + '" onclick="wdocOpenExisting(\'' + type + '\',' + index + ',true)"><svg viewBox="0 0 24 24" fill="none"><path d="m14 5 5 5M4 20l4.2-.8L19 8.4 15.6 5 4.8 15.8 4 20Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
+        if (canEdit && String(item.requested_by_username || '').toLowerCase() === user.toLowerCase()) {
+          actions += '<button class="wdoc-icon-btn" type="button" title="Gửi duyệt" aria-label="Gửi duyệt phiếu ' +
+            wdocEscape(item.doc_no) + '" onclick="wdocSubmitForApproval(\'' + type + '\',' + index + ')"><svg viewBox="0 0 24 24" fill="none"><path d="m4 12 16-8-5 16-3-7-8-1Zm8 1 8-9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
+        }
+        if (state.permissions.delete && isDraft) actions += '<button class="wdoc-icon-btn" type="button" title="Đánh dấu xóa" aria-label="Đánh dấu xóa phiếu ' +
+          wdocEscape(item.doc_no) + '" onclick="wdocDeleteOne(\'' + type + '\',' + index + ')"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M10 11v6m4-6v6M5.5 7l1 13h11l1-13M9 7V4h6v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
+        var taskId = (state.taskMap || {})[item.doc_id];
+        if (taskId) {
+           actions += '<button class="wdoc-btn-approve" type="button" title="Duyệt" onclick="wdocApproveWms(\'' + type + '\',\'' + wdocEscape(taskId) + '\', this)"><svg class="wdoc-main-icon" viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-11"/></svg><svg class="wdoc-spinner-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-dasharray="36" stroke-dashoffset="12" stroke-linecap="round"></circle></svg> Duyệt</button>';
+           actions += '<button class="wdoc-btn-reject" type="button" title="Từ chối" onclick="wdocRejectWms(\'' + type + '\',\'' + wdocEscape(taskId) + '\', this)"><svg class="wdoc-main-icon" viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg><svg class="wdoc-spinner-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-dasharray="36" stroke-dashoffset="12" stroke-linecap="round"></circle></svg> Từ chối</button>';
+        }
+        if (type === 'PURCHASE_RECEIPT') {
+          var initials = (item.requested_by_name_snapshot || item.requested_by_username || '').split(' ').map(function(p){ return p.charAt(0); }).slice(0,2).join('').toUpperCase() || '?';
+          var badgeCls = (item.doc_status === 'DRAFT') ? 'wdoc-badge-draft' : (item.doc_status === 'IN_APPROVAL') ? 'wdoc-badge-pending' : 'wdoc-badge-approved';
+          var badgeText = (item.doc_status === 'DRAFT') ? 'Nháp' : (item.doc_status === 'IN_APPROVAL') ? 'Chờ duyệt' : 'Đã nhập kho';
+          var rowActions = '';
+          if (canEdit) rowActions += '<button class="wdoc-icon-btn" type="button" title="Sửa phiếu nháp" onclick="wdocOpenExisting(\'' + type + '\',' + index + ',true)"><svg viewBox="0 0 24 24" fill="none"><path d="m14 5 5 5M4 20l4.2-.8L19 8.4 15.6 5 4.8 15.8 4 20Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
+          if (canEdit && String(item.requested_by_username || '').toLowerCase() === user.toLowerCase()) {
+            rowActions += '<button class="wdoc-icon-btn" type="button" title="Gửi duyệt" onclick="wdocSubmitForApproval(\'' + type + '\',' + index + ')"><svg viewBox="0 0 24 24" fill="none"><path d="m4 12 16-8-5 16-3-7-8-1Zm8 1 8-9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
+          }
+          if (state.permissions.delete && isDraft) rowActions += '<button class="wdoc-icon-btn" type="button" title="Đánh dấu xóa" onclick="wdocDeleteOne(\'' + type + '\',' + index + ')"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M10 11v6m4-6v6M5.5 7l1 13h11l1-13M9 7V4h6v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
+          var taskId = (state.taskMap || {})[item.doc_id];
+          if (taskId) {
+             rowActions += '<button class="wdoc-btn-approve" type="button" title="Duyệt" onclick="wdocApproveWms(\'' + type + '\',\'' + wdocEscape(taskId) + '\', this)"><svg class="wdoc-main-icon" viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-11"/></svg><svg class="wdoc-spinner-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-dasharray="36" stroke-dashoffset="12" stroke-linecap="round"></circle></svg> Duyệt</button>';
+             rowActions += '<button class="wdoc-btn-reject" type="button" title="Từ chối" onclick="wdocRejectWms(\'' + type + '\',\'' + wdocEscape(taskId) + '\', this)"><svg class="wdoc-main-icon" viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg><svg class="wdoc-spinner-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-dasharray="36" stroke-dashoffset="12" stroke-linecap="round"></circle></svg> Từ chối</button>';
+          }
+          console.log('Doc Approval Data:', { id: item.doc_id, step: item.currentStep, total: item.totalSteps, approver: item.nextApprover });
+          var approvalSubtext = '';
+          if (item.doc_status === 'IN_APPROVAL' || item.doc_status === 'PENDING') {
+            var cStep = item.currentStep || 1;
+            var tStep = item.totalSteps || 1;
+            var appName = item.nextApprover ? ' - ' + wdocEscape(item.nextApprover) : '';
+            approvalSubtext = '<div class="wdoc-approval-subtext" style="font-size:11px;color:#64748b;margin-top:2px;white-space:nowrap;">' + cStep + '/' + tStep + appName + '</div>';
+          }
+          var statusSub = approvalSubtext;
+          return '<tr><td style="text-align:center;">' + check + '</td><td style="text-align:center;"><span style="font-size:.7rem;font-weight:600;color:#94a3b8;">' + (index + 1) + '</span></td><td><div style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:.75rem;font-weight:700;color:var(--wdoc-text-primary);background:#f8fafc;padding:2px 6px;border:1px solid var(--wdoc-border);border-radius:4px;display:inline-block;">' + wdocEscape(item.doc_no) + '</div><div style="font-size:.7rem;color:var(--wdoc-text-muted);margin-top:4px;display:flex;align-items:center;gap:4px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> ' + wdocEscape(item.doc_date) + '</div></td><td><div style="font-weight:600;font-size:.75rem;color:var(--wdoc-text-primary);">' + wdocEscape(wdocWarehouseName(type, item.warehouse_id)) + '</div><div style="font-size:.7rem;color:var(--wdoc-text-muted);margin-top:2px;">' + wdocEscape(item.partner_name_snapshot) + '</div></td><td><span style="font-size:.7rem;color:var(--wdoc-text-secondary);font-family:ui-monospace,SFMono-Regular,monospace;">' + wdocEscape(item.external_ref_no || '—') + '</span></td><td class="wdoc-num"><div style="font-size:.7rem;color:var(--wdoc-text-secondary);">' + wdocNumber(item.line_count, 0) + ' mặt hàng</div><div style="font-weight:700;font-size:.75rem;color:var(--wdoc-text-primary);">' + wdocNumber(item.quantity_total) + '</div></td><td><div class="wdoc-status-cell"><span class="wdoc-badge ' + badgeCls + '"><span class="wdoc-badge-dot"></span>' + badgeText + '</span>' + statusSub + '</div></td><td style="font-size:.7rem;font-weight:500;color:#334155;"><div style="display:flex;align-items:center;gap:6px;"><div class="wdoc-avatar">' + wdocEscape(initials) + '</div><span>' + wdocEscape(item.requested_by_name_snapshot || item.requested_by_username) + '</span></div></td><td style="text-align:center;"><div style="display:inline-flex;align-items:center;gap:2px;">' + rowActions + '</div></td></tr>';
+        } else {
+          return '<tr><td>' + check + '</td><td><div class="wdoc-primary-text">' + wdocEscape(item.doc_no) +
+            '</div><div class="wdoc-secondary">' + wdocEscape(item.doc_date) + '</div></td><td><div class="wdoc-primary-text">' +
+            wdocEscape(wdocWarehouseName(type, item.warehouse_id)) + '</div><div class="wdoc-secondary">' +
+            wdocEscape(item.partner_name_snapshot) + (item.partner_code_snapshot ? ' · ' + wdocEscape(item.partner_code_snapshot) : '') +
+            '</div></td><td>' + wdocEscape(item.external_ref_no || '—') + '</td><td class="wdoc-num">' +
+            wdocNumber(item.line_count, 0) + ' dòng<div class="wdoc-secondary">' + wdocNumber(item.quantity_total) +
+            '</div></td><td><span class="wdoc-status">' + wdocStatusLabel(item.doc_status) + '</span></td><td>' +
+            wdocEscape(item.requested_by_name_snapshot || item.requested_by_username) +
+            '</td><td><div class="wdoc-actions">' + actions + '</div></td></tr>';
+        }
+      }).join('');
+    }
+    var pages = result && result.page_count || 1;
+    document.getElementById('wdoc-page-' + state.key).textContent = state.page + ' / ' + pages;
+    document.getElementById('wdoc-count-' + state.key).textContent = 'Tổng ' + (result && result.total || 0) + ' phiếu';
+    var selEl = document.getElementById('wdoc-selection-' + state.key);
+    if (selEl) selEl.style.display = state.permissions.delete && Object.keys(state.selected).length ? 'flex' : 'none';
+    var selCountEl = document.getElementById('wdoc-selection-count-' + state.key);
+    if (selCountEl) selCountEl.textContent = Object.keys(state.selected).length + ' phiếu đã chọn';
+    var selectPage = document.getElementById('wdoc-select-page-' + state.key);
+    if (selectPage) {
+      var selectable = rows.filter(function(item) { return item.doc_status === 'DRAFT' && item.posting_status === 'NOT_POSTED'; });
+      var checked = selectable.filter(function(item) { return !!state.selected[item.doc_id]; }).length;
+      selectPage.checked = selectable.length > 0 && checked === selectable.length;
+      selectPage.indeterminate = checked > 0 && checked < selectable.length;
+      selectPage.disabled = !state.permissions.delete || !selectable.length;
+    }
+    if (type === 'PURCHASE_RECEIPT') renderStats(type);
+  }
+
+  function wdocWarehouseName(type, id) {
+    var options = wdocState[type].options;
+    var item = options && (options.warehouses || []).find(function(warehouse) {
+      return String(warehouse.warehouse_id) === String(id);
+    });
+    return item ? (item.warehouse_name + ' · ' + item.warehouse_code) : id;
+  }
+
+  function wdocSearch(type, value) {
+    var state = wdocState[type];
+    state.query = value;
+    state.page = 1;
+    clearTimeout(state.searchTimer);
+    state.searchTimer = setTimeout(function() {
+      if (state.loadedQuery !== state.query) reloadWmsDocs(type);
+    }, 400);
+  }
+
+  function wdocSetPageSize(type, value) {
+    wdocState[type].pageSize = Math.max(1, Number(value) || 30);
+    wdocState[type].page = 1;
+    reloadWmsDocs(type);
+  }
+
+  function wdocChangePage(type, change) {
+    var state = wdocState[type];
+    state.page = Math.max(1, state.page + change);
+    reloadWmsDocs(type);
+  }
+
+  function wdocSelectOne(type, id, checked) {
+    var state = wdocState[type];
+    if (checked && !state.selected[id] && Object.keys(state.selected).length >= 200) {
+      window.showToast('Mỗi lần chỉ chọn tối đa 200 phiếu.', 'warning');
+      wdocRender(type);
+      return;
+    }
+    if (checked) state.selected[id] = state.rows.find(function(item) { return item.doc_id === id; }) || true;
+    else delete state.selected[id];
+    wdocRender(type);
+  }
+
+  function wdocSelectPage(type, checked) {
+    var state = wdocState[type];
+    var selectable = state.rows.filter(function(item) {
+      return item.doc_status === 'DRAFT' && item.posting_status === 'NOT_POSTED';
+    });
+    var additions = checked ? selectable.filter(function(item) { return !state.selected[item.doc_id]; }) : [];
+    if (additions.length + Object.keys(state.selected).length > 200) {
+      window.showToast('Mỗi lần chỉ chọn tối đa 200 phiếu.', 'warning');
+      wdocRender(type);
+      return;
+    }
+    selectable.forEach(function(item) {
+      if (checked) state.selected[item.doc_id] = item;
+      else delete state.selected[item.doc_id];
+    });
+    wdocRender(type);
+  }
+
+  function wdocDeleteOne(type, index) {
+    var item = wdocState[type].rows[index];
+    if (!item || !window.showEMPConfirm) return;
+    window.showEMPConfirm('Đánh dấu xóa mềm phiếu nháp ' + item.doc_no +
+      '? Dữ liệu vẫn được giữ trong sheet.', function() {
+      wdocDeleteRecords(type, [item]);
+    });
+  }
+
+  function wdocDeleteSelected(type) {
+    var state = wdocState[type];
+    var selected = Object.keys(state.selected).map(function(id) {
+      return state.selected[id] || state.rows.find(function(item) { return item.doc_id === id; });
+    }).filter(Boolean);
+    if (!selected.length) return;
+    window.showEMPConfirm('Đánh dấu xóa mềm ' + selected.length +
+      ' phiếu nháp đã chọn? Dữ liệu vẫn được giữ trong sheet.', function() {
+      wdocDeleteRecords(type, selected);
+    });
+  }
+
+  function wdocDeleteRecords(type, rows) {
+    var state = wdocState[type];
+    var button = document.getElementById('wdoc-delete-selected-' + state.key);
+    if (button) button.disabled = true;
+    wdocInvoke('deleteDocs', {
+      docType:type,
+      records:rows.map(function(item) { return { doc_id:item.doc_id, expected_updated_at:item.updated_at || '' }; })
+    }, function(result) {
+      if (button) button.disabled = false;
+      if (!result || !result.success) {
+        window.showToast(result && result.message || 'Không xóa được phiếu.', 'error');
+        return;
+      }
+      (result.deleted || []).forEach(function(item) { delete state.selected[item.doc_id]; });
+      var message = result.message || 'Đã cập nhật phiếu.';
+      if (result.errors && result.errors.length) {
+        message += ' Lỗi: ' + result.errors.slice(0, 3).map(function(item) {
+          return (item.doc_id || '') + ': ' + item.message;
+        }).join(' | ');
+      }
+      window.showToast(message, result.errors && result.errors.length ? 'warning' : 'success');
+      reloadWmsDocs(type);
+    }, function(error) {
+      if (button) button.disabled = false;
+      window.showToast('Lỗi kết nối máy chủ: ' + (error && error.message || error), 'error');
+    });
+  }
+
+  function wdocOpenNew(type) {
+    var state = wdocState[type];
+    if (!state.permissions.create) return;
+    wdocCloseSkuSuggestions();
+    wdocActiveType = type;
+    wdocReadOnly = false;
+    document.getElementById('wdoc-modal-title').textContent = 'Thêm phiếu ' + wdocTypeLabel(type);
+    document.getElementById('wdoc-id').value = '';
+    document.getElementById('wdoc-updated-at').value = '';
+    document.getElementById('wdoc-date').value = wdocToday();
+    document.getElementById('wdoc-partner-code').value = '';
+    document.getElementById('wdoc-partner-name').value = '';
+    document.getElementById('wdoc-reference').value = '';
+    document.getElementById('wdoc-reason').value = '';
+    document.getElementById('wdoc-notes').value = '';
+    document.getElementById('wdoc-form-status').textContent = '';
+    wdocRenderWarehouses(type, '');
+    wdocRefreshWorkflowOptions('');
+    wdocUpdateSkuSuggestions();
+    document.getElementById('wdoc-lines-body').innerHTML = '';
+    wdocAddLine();
+    document.getElementById('wdoc-save-button').style.display = '';
+    document.getElementById('wdoc-modal').classList.add('open');
+  }
+
+  function wdocOpenExisting(type, index, edit) {
+    var item = wdocState[type].rows[index];
+    if (!item) return;
+    if (edit && !wdocState[type].permissions.update) return;
+    wdocActiveType = type;
+    wdocReadOnly = !edit;
+    wdocCloseSkuSuggestions();
+    document.getElementById('wdoc-modal-title').textContent =
+      (edit ? 'Sửa phiếu nháp ' : 'Chi tiết phiếu ') + (item.doc_no || '');
+    document.getElementById('wdoc-id').value = item.doc_id || '';
+    document.getElementById('wdoc-updated-at').value = item.updated_at || '';
+    document.getElementById('wdoc-date').value = wdocDateInput(item.doc_date);
+    document.getElementById('wdoc-partner-code').value = item.partner_code_snapshot || '';
+    document.getElementById('wdoc-partner-name').value = item.partner_name_snapshot || '';
+    document.getElementById('wdoc-reference').value = item.external_ref_no || '';
+    document.getElementById('wdoc-reason').value = item.reason || '';
+    document.getElementById('wdoc-notes').value = item.notes || '';
+    document.getElementById('wdoc-form-status').textContent = edit ? '' : 'Chế độ chỉ xem.';
+    wdocRenderWarehouses(type, item.warehouse_id);
+    wdocRefreshWorkflowOptions(item.selected_workflow_version_id || '');
+    wdocUpdateSkuSuggestions();
+    document.getElementById('wdoc-lines-body').innerHTML = '';
+    (item.lines || []).forEach(function(line) {
+      wdocAddLine({
+        line_id: line.line_id,
+        sku_id: line.sku_id,
+        quantity: line.quantity_entered,
+        unit_cost: line.unit_cost,
+        uom_entered: line.uom_entered,
+        location_id: line.location_id,
+        destination_warehouse_id: line.destination_warehouse_id,
+        destination_location_id: line.destination_location_id,
+        lot_id: line.lot_id,
+        supplier_name_snapshot: line.supplier_name_snapshot,
+        production_batch_id: line.production_batch_id,
+        line_notes: line.line_notes
+      });
+    });
+    if (!(item.lines || []).length) wdocAddLine();
+    var fields = document.querySelectorAll('#wdoc-modal input, #wdoc-modal select, #wdoc-modal textarea');
+    fields.forEach(function(field) {
+      if (field.id !== 'wdoc-id' && field.id !== 'wdoc-updated-at') field.disabled = !edit;
+    });
+    document.querySelectorAll('#wdoc-modal button').forEach(function(button) {
+      if (button.getAttribute('aria-label') !== 'Đóng') button.disabled = !edit;
+    });
+    document.getElementById('wdoc-save-button').style.display = edit ? '' : 'none';
+    document.getElementById('wdoc-modal').classList.add('open');
+    wdocUpdateSummary();
+  }
+
+  function wdocCurrentUser() {
+    try {
+      var session = JSON.parse(localStorage.getItem('HAP_USER_SESSION') || '{}');
+      return String(session.username || '');
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function wdocStatusHtml(docStatus, postingStatus) {
+    var status = String(docStatus || '').toUpperCase();
+    var posting = String(postingStatus || '').toUpperCase();
+    if (posting === 'POSTED' || status === 'COMPLETED') {
+      return '<span class="wdoc-status completed">Đã ghi sổ</span>';
+    }
+    if (status === 'APPROVED') {
+      return '<span class="wdoc-status approved">Đã duyệt</span>';
+    }
+    if (status === 'IN_APPROVAL') {
+      return '<span class="wdoc-status approval">Chờ duyệt</span>';
+    }
+    if (status === 'RETURNED') {
+      return '<span class="wdoc-status returned">Từ chối</span>';
+    }
+    if (status === 'CANCELLED') {
+      return '<span class="wdoc-status cancelled">Đã hủy</span>';
+    }
+    return '<span class="wdoc-status draft">Nháp</span>';
+  }
+
+  function wdocStatusLabel(status) {
+    return ({
+      DRAFT:'Nháp',
+      RETURNED:'Cần chỉnh sửa',
+      IN_APPROVAL:'Đang duyệt',
+      APPROVED:'Đã duyệt',
+      COMPLETED:'Hoàn tất',
+      CANCELLED:'Đã hủy'
+    })[status] || status || '—';
+  }
+
+  function wdocSubmitForApproval(type, index) {
+    var item = wdocState[type].rows[index];
+    if (!item) return;
+    var state = wdocState[type];
+    var workflows = state.options && state.options.workflows || [];
+    var select = document.getElementById('wdoc-submit-workflow');
+    select.innerHTML = wdocWorkflowSelectOptions(type, item.warehouse_id,
+      item.selected_workflow_version_id || '');
+    select.value = item.selected_workflow_version_id || '';
+    document.getElementById('wdoc-submit-workflow-status').textContent = workflows.some(function(workflow) {
+      return workflow.doc_type === type &&
+        (!workflow.warehouse_scope_id || String(workflow.warehouse_scope_id) === String(item.warehouse_id));
+    }) ? '' : 'Không có workflow đang hoạt động phù hợp với loại phiếu và kho này.';
+    wdocPendingSubmit = { type:type, docId:item.doc_id };
+    document.getElementById('wdoc-workflow-modal').classList.add('open');
+  }
+
+  function wdocCloseWorkflowChoice() {
+    document.getElementById('wdoc-workflow-modal').classList.remove('open');
+    wdocPendingSubmit = null;
+  }
+
+  function wdocConfirmSubmitForApproval() {
+    if (!wdocPendingSubmit) return;
+    var workflowVersionId = document.getElementById('wdoc-submit-workflow').value;
+    var status = document.getElementById('wdoc-submit-workflow-status');
+    var button = document.getElementById('wdoc-submit-workflow-button');
+    if (!workflowVersionId) {
+      status.textContent = 'Vui lòng chọn một workflow đang hoạt động.';
+      return;
+    }
+    button.disabled = true;
+    wdocInvoke('submitWorkflow', {
+      docId:wdocPendingSubmit.docId,
+      workflowVersionId:workflowVersionId
+    }, function(result) {
+      button.disabled = false;
+      if (!result || !result.success) {
+        status.textContent = result && result.message || 'Không gửi được phiếu duyệt.';
+        window.showToast(status.textContent, 'error');
+        return;
+      }
+      var type = wdocPendingSubmit.type;
+      wdocCloseWorkflowChoice();
+      window.showToast(result.message, 'success');
+      reloadWmsDocs(type);
+    }, function(error) {
+      button.disabled = false;
+      status.textContent = 'Lỗi kết nối máy chủ: ' + (error && error.message || error);
+      window.showToast(status.textContent, 'error');
+    });
+  }
+
+  function wdocDateInput(value) {
+    var text = String(value || '');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+    var match = text.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    return match ? match[3] + '-' + match[2] + '-' + match[1] : '';
+  }
+
+  function wdocToday() {
+    var today = new Date();
+    return today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' +
+      String(today.getDate()).padStart(2, '0');
+  }
+
+  function wdocRenderWarehouses(type, selectedId) {
+    var select = document.getElementById('wdoc-warehouse');
+    var warehouses = wdocState[type].options && wdocState[type].options.warehouses || [];
+    select.innerHTML = '<option value="">Chọn kho</option>' + warehouses.map(function(item) {
+      return '<option value="' + wdocEscape(item.warehouse_id) + '">' +
+        wdocEscape(item.warehouse_code + ' · ' + item.warehouse_name) + '</option>';
+    }).join('');
+    select.value = selectedId || '';
+  }
+
+  function wdocWorkflowSelectOptions(type, warehouseId, selectedId) {
+    var state = wdocState[type];
+    var warehouses = state.options && state.options.warehouses || [];
+    var workflows = state.options && state.options.workflows || [];
+    if (state.options && state.options.workflowAccess === false) {
+      return '<option value="">Không có quyền xem workflow</option>';
+    }
+    var applicable = workflows.filter(function(item) {
+      return String(item.doc_type || '').toUpperCase() === type &&
+        (!item.warehouse_scope_id || String(item.warehouse_scope_id) === String(warehouseId || ''));
+    });
+    var placeholder = applicable.length ? 'Chọn workflow' : 'Không có workflow hoạt động phù hợp';
+    return '<option value="">' + wdocEscape(placeholder) + '</option>' + applicable.map(function(item) {
+      var warehouse = warehouses.find(function(candidate) {
+        return String(candidate.warehouse_id) === String(item.warehouse_scope_id);
+      });
+      var scopeLabel = item.warehouse_scope_id
+        ? 'Kho ' + (warehouse
+          ? warehouse.warehouse_code + ' · ' + warehouse.warehouse_name
+          : item.warehouse_scope_id)
+        : 'Tất cả kho';
+      var label = item.wf_code + ' · ' + item.wf_name + ' · v' + item.version_no + ' · ' + scopeLabel;
+      return '<option value="' + wdocEscape(item.workflow_version_id) + '" ' +
+        (String(item.workflow_version_id) === String(selectedId || '') ? 'selected' : '') + '>' +
+        wdocEscape(label) + '</option>';
+    }).join('');
+  }
+
+  function wdocRefreshWorkflowOptions(selectedId) {
+    var select = document.getElementById('wdoc-workflow');
+    if (!select || !wdocActiveType) return;
+    var previous = selectedId === undefined ? select.value : selectedId;
+    select.innerHTML = wdocWorkflowSelectOptions(wdocActiveType,
+      document.getElementById('wdoc-warehouse').value, previous);
+    select.value = previous || '';
+  }
+
+  function wdocSkuOptions(selectedId) {
+    var state = wdocState[wdocActiveType];
+    var skus = state.options && state.options.skus || [];
+    var selected = skus.find(function(item) { return String(item.sku_id) === String(selectedId); });
+    return selected ? selected.short_name + ' · ' + selected.sku_name + ' [' + selected.uom_base + ']' : '';
+  }
+
+  function wdocUpdateSkuSuggestions() {
+    wdocCloseSkuSuggestions();
+  }
+
+  function wdocCloseSkuSuggestions() {
+    if (wdocActiveSkuSuggestions && wdocActiveSkuSuggestions.parentNode) {
+      var picker = wdocActiveSkuInput && wdocActiveSkuInput.closest('.wdoc-sku-picker');
+      if (picker) picker.appendChild(wdocActiveSkuSuggestions);
+      wdocActiveSkuSuggestions.classList.remove('open');
+    }
+    wdocActiveSkuInput = null;
+    wdocActiveSkuSuggestions = null;
+  }
+
+  function wdocMatchSku(input) {
+    var row = input.closest('tr');
+    var hidden = row.querySelector('[data-line-field="sku_id"]');
+    var value = input.value.trim().toLowerCase();
+    var skus = wdocState[wdocActiveType].options && wdocState[wdocActiveType].options.skus || [];
+    var sku = skus.find(function(item) {
+      var label = (item.short_name + ' · ' + item.sku_name + ' [' + item.uom_base + ']').toLowerCase();
+      return value && (value === label || value === String(item.sku_id || '').toLowerCase() ||
+        value === String(item.short_name || '').toLowerCase() ||
+        value === String(item.barcode || '').toLowerCase());
+    });
+    hidden.value = sku ? sku.sku_id : '';
+    wdocSetRowUom(row, sku);
+    input.setCustomValidity(value && !sku ? 'Chọn một mã hàng trong danh sách gợi ý.' : '');
+    if (!sku) wdocSuggestSku(input);
+    else if (wdocActiveSkuInput === input) wdocCloseSkuSuggestions();
+    wdocUpdateSummary();
+  }
+
+  function wdocSuggestSku(input) {
+    var picker = input.closest('.wdoc-sku-picker');
+    if (!picker) return;
+    if (wdocActiveSkuInput && wdocActiveSkuInput !== input) wdocCloseSkuSuggestions();
+    var list = wdocActiveSkuInput === input
+      ? wdocActiveSkuSuggestions
+      : picker.querySelector('.wdoc-sku-suggestions');
+    if (!list) return;
+    if (list.parentNode !== document.body) document.body.appendChild(list);
+    wdocActiveSkuInput = input;
+    wdocActiveSkuSuggestions = list;
+    var query = input.value.trim().toLowerCase();
+    var skus = wdocState[wdocActiveType].options && wdocState[wdocActiveType].options.skus || [];
+    var terms = query.split(/\s+/).filter(Boolean);
+    var matches = query ? skus.filter(function(item) {
+      var haystack = [item.short_name, item.sku_name, item.sku_id, item.barcode, item.uom_base]
+        .join(' ').toLowerCase();
+      return terms.every(function(term) { return haystack.indexOf(term) !== -1; });
+    }).slice(0, 12) : [];
+    list.innerHTML = matches.map(function(item) {
+      return '<button class="wdoc-sku-suggestion" type="button" data-sku-id="' +
+        wdocEscape(item.sku_id) + '" onmousedown="event.preventDefault();wdocChooseSku(this)">' +
+        wdocEscape(item.short_name + ' · ' + item.sku_name) +
+        '<small style="display:inline;margin-left:14px">' + wdocEscape(item.sku_id + ' · ' + item.uom_base +
+          (item.barcode ? ' · ' + item.barcode : '')) + '</small></button>';
+    }).join('');
+    list.classList.toggle('open', matches.length > 0);
+    wdocPositionSkuSuggestions(input, list);
+  }
+
+  function wdocPositionSkuSuggestions(input, list) {
+    if (!input || !list || !list.classList.contains('open')) return;
+    var bounds = input.getBoundingClientRect();
+    var width = Math.min(720, window.innerWidth - 24);
+    var left = Math.max(12, Math.min(bounds.left, window.innerWidth - width - 12));
+    list.style.left = left + 'px';
+    list.style.width = width + 'px';
+    list.style.minWidth = Math.min(540, width) + 'px';
+    var height = Math.min(240, list.scrollHeight || 240);
+    var below = window.innerHeight - bounds.bottom;
+    var top = below >= Math.min(height, 120) || bounds.top < height + 10
+      ? bounds.bottom + 3 : Math.max(8, bounds.top - height - 3);
+    list.style.top = top + 'px';
+  }
+
+  function wdocChooseSku(button) {
+    var input = wdocActiveSkuInput;
+    if (!input) return;
+    var picker = input.closest('.wdoc-sku-picker');
+    var hidden = picker.querySelector('[data-line-field="sku_id"]');
+    var skuId = button.getAttribute('data-sku-id');
+    input.value = wdocSkuLabelById(skuId);
+    hidden.value = skuId;
+    input.setCustomValidity('');
+    wdocSetRowUom(picker.closest('tr'), wdocSkuById(skuId));
+    wdocCloseSkuSuggestions();
+    wdocUpdateSummary();
+  }
+
+  function wdocHideSkuSuggestions(input) {
+    if (wdocActiveSkuInput === input) wdocCloseSkuSuggestions();
+  }
+
+  function wdocSkuLabelById(skuId) {
+    return wdocSkuOptions(skuId);
+  }
+
+  function wdocSkuById(skuId) {
+    var state = wdocState[wdocActiveType];
+    var skus = state && state.options && state.options.skus || [];
+    return skus.find(function(item) { return String(item.sku_id) === String(skuId); }) || null;
+  }
+
+  function wdocWarehouseCode(warehouseId) {
+    var state = wdocState[wdocActiveType];
+    var warehouses = state && state.options && state.options.warehouses || [];
+    var warehouse = warehouses.find(function(item) {
+      return String(item.warehouse_id) === String(warehouseId || '');
+    });
+    return warehouse ? String(warehouse.warehouse_code || '') : '';
+  }
+
+  function wdocLocations_() {
+    var state = wdocState[wdocActiveType];
+    return state && state.options && state.options.locations || [];
+  }
+
+  function wdocResolveLocationId(value) {
+    var text = String(value || '').trim();
+    if (!text) return '';
+    var locations = wdocLocations_();
+    var warehouseSelect = document.getElementById('wdoc-warehouse');
+    var warehouseId = warehouseSelect ? warehouseSelect.value : '';
+    var match = function(item) {
+      return String(item.location_id || '').toLowerCase() === text.toLowerCase() ||
+        String(item.location_code || '').toLowerCase() === text.toLowerCase();
+    };
+    var found = locations.find(function(item) {
+      return warehouseId && String(item.warehouse_id) === String(warehouseId) && match(item);
+    }) || locations.find(match);
+    return found ? String(found.location_id) : text;
+  }
+
+  function wdocLocationLabel(locationId) {
+    var text = String(locationId || '').trim();
+    if (!text) return '';
+    var found = wdocLocations_().find(function(item) {
+      return String(item.location_id) === text;
+    });
+    return found ? String(found.location_code || found.location_id) : text;
+  }
+
+  function wdocSetRowUom(row, sku) {
+    var input = row && row.querySelector('[data-line-field="uom_entered"]');
+    if (input) input.value = sku ? String(sku.uom_base || '') : '';
+  }
+
+  function wdocLocationOptions(selectedId, placeholder) {
+    var warehouseId = document.getElementById('wdoc-warehouse').value;
+    var locations = wdocState[wdocActiveType].options && wdocState[wdocActiveType].options.locations || [];
+    return '<option value="">' + wdocEscape(placeholder || 'Chưa chọn vị trí') + '</option>' + locations.filter(function(item) {
+      return String(item.warehouse_id) === String(warehouseId);
+    }).map(function(item) {
+      return '<option value="' + wdocEscape(item.location_id) + '" ' +
+        (String(item.location_id) === String(selectedId) ? 'selected' : '') + '>' +
+        wdocEscape(item.location_code + ' · ' + item.location_name) + '</option>';
+    }).join('');
+  }
+
+function wdocAddLine(line) {
+    var body = document.getElementById('wdoc-lines-body');
+    if (!body) return;
+    var index = body.children.length + 1;
+    var row = document.createElement('tr');
+    row.style.borderBottom = '1px solid #f1f5f9';
+
+    var skuId = line && line.sku_id || '';
+    var sku = wdocSkuById(skuId);
+    var skuLabel = skuId ? wdocSkuLabelById(skuId) : '';
+    var lotVal = line ? (line.lot_id || '') : '';
+    var supplierVal = line ? (line.supplier_name_snapshot || '') : '';
+    var batchVal = line ? (line.production_batch_id || '') : '';
+    var uomVal = line && line.uom_entered ? line.uom_entered : (sku ? sku.uom_base : '');
+    var destLocationId = line ? (line.destination_location_id || '') : '';
+    var warehouseCode = wdocWarehouseCode(document.getElementById('wdoc-warehouse').value);
+
+    row.innerHTML =
+      '<td style="text-align:center;color:#64748b;font-weight:600;padding:4px;">' + index + '</td>' +
+      '<td style="padding:4px;"><div class="wdoc-sku-picker"><input class="wdoc-input wdoc-item-search" data-line-field="sku_search" required autocomplete="off" placeholder="Gõ mã hoặc tên hàng" value="' +
+      wdocEscape(skuLabel) + '" oninput="wdocMatchSku(this)" onfocus="wdocSuggestSku(this)" onblur="wdocScheduleHideSkuSuggestions(this)"><input type="hidden" data-line-field="sku_id" value="' +
+      wdocEscape(skuId) + '"><input type="hidden" data-line-field="line_id" value="' +
+      wdocEscape(line && line.line_id || '') + '"><div class="wdoc-sku-suggestions"></div></div></td>' +
+      '<td style="padding:4px;"><input class="wdoc-input wdoc-num" data-line-field="quantity" type="text" inputmode="decimal" autocomplete="off" required oninput="wdocFormatNumericInput(this);wdocUpdateSummary()" onblur="wdocFormatNumericInput(this,true)" style="text-align:right;"></td>' +
+      '<td style="padding:4px;"><input class="wdoc-input" data-line-field="uom_entered" readonly tabindex="-1" title="Đơn vị tính lấy theo SKU" value="' +
+      wdocEscape(uomVal) + '" style="background:#f1f5f9;color:#475569;text-align:center;"></td>' +
+      '<td style="padding:4px;"><input class="wdoc-input wdoc-num" data-line-field="unit_cost" type="text" inputmode="decimal" autocomplete="off" oninput="wdocFormatNumericInput(this);wdocUpdateSummary()" onblur="wdocFormatNumericInput(this,true)" style="text-align:right;"></td>' +
+      '<td style="padding:4px;background:#fffbeb;"><input class="wdoc-input" data-line-field="lot_id" placeholder="Mã Lô" style="font-weight:600;color:#b45309;" value="' + wdocEscape(lotVal) + '"></td>' +
+      '<td style="padding:4px;background:#fffbeb;"><input class="wdoc-input" data-line-field="supplier_name_snapshot" placeholder="Nhà cung cấp Lô" value="' + wdocEscape(supplierVal) + '"></td>' +
+      '<td style="padding:4px;"><input class="wdoc-input" data-line-field="production_batch_id" maxlength="100" placeholder="Mẻ sản xuất" value="' + wdocEscape(batchVal) + '"></td>' +
+      '<td style="padding:4px;"><input class="wdoc-input" data-line-field="warehouse_code" readonly tabindex="-1" title="Kho lấy theo phiếu" value="' +
+      wdocEscape(warehouseCode) + '" style="background:#f1f5f9;color:#475569;"></td>' +
+      '<td style="padding:4px;"><select class="wdoc-select" data-line-field="location_id">' +
+      wdocLocationOptions(line && line.location_id) + '</select></td>' +
+      '<td style="padding:4px;"><select class="wdoc-select" data-line-field="destination_location_id">' +
+      wdocLocationOptions(destLocationId, 'Chưa chọn vị trí đích') + '</select></td>' +
+      '<td style="padding:4px;"><input class="wdoc-input" data-line-field="line_notes" maxlength="1000" placeholder="Ghi chú dòng" value="' + wdocEscape(line && line.line_notes || '') + '"></td>' +
+      '<td style="text-align:center;padding:4px;"><button class="wdoc-icon-btn" type="button" title="Bỏ dòng" aria-label="Bỏ dòng hàng" ' +
+      (wdocReadOnly ? 'disabled ' : '') + 'onclick="wdocRemoveLine(this)"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></td>';
+
+    var quantityInput = row.querySelector('[data-line-field="quantity"]');
+    if (quantityInput) quantityInput.value = wdocFormatNumberValue(line && line.quantity);
+    var unitCostInput = row.querySelector('[data-line-field="unit_cost"]');
+    if (unitCostInput) unitCostInput.value = wdocFormatNumberValue(line && line.unit_cost);
+
+    body.appendChild(row);
+    wdocUpdateSummary();
+  }
+
+  function wdocRemoveLine(button) {
+    var row = button.closest('tr');
+    if (wdocActiveSkuInput && row.contains(wdocActiveSkuInput)) wdocCloseSkuSuggestions();
+    row.remove();
+    Array.from(document.querySelectorAll('#wdoc-lines-body tr')).forEach(function(row, index) {
+      row.cells[0].textContent = index + 1;
+    });
+    wdocUpdateSummary();
+  }
+
+  function wdocRefreshLineLocations() {
+    if (wdocReadOnly) return;
+    var warehouseCode = wdocWarehouseCode(document.getElementById('wdoc-warehouse').value);
+    document.querySelectorAll('#wdoc-lines-body tr').forEach(function(row) {
+      var codeInput = row.querySelector('[data-line-field="warehouse_code"]');
+      if (codeInput) codeInput.value = warehouseCode;
+      [['location_id', 'Chưa chọn vị trí'], ['destination_location_id', 'Chưa chọn vị trí đích']]
+        .forEach(function(pair) {
+          var select = row.querySelector('select[data-line-field="' + pair[0] + '"]');
+          if (!select) return;
+          var value = select.value;
+          select.innerHTML = wdocLocationOptions(value, pair[1]);
+          select.value = value || '';
+        });
+    });
+  }
+
+  function wdocUpdateSummary() {
+    var rows = Array.from(document.querySelectorAll('#wdoc-lines-body tr'));
+    var quantity = rows.reduce(function(total, row) {
+      var input = row.querySelector('input[data-line-field="quantity"]');
+      return total + (wdocParseInputNumber(input && input.value) || 0);
+    }, 0);
+    var amount = rows.reduce(function(total, row) {
+      var qty = wdocParseInputNumber(row.querySelector('input[data-line-field="quantity"]').value) || 0;
+      var price = wdocParseInputNumber(row.querySelector('input[data-line-field="unit_cost"]').value) || 0;
+      return total + qty * price;
+    }, 0);
+    var countEl = document.getElementById('wdoc-lines-count');
+    var qtyEl = document.getElementById('wdoc-lines-qty');
+    var amtEl = document.getElementById('wdoc-lines-amount');
+    if (countEl) countEl.textContent = rows.length;
+    if (qtyEl) qtyEl.textContent = new Intl.NumberFormat('vi-VN', { maximumFractionDigits:3 }).format(quantity);
+    if (amtEl) amtEl.textContent = new Intl.NumberFormat('vi-VN', { style:'currency', currency:'VND', maximumFractionDigits:0 }).format(amount);
+    var oldSummary = document.getElementById('wdoc-lines-summary');
+    if (oldSummary) {
+      oldSummary.textContent = rows.length + ' dòng · Tổng số lượng ' + wdocNumber(quantity);
+    }
+  }
+
+  function wdocClose() {
+    wdocReadOnly = false;
+    wdocCloseSkuSuggestions();
+    document.getElementById('wdoc-modal').classList.remove('open');
+    document.querySelectorAll('#wdoc-modal input, #wdoc-modal select, #wdoc-modal textarea').forEach(function(field) {
+      field.disabled = false;
+    });
+    document.querySelectorAll('#wdoc-modal button').forEach(function(button) { button.disabled = false; });
+  }
+
+  function wdocSave(event) {
+    event.preventDefault();
+    var type = wdocActiveType;
+    var state = wdocState[type];
+    var lines = Array.from(document.querySelectorAll('#wdoc-lines-body tr')).map(function(row) {
+      function value(name) { 
+        var el = row.querySelector('[data-line-field="' + name + '"]');
+        return el ? el.value : ''; 
+      }
+      return { 
+        line_id: value('line_id'), 
+        sku_id: value('sku_id'), 
+        quantity: wdocParseInputNumber(value('quantity')),
+        unit_cost: wdocParseInputNumber(value('unit_cost')),
+        location_id: value('location_id'), 
+        destination_location_id: value('destination_location_id'),
+        lot_id: value('lot_id'),
+        supplier_name_snapshot: value('supplier_name_snapshot'),
+        production_batch_id: value('production_batch_id'),
+        line_notes: value('line_notes') 
+      };
+    });
+    var record = {
+      doc_id: document.getElementById('wdoc-id').value,
+      expected_updated_at: document.getElementById('wdoc-updated-at').value,
+      doc_date: document.getElementById('wdoc-date').value,
+      warehouse_id: document.getElementById('wdoc-warehouse').value,
+      partner_code: document.getElementById('wdoc-partner-code').value,
+      partner_name: document.getElementById('wdoc-partner-name').value,
+      external_ref_no: document.getElementById('wdoc-reference').value,
+      reason: document.getElementById('wdoc-reason').value,
+      notes: document.getElementById('wdoc-notes').value,
+      selected_workflow_version_id: document.getElementById('wdoc-workflow').value,
+      lines: lines
+    };
+    var button = document.getElementById('wdoc-save-button');
+    button.disabled = true;
+    wdocInvoke('saveDoc', { docType: type, record: record }, function(result) {
+      button.disabled = false;
+      if (!result || !result.success) {
+        window.showToast(result && result.message || 'Không lưu được phiếu nháp.', 'error');
+        if (result && result.code === 'STALE_RECORD') wdocClose();
+        return;
+      }
+
+      wdocClose();
+      window.showToast(result.message || 'Đã lưu phiếu nháp.', 'success');
+      reloadWmsDocs(type);
+    }, function(error) {
+      button.disabled = false;
+      window.showToast('Lỗi kết nối máy chủ: ' + (error && error.message || error), 'error');
+    });
+  }
+
+  function wdocRepositionSkuSuggestions() {
+    if (wdocActiveSkuInput && wdocActiveSkuSuggestions) {
+      wdocPositionSkuSuggestions(wdocActiveSkuInput, wdocActiveSkuSuggestions);
+    }
+  }
+
+  if (typeof document !== 'undefined' && typeof window !== 'undefined') {
+    document.addEventListener('scroll', wdocRepositionSkuSuggestions, true);
+    window.addEventListener('resize', wdocRepositionSkuSuggestions);
+  }
+
+  function wdocOpenImport() {
+    document.getElementById('wdoc-import-data').value = '';
+    document.getElementById('wdoc-import-preview').innerHTML = '';
+    document.getElementById('wdoc-import-status').textContent = '';
+    document.getElementById('wdoc-import-append').disabled = true;
+    wdocImportRows = [];
+    document.getElementById('wdoc-import-modal').classList.add('open');
+  }
+
+  function wdocCloseImport() { document.getElementById('wdoc-import-modal').classList.remove('open'); }
+
+function wdocImportTemplate() {
+  try {
+    var type = wdocActiveType || 'PURCHASE_RECEIPT';
+    var docKey = (wdocState[type] && wdocState[type].key) ? wdocState[type].key : 'in';
+
+    // 1. Tên cột tiếng Việt hiển thị cho người dùng (Đã bổ sung 'Nhà cung cấp Lô')
+    var headersVN = [
+      'Mã SKU (*)', 
+      'Số lượng (*)', 
+      'Đơn vị tính', 
+      'Đơn giá', 
+      'Số Lô (Lot)', 
+      'Nhà cung cấp Lô',
+      'Mã mẻ sản xuất', 
+      'Mã Kho', 
+      'Mã Vị trí', 
+      'Mã Kho đích', 
+      'Mã Vị trí đích', 
+      'Ghi chú'
+    ];
+
+    // 2. Tên cột gốc tương ứng trong WMS_LINE / WMS_LOT (Đã bổ sung 'supplier_name_snapshot')
+    var headersTech = [
+      'sku_code_snapshot', 
+      'quantity_entered', 
+      'uom_entered', 
+      'unit_cost', 
+      'lot_id', 
+      'supplier_name_snapshot',
+      'production_batch_id', 
+      'warehouse_id', 
+      'location_id', 
+      'destination_warehouse_id', 
+      'destination_location_id', 
+      'line_notes'
+    ];
+
+    // Tạo HTML Table để xuất tệp Excel (.xls) mã hóa UTF-8
+    var html = '<html><head><meta charset="utf-8"><style>' +
+      'th { background-color: #1e3a8a; color: #ffffff; font-weight: bold; text-align: center; padding: 8px; border: 1px solid #94a3b8; }' +
+      'td { text-align: left; vertical-align: middle; padding: 6px; border: 1px solid #cbd5e1; mso-number-format:"\\@"; }' +
+      '.tech-row { background-color: #f1f5f9; color: #64748b; font-size: 11px; font-style: italic; text-align: center; }' +
+      '.req { background-color: #eff6ff; font-weight: bold; }' +
+      '</style></head><body>' +
+      '<table border="1"><thead>' +
+      // Dòng 1: Tiêu đề Tiếng Việt
+      '<tr>';
+    for (var i = 0; i < headersVN.length; i++) {
+      html += '<th>' + headersVN[i] + '</th>';
+    }
+    html += '</tr>' +
+      // Dòng 2: Mã cột kỹ thuật (để Parser đọc mapping dữ liệu chính xác)
+      '<tr class="tech-row">';
+    for (var k = 0; k < headersTech.length; k++) {
+      html += '<td>' + headersTech[k] + '</td>';
+    }
+    html += '</tr></thead><tbody>' +
+      // Dòng 3: Dữ liệu mẫu minh họa
+      '<tr>' +
+        '<td class="req">SKU001</td>' +
+        '<td class="req" style="text-align:right;">100</td>' +
+        '<td>Cái</td>' +
+        '<td style="text-align:right;">150000</td>' +
+        '<td>LOT202610</td>' +
+        '<td>Công ty TNHH HAP Group</td>' +
+        '<td>BATCH01</td>' +
+        '<td>WH_MAIN</td>' +
+        '<td>LOC_A1</td>' +
+        '<td></td>' +
+        '<td></td>' +
+        '<td>Hàng nhập đợt 1</td>' +
+      '</tr>' +
+      '</tbody></table></body></html>';
+
+    // Tạo Blob và link tải về
+    var blob = new Blob(['\ufeff', html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = 'mau_nhap_wms_line_' + docKey + '.xls';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+    if (window.showToast) window.showToast('Đã tải tệp mẫu Excel thành công.', 'success');
+  } catch (err) {
+    console.error('Lỗi tải mẫu Excel:', err);
+    if (window.showToast) window.showToast('Không thể tải tệp mẫu: ' + (err.message || err), 'error');
+  }
+}
+
+  function wdocParseImport() {
+    var fileInput = document.getElementById('wdoc-import-file');
+    var file = fileInput && fileInput.files ? fileInput.files[0] : null;
+
+    // ----------------------------------------------------
+    // TRƯỜNG HỢP 1: UPLOAD FILE EXCEL (.xlsx / .xls)
+    // ----------------------------------------------------
+    if (file) {
+      if (typeof XLSX === 'undefined') {
+        var script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        script.onload = function() { wdocParseImport(); };
+        script.onerror = function() {
+          if (window.showToast) window.showToast('Không thể tải thư viện đọc file Excel.', 'error');
+        };
+        document.head.appendChild(script);
+        return;
+      }
+
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          var data = new Uint8Array(e.target.result);
+          var workbook = XLSX.read(data, { type: 'array' });
+          var worksheet = workbook.Sheets[workbook.SheetNames[0]];
+          var rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+          if (!rows || rows.length < 3) {
+            if (window.showToast) window.showToast('Tệp Excel không có đủ dữ liệu (tối thiểu phải có 3 dòng)!', 'error');
+            return;
+          }
+
+          // Cấu trúc 12 cột kỹ thuật chuẩn
+          var techHeaders = [
+            'sku_code_snapshot', 'quantity_entered', 'uom_entered', 'unit_cost', 
+            'lot_id', 'supplier_name_snapshot', 'production_batch_id', 
+            'warehouse_id', 'location_id', 'destination_warehouse_id', 'destination_location_id', 'line_notes'
+          ];
+
+          var skus = (wdocState[wdocActiveType] && wdocState[wdocActiveType].options && wdocState[wdocActiveType].options.skus) || [];
+          var parsedRows = [];
+
+          // Đọc dữ liệu từ Dòng 3 trở đi (index 2)
+          for (var r = 2; r < rows.length; r++) {
+            var rowData = rows[r];
+            if (!rowData || !rowData.length) continue;
+
+            var item = {};
+            var isEmpty = true;
+
+            for (var c = 0; c < techHeaders.length; c++) {
+              var colKey = techHeaders[c];
+              var val = rowData[c] !== undefined ? String(rowData[c]).trim() : '';
+              if (val !== '') isEmpty = false;
+              item[colKey] = val;
+            }
+
+            if (isEmpty) continue;
+
+            var skuCode = item.sku_code_snapshot || '';
+            var matchedSku = skus.find(function(s) {
+              return String(s.short_name || '').toLowerCase() === skuCode.toLowerCase() ||
+                     String(s.sku_id || '').toLowerCase() === skuCode.toLowerCase() ||
+                     String(s.barcode || '').toLowerCase() === skuCode.toLowerCase();
+            });
+
+            var qty = wdocParseNumber(item.quantity_entered);
+            var cost = item.unit_cost === '' ? 0 : wdocParseNumber(item.unit_cost);
+
+            var errors = [];
+            if (!skuCode) errors.push('Thiếu mã SKU');
+            else if (!matchedSku) errors.push('Mã SKU không tồn tại');
+            if (isNaN(qty) || qty <= 0) errors.push('Số lượng phải > 0');
+            if (isNaN(cost) || cost < 0) errors.push('Đơn giá không hợp lệ');
+
+            parsedRows.push({
+              row: r + 1,
+              sku_id: matchedSku ? matchedSku.sku_id : '',
+              code: skuCode,
+              name: matchedSku ? matchedSku.sku_name : '',
+              quantity: qty,
+              unit_cost: cost,
+              uom_entered: matchedSku ? matchedSku.uom_base : (item.uom_entered || ''),
+              lot_id: item.lot_id || '',
+              supplier_name_snapshot: item.supplier_name_snapshot || '',
+              production_batch_id: item.production_batch_id || '',
+              warehouse_code: item.warehouse_id || '',
+              location_id: wdocResolveLocationId(item.location_id),
+              destination_warehouse_id: item.destination_warehouse_id || '',
+              destination_location_id: wdocResolveLocationId(item.destination_location_id),
+              line_notes: item.line_notes || '',
+              errors: errors
+            });
+          }
+
+          wdocImportRows = parsedRows;
+          wdocRenderImportPreview();
+
+        } catch (err) {
+          console.error('Lỗi đọc file Excel:', err);
+          if (window.showToast) window.showToast('Không thể đọc tệp Excel: ' + (err.message || err), 'error');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+      return;
+    }
+
+    // ----------------------------------------------------
+    // TRƯỜNG HỢP 2: DÁN DỮ LIỆU TỪ CLIPBOARD (PASTE)
+    // ----------------------------------------------------
+    var textInput = document.getElementById('wdoc-import-data');
+    var text = textInput ? textInput.value.trim() : '';
+    if (!text) {
+      if (window.showToast) window.showToast('Hãy chọn tệp Excel hoặc dán dữ liệu từ clipboard.', 'warning');
+      return;
+    }
+
+    var skusText = (wdocState[wdocActiveType] && wdocState[wdocActiveType].options && wdocState[wdocActiveType].options.skus) || [];
+    var rawRows = text.split(/\r?\n/).map(function(line) { return line.split('\t'); });
+
+    var validDataRows = rawRows.filter(function(row) {
+      var firstCell = String(row[0] || '').trim().toLowerCase();
+      return firstCell !== 'mã sku (*)' && firstCell !== 'sku_code_snapshot' && firstCell !== 'mã hàng';
+    });
+
+    wdocImportRows = validDataRows.map(function(row, index) {
+      var code = String(row[0] || '').trim();
+      var matchedSku = skusText.find(function(item) {
+        return [item.short_name, item.sku_id, item.barcode].some(function(val) {
+          return String(val || '').trim().toLowerCase() === code.toLowerCase();
+        });
+      });
+
+      var quantity = wdocParseNumber(row[1]);
+      var uom = String(row[2] || '').trim();
+      var cost = row[3] == null || String(row[3]).trim() === '' ? 0 : wdocParseNumber(row[3]);
+      var lotId = String(row[4] || '').trim();
+      var supplierName = String(row[5] || '').trim();
+      var productionBatch = String(row[6] || '').trim();
+      var warehouseCode = String(row[7] || '').trim();
+      var locationId = String(row[8] || '').trim();
+      var destinationWarehouse = String(row[9] || '').trim();
+      var destinationLocation = String(row[10] || '').trim();
+      var lineNotes = String(row[11] || '').trim();
+
+      var errors = [];
+      if (!code) errors.push('Thiếu mã SKU');
+      else if (!matchedSku) errors.push('Mã SKU không tồn tại');
+      if (!isFinite(quantity) || quantity <= 0) errors.push('Số lượng phải > 0');
+      if (!isFinite(cost) || cost < 0) errors.push('Đơn giá không hợp lệ');
+
+      return {
+        row: index + 1,
+        sku_id: matchedSku ? matchedSku.sku_id : '',
+        code: code,
+        name: matchedSku ? matchedSku.sku_name : '',
+        quantity: quantity,
+        unit_cost: cost,
+        uom_entered: matchedSku ? matchedSku.uom_base : uom,
+        lot_id: lotId,
+        supplier_name_snapshot: supplierName,
+        production_batch_id: productionBatch,
+        warehouse_code: warehouseCode,
+        location_id: wdocResolveLocationId(locationId),
+        destination_warehouse_id: destinationWarehouse,
+        destination_location_id: wdocResolveLocationId(destinationLocation),
+        line_notes: lineNotes,
+        errors: errors
+      };
+    }).filter(function(item) { return item.code || item.quantity || item.line_notes; });
+
+    wdocRenderImportPreview();
+  }
+
+  function wdocRenderImportPreview() {
+    var goodRows = wdocImportRows.filter(function(item) { return !item.errors.length; });
+    var container = document.getElementById('wdoc-import-preview');
+    var btnAppend = document.getElementById('wdoc-import-append');
+    var statusEl = document.getElementById('wdoc-import-status');
+
+    if (!container) return;
+
+    if (!wdocImportRows.length) {
+      container.innerHTML = '<div style="padding:12px;text-align:center;color:#64748b;">Không có dữ liệu hợp lệ.</div>';
+      if (statusEl) statusEl.textContent = '';
+      if (btnAppend) btnAppend.disabled = true;
+      return;
+    }
+
+    var html = '<div class="wdoc-table-wrap" style="margin-top:10px;max-height:350px;overflow:auto;"><table class="wdoc-table" style="font-size:12px;white-space:nowrap;"><thead><tr>' +
+      '<th>Dòng</th>' +
+      '<th>Mã SKU</th>' +
+      '<th class="wdoc-num">Số lượng</th>' +
+      '<th>ĐVT</th>' +
+      '<th class="wdoc-num">Đơn giá</th>' +
+      '<th style="background:#fef08a;">Số Lô (lot_id)</th>' +
+      '<th style="background:#fef08a;">NCC Lô</th>' +
+      '<th>Mẻ sản xuất</th>' +
+      '<th>Mã Kho</th>' +
+      '<th>Vị trí</th>' +
+      '<th>Kho đích</th>' +
+      '<th>Vị trí đích</th>' +
+      '<th>Ghi chú</th>' +
+      '<th>Trạng thái</th>' +
+      '</tr></thead><tbody>';
+
+    html += wdocImportRows.map(function(item) {
+      var isErr = item.errors.length > 0;
+      return '<tr class="' + (isErr ? 'wdoc-import-error-row' : '') + '">' +
+        '<td>' + (item.row || item.line_no) + '</td>' +
+        '<td><strong>' + wdocEscape(item.code) + '</strong><div class="wdoc-secondary">' + wdocEscape(item.name || '') + '</div></td>' +
+        '<td class="wdoc-num">' + wdocEscape(item.quantity || 0) + '</td>' +
+        '<td>' + wdocEscape(item.uom_entered || '—') + '</td>' +
+        '<td class="wdoc-num">' + wdocEscape(item.unit_cost || 0) + '</td>' +
+        '<td style="font-weight:bold;color:#b45309;background:#fffbeb;">' + wdocEscape(item.lot_id || '—') + '</td>' +
+        '<td style="color:#b45309;background:#fffbeb;">' + wdocEscape(item.supplier_name_snapshot || '—') + '</td>' +
+        '<td>' + wdocEscape(item.production_batch_id || '—') + '</td>' +
+        '<td>' + wdocEscape(item.warehouse_code || '—') + '</td>' +
+        '<td>' + wdocEscape(item.location_id ? wdocLocationLabel(item.location_id) : '—') + '</td>' +
+        '<td>' + wdocEscape(item.destination_warehouse_id || '—') + '</td>' +
+        '<td>' + wdocEscape(item.destination_location_id ? wdocLocationLabel(item.destination_location_id) : '—') + '</td>' +
+        '<td>' + wdocEscape(item.line_notes || '—') + '</td>' +
+        '<td class="' + (isErr ? 'wdoc-import-error' : 'wdoc-import-good') + '">' +
+        wdocEscape(item.errors.join('; ') || 'Hợp lệ') + '</td>' +
+        '</tr>';
+    }).join('');
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+
+    if (statusEl) {
+      statusEl.textContent = goodRows.length + ' dòng hợp lệ / ' + wdocImportRows.length + ' dòng.';
+    }
+    if (btnAppend) {
+      btnAppend.disabled = !goodRows.length;
+    }
+  }
+
+  function wdocParseNumber(value) {
+    var text = String(value == null ? '' : value).trim().replace(/\s/g, '');
+    if (!text) return NaN;
+    var comma = text.lastIndexOf(',');
+    var dot = text.lastIndexOf('.');
+    if (comma !== -1 && dot !== -1) {
+      var decimal = comma > dot ? ',' : '.';
+      text = text.replace(decimal === ',' ? /\./g : /,/g, '').replace(decimal, '.');
+    } else if (comma !== -1) text = text.replace(',', '.');
+    return Number(text);
+  }
+
+  function wdocParseInputNumber(value) {
+    var text = String(value == null ? '' : value).trim().replace(/\s/g, '');
+    if (!text) return '';
+    return Number(text.replace(/\./g, '').replace(',', '.'));
+  }
+
+  function wdocFormatNumericInput(input, blur) {
+    var before = input.value;
+    var caret = input.selectionStart == null ? before.length : input.selectionStart;
+    var digitsBeforeCaret = (before.slice(0, caret).match(/\d/g) || []).length;
+    var endsAtEnd = caret === before.length;
+    var formatted = wdocFormatNumericText(before, !!blur);
+    input.value = formatted;
+    if (endsAtEnd) {
+      input.setSelectionRange(formatted.length, formatted.length);
+      return;
+    }
+    var seen = 0;
+    var newCaret = formatted.length;
+    for (var i = 0; i < formatted.length; i++) {
+      if (/\d/.test(formatted.charAt(i))) seen++;
+      if (seen >= digitsBeforeCaret) {
+        newCaret = i + 1;
+        break;
+      }
+    }
+    input.setSelectionRange(newCaret, newCaret);
+  }
+
+  function wdocFormatNumericText(value, blur) {
+    var source = String(value == null ? '' : value).replace(/[^\d.,]/g, '');
+    var comma = source.lastIndexOf(',');
+    var hasDecimal = comma !== -1;
+    var integer;
+    var fraction = '';
+    if (hasDecimal) {
+      integer = source.slice(0, comma).replace(/[.,]/g, '');
+      fraction = source.slice(comma + 1).replace(/[.,]/g, '');
+    } else {
+      integer = source.replace(/[.,]/g, '');
+    }
+    integer = integer.replace(/^0+(?=\d)/, '');
+    if (!integer) integer = '0';
+    var grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    if (hasDecimal && (fraction || !blur)) return grouped + ',' + fraction;
+    return grouped;
+  }
+
+  function wdocFormatNumberValue(value) {
+    if (value === '' || value == null || !isFinite(Number(value))) return '';
+    return new Intl.NumberFormat('vi-VN', { maximumFractionDigits:6 }).format(Number(value));
+  }
+
+  function wdocAppendImported() {
+    var validLines = wdocImportRows.filter(function(item) { return !item.errors.length; });
+    validLines.forEach(function(item) {
+      wdocAddLine({
+        sku_id: item.sku_id,
+        quantity: item.quantity,
+        unit_cost: item.unit_cost,
+        uom_entered: item.uom_entered,
+        lot_id: item.lot_id,
+        supplier_name_snapshot: item.supplier_name_snapshot,
+        production_batch_id: item.production_batch_id,
+        location_id: item.location_id,
+        destination_warehouse_id: item.destination_warehouse_id,
+        destination_location_id: item.destination_location_id,
+        line_notes: item.line_notes
+      });
+    });
+    wdocCloseImport();
+    if (window.showToast) window.showToast('Đã thêm ' + validLines.length + ' dòng hàng từ Excel vào phiếu.', 'success');
+  }
+window.wdocApproveWms = function(type, taskId, btn) {
+  if (!btn || btn.disabled) return;
+  var row = btn.closest('tr');
+  
+  // 1. KHÓA TẤT CẢ NÚT THAO TÁC TRÊN DÒNG NÀY (Tránh bấm đè Từ chối trong lúc đang Duyệt)
+  if (row) {
+    var actionBtns = row.querySelectorAll('button');
+    actionBtns.forEach(function(b) { b.disabled = true; });
+  }
+  btn.classList.add('is-loading');
+
+  // 2. TỐI ƯU GIAO DIỆN TỨC THÌ (Optimistic UI)
+  if (row) {
+    var statusCell = row.querySelector('.wdoc-status-cell');
+    if (statusCell) {
+      var badge = statusCell.querySelector('.wdoc-badge');
+      if (badge) {
+        badge.className = 'wdoc-badge wdoc-badge-approved';
+        badge.innerHTML = '<span class="wdoc-badge-dot"></span>Đang duyệt...';
+      }
+    }
+  }
+
+  // 3. GỬI REQUEST DUYỆT XUỐNG BACKEND NGẦM
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.success) {
+        if (window.showToast) window.showToast(res.message || 'Đã duyệt thành công', 'success');
+        reloadWmsDocs(type, false);
+      } else {
+        if (window.showToast) window.showToast(res && res.message ? res.message : 'Lỗi xử lý', 'error');
+        reloadWmsDocs(type, false);
+      }
+    })
+    .withFailureHandler(function(err) {
+      if (window.showToast) window.showToast('Lỗi kết nối: ' + err, 'error');
+      reloadWmsDocs(type, false);
+    })
+    .handleApiRoute('WMS', 'decideWorkflowTask', {
+      token: window.HAP_TOKEN(),
+      taskId: taskId,
+      decision: 'APPROVE',
+      comment: ''
+    });
+};
+
+window.wdocRejectWms = function(type, taskId, btn) {
+  if (!btn || btn.disabled) return;
+  var row = btn.closest('tr');
+
+  var reason = prompt('Nhập lý do từ chối phiếu:');
+  if (reason === null) return; // Người dùng bấm Hủy
+  reason = String(reason || '').trim();
+  if (!reason) {
+    if (window.showToast) window.showToast('Vui lòng nhập lý do từ chối.', 'warning');
+    return;
+  }
+
+  // KHÓA TẤT CẢ NÚT TRÊN DÒNG KHI BẮT ĐẦU XỬ LÝ TỪ CHỐI
+  if (row) {
+    var actionBtns = row.querySelectorAll('button');
+    actionBtns.forEach(function(b) { b.disabled = true; });
+  }
+  btn.classList.add('is-loading');
+
+  if (row) {
+    var statusCell = row.querySelector('.wdoc-status-cell');
+    if (statusCell) {
+      var badge = statusCell.querySelector('.wdoc-badge');
+      if (badge) {
+        badge.className = 'wdoc-badge wdoc-badge-draft';
+        badge.innerHTML = '<span class="wdoc-badge-dot"></span>Đang từ chối...';
+      }
+    }
+  }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.success) {
+        if (window.showToast) window.showToast(res.message || 'Đã từ chối phiếu', 'success');
+        reloadWmsDocs(type, false);
+      } else {
+        if (window.showToast) window.showToast(res && res.message ? res.message : 'Lỗi xử lý', 'error');
+        reloadWmsDocs(type, false);
+      }
+    })
+    .withFailureHandler(function(err) {
+      if (window.showToast) window.showToast('Lỗi kết nối: ' + err, 'error');
+      reloadWmsDocs(type, false);
+    })
+    .handleApiRoute('WMS', 'decideWorkflowTask', {
+      token: window.HAP_TOKEN(),
+      taskId: taskId,
+      decision: 'RETURN',
+      comment: reason
+    });
+};
+
+  function renderStats(type) {
+    if (type !== 'PURCHASE_RECEIPT') return;
+    var state = wdocState[type];
+    var rows = state.rows || [];
+    var totalCount = rows.length;
+    var pendingCount = rows.filter(function(item) { return item.doc_status === 'IN_APPROVAL'; }).length;
+    var totalQty = rows.reduce(function(sum, item) { return sum + (Number(item.quantity_total) || 0); }, 0);
+    var totalAmount = rows.reduce(function(sum, item) { return sum + (Number(item.quantity_total || 0) * Number(item.unit_cost || 0)); }, 0);
+    document.getElementById('wdoc-stat-total-count').textContent = totalCount;
+    document.getElementById('wdoc-stat-total-trend').textContent = totalCount > 0 ? '+' + Math.round(totalCount * 0.085) + '%' : '+0%';
+    document.getElementById('wdoc-stat-pending-count').textContent = pendingCount;
+    document.getElementById('wdoc-stat-qty').textContent = new Intl.NumberFormat('vi-VN', { maximumFractionDigits:0 }).format(totalQty);
+    document.getElementById('wdoc-stat-capacity').textContent = totalQty > 0 ? Math.min(100, Math.round(totalQty / 6000 * 100)) + '% sức chứa' : '0%';
+    document.getElementById('wdoc-progress-fill').style.width = Math.min(100, totalQty > 0 ? totalQty / 6000 * 100 : 0) + '%';
+    document.getElementById('wdoc-stat-amount').textContent = new Intl.NumberFormat('vi-VN', { style:'currency', currency:'VND', maximumFractionDigits:0 }).format(totalAmount);
+    document.getElementById('wdoc-stat-amount-trend').textContent = totalAmount > 0 ? '+' + Math.round(totalAmount * 0.153 / totalAmount * 100) + '%' : '+0%';
+  }
+
+  function wdocApplyFilters(type) {
+    if (type !== 'PURCHASE_RECEIPT') return;
+    var state = wdocState[type];
+    var searchInput = document.getElementById('wdoc-search-in');
+    if (searchInput) state.query = searchInput.value || '';
+    state.page = 1;
+    reloadWmsDocs(type);
+  }
+
+  function wdocClearFilters(type) {
+    if (type !== 'PURCHASE_RECEIPT') return;
+    var statusSelect = document.getElementById('wdoc-filter-status-in');
+    var fromInput = document.getElementById('wdoc-filter-from-in');
+    var toInput = document.getElementById('wdoc-filter-to-in');
+    var searchInput = document.getElementById('wdoc-search-in');
+    if (statusSelect) statusSelect.value = 'ALL';
+    if (fromInput) fromInput.value = '';
+    if (toInput) toInput.value = '';
+    if (searchInput) searchInput.value = '';
+    var state = wdocState[type];
+    state.query = '';
+    state.page = 1;
+    reloadWmsDocs(type);
+  }
+
+  function closeAddModal() {
+    document.getElementById('wdoc-add-modal').classList.remove('open');
+  }
+
+  function saveAddModal() {
+    var warehouse = document.getElementById('wdoc-add-warehouse').value;
+    var partner = document.getElementById('wdoc-add-partner-name').value;
+    if (!partner) { window.showToast('Vui lòng nhập nhà cung cấp.', 'warning'); return; }
+    closeAddModal();
+    wdocOpenNew('PURCHASE_RECEIPT');
+    setTimeout(function() {
+      document.getElementById('wdoc-warehouse').value = warehouse;
+      document.getElementById('wdoc-partner-name').value = partner;
+    }, 100);
+    window.showToast('Đã mở form tạo phiếu nhập kho.', 'success');
+  }
+
+  function filterPendingDocs() {
+    var statusSelect = document.getElementById('wdoc-filter-status-in');
+    if (statusSelect) statusSelect.value = 'IN_APPROVAL';
+    wdocApplyFilters('PURCHASE_RECEIPT');
+  }
+</script>

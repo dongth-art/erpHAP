@@ -1,0 +1,470 @@
+<!-- UI_Dashboard_Overview.html - HAP HOLDING ERP SYSTEM -->
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+
+  body {
+    background-color: #f8fafc;
+    color: #1e293b;
+    padding: 20px;
+  }
+
+  /* CONTAINER CHÍNH */
+  .dashboard-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* HEADER BANNER CHÀO MỪNG */
+  .welcome-banner {
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    border-radius: 12px;
+    padding: 24px 32px;
+    color: #ffffff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.2);
+  }
+
+  .welcome-text h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .welcome-text p {
+    font-size: 0.9rem;
+    opacity: 0.9;
+  }
+
+  .quick-time {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(8px);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  /* THẺ LƯỢNG GIÁ METRICS (KPI CARDS) */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+
+  .kpi-card {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .kpi-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.05);
+  }
+
+  .kpi-info span {
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .kpi-info h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 4px 0;
+  }
+
+  .kpi-info .trend {
+    font-size: 0.78rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .trend.up { color: #16a34a; }
+  .trend.neutral { color: #0284c7; }
+
+  .kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .kpi-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* KHU VỰC BẢNG BÁO CÁO & HOẠT ĐỘNG */
+  .content-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 1024px) {
+    .content-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .card-panel {
+    background: #ffffff;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    padding: 20px;
+  }
+
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .panel-header h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .panel-header button {
+    background: transparent;
+    border: none;
+    color: #2563eb;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* BẢNG TÓM TẮT DỮ LIỆU GẦN ĐÂY */
+  .preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  .preview-table th {
+    background: #f8fafc;
+    color: #64748b;
+    font-weight: 600;
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .preview-table td {
+    padding: 12px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+  }
+
+  .status-badge {
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-block;
+  }
+
+  .status-success { background: #dcfce7; color: #15803d; }
+  .status-warning { background: #fef9c3; color: #a16207; }
+
+  /* TIMELINE HOẠT ĐỘNG HỆ THỐNG */
+  .activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .activity-item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .activity-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #2563eb;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+
+  .activity-content {
+    font-size: 0.83rem;
+  }
+
+  .activity-content p {
+    color: #1e293b;
+    margin-bottom: 2px;
+  }
+
+  .activity-content span {
+    color: #94a3b8;
+    font-size: 0.75rem;
+  }
+
+  /* NÚT THAO TÁC NHANH (QUICK ACTIONS) */
+  .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .action-btn {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+  }
+
+  .action-btn:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #2563eb;
+  }
+</style>
+
+<div class="dashboard-container">
+
+  <!-- 1. BANNER CHÀO MỪNG -->
+  <div class="welcome-banner">
+    <div class="welcome-text">
+      <h1>Xin chào, Quản trị viên HAP HOLDING! 👋</h1>
+      <p>Chào mừng bạn trở lại với hệ thống quản trị ERP tổng quan.</p>
+    </div>
+    <div class="quick-time">
+      <span>Hôm nay: </span><span id="current-date-display">Đang tải...</span>
+    </div>
+  </div>
+
+  <!-- 2. THẺ KPI METRICS (CHỈ SỐ TỔNG QUAN) -->
+  <div class="kpi-grid">
+    
+    <!-- KPI 1 -->
+    <div class="kpi-card">
+      <div class="kpi-info">
+        <span>Tổng nhân sự (CCCD)</span>
+        <h2>1,248</h2>
+        <div class="trend up">
+          <svg viewBox="0 0 24 24" style="width:14px; height:14px; fill:currentColor;"><path d="M7 14l5-5 5 5z"/></svg>
+          <span>+12 hồ sơ mới tuần này</span>
+        </div>
+      </div>
+      <div class="kpi-icon" style="background: #eff6ff; color: #2563eb;">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      </div>
+    </div>
+
+    <!-- KPI 2 -->
+    <div class="kpi-card">
+      <div class="kpi-info">
+        <span>Tài khoản Hệ thống</span>
+        <h2>42</h2>
+        <div class="trend neutral">
+          <span>Đang hoạt động 100%</span>
+        </div>
+      </div>
+      <div class="kpi-icon" style="background: #f0fdf4; color: #16a34a;">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+      </div>
+    </div>
+
+    <!-- KPI 3 -->
+    <div class="kpi-card">
+      <div class="kpi-info">
+        <span>Dung lượng lưu trữ</span>
+        <h2>3.2 / 15 GB</h2>
+        <div class="trend neutral">
+          <span>Google Drive Storage</span>
+        </div>
+      </div>
+      <div class="kpi-icon" style="background: #fefce8; color: #ca8a04;">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+      </div>
+    </div>
+
+    <!-- KPI 4 -->
+    <div class="kpi-card">
+      <div class="kpi-info">
+        <span>Trạng thái kết nối</span>
+        <h2>Ổn định</h2>
+        <div class="trend up">
+          <span>Google Apps Script API</span>
+        </div>
+      </div>
+      <div class="kpi-icon" style="background: #f0f9ff; color: #0284c7;">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 3. NỘI DUNG CHÍNH (BẢNG BÁO CÁO & TIMELINE) -->
+  <div class="content-grid">
+
+    <!-- KHU VỰC TRÁI: BẢNG HỒ SƠ CẬP NHẬT GẦN ĐÂY -->
+    <div class="card-panel">
+      <div class="panel-header">
+        <h3>Hồ sơ Nhân sự (CCCD) mới cập nhật</h3>
+        <button onclick="alert('Demo UI: Chuyển hướng tới Quản lý CCCD')">Xem tất cả</button>
+      </div>
+
+      <table class="preview-table">
+        <thead>
+          <tr>
+            <th>Họ và Tên</th>
+            <th>Số CCCD</th>
+            <th>Giới tính</th>
+            <th>Ngày cấp</th>
+            <th>Trạng thái</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Nguyễn Văn An</strong></td>
+            <td>001092018392</td>
+            <td>Nam</td>
+            <td>12/05/2021</td>
+            <td><span class="status-badge status-success">Đã xác minh</span></td>
+          </tr>
+          <tr>
+            <td><strong>Trần Thị Mai</strong></td>
+            <td>038195002184</td>
+            <td>Nữ</td>
+            <td>08/10/2022</td>
+            <td><span class="status-badge status-success">Đã xác minh</span></td>
+          </tr>
+          <tr>
+            <td><strong>Lê Hoàng Nam</strong></td>
+            <td>079088012938</td>
+            <td>Nam</td>
+            <td>20/01/2023</td>
+            <td><span class="status-badge status-warning">Thiếu ảnh mặt sau</span></td>
+          </tr>
+          <tr>
+            <td><strong>Phạm Minh Khoa</strong></td>
+            <td>001095038122</td>
+            <td>Nam</td>
+            <td>15/09/2021</td>
+            <td><span class="status-badge status-success">Đã xác minh</span></td>
+          </tr>
+          <tr>
+            <td><strong>Vũ Thị Ngọc</strong></td>
+            <td>036201004819</td>
+            <td>Nữ</td>
+            <td>02/03/2024</td>
+            <td><span class="status-badge status-success">Đã xác minh</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- KHU VỰC PHẢI: HOẠT ĐỘNG HỆ THỐNG & NÚT TẢI NHANH -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+      
+      <!-- TIMELINE HOẠT ĐỘNG -->
+      <div class="card-panel">
+        <div class="panel-header">
+          <h3>Nhật ký Hoạt động</h3>
+        </div>
+        <div class="activity-list">
+          <div class="activity-item">
+            <div class="activity-dot"></div>
+            <div class="activity-content">
+              <p><strong>Admin</strong> đã thêm mới hồ sơ CCCD cho <i>Nguyễn Văn An</i></p>
+              <span>10 phút trước</span>
+            </div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot" style="background: #10b981;"></div>
+            <div class="activity-content">
+              <p>Đã xuất <strong>1,248 dòng</strong> dữ liệu ra file Excel thành công</p>
+              <span>45 phút trước</span>
+            </div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot" style="background: #f59e0b;"></div>
+            <div class="activity-content">
+              <p>Tài khoản <strong>User_HR01</strong> đã đăng nhập hệ thống</p>
+              <span>2 giờ trước</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHÍM TẮT THAO TÁC NHANH -->
+      <div class="card-panel">
+        <div class="panel-header">
+          <h3>Thao tác Nhanh</h3>
+        </div>
+        <div class="quick-actions">
+          <button class="action-btn" onclick="alert('Demo UI: Mở modal thêm mới')">
+            <svg viewBox="0 0 24 24" style="width:16px; height:16px; fill:currentColor;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            Thêm CCCD
+          </button>
+          <button class="action-btn" onclick="alert('Demo UI: Bắt đầu Xuất Excel')">
+            <svg viewBox="0 0 24 24" style="width:16px; height:16px; fill:currentColor;"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+            Xuất Excel
+          </button>
+          <button class="action-btn" onclick="alert('Demo UI: Nhập Excel')">
+            <svg viewBox="0 0 24 24" style="width:16px; height:16px; fill:currentColor;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+            Nhập Excel
+          </button>
+          <button class="action-btn" onclick="alert('Demo UI: Đổi mật khẩu')">
+            <svg viewBox="0 0 24 24" style="width:16px; height:16px; fill:currentColor;"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM8.9 6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2H8.9V6z"/></svg>
+            Bảo mật
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+  // Đợi trang tải xong và cập nhật ngày tháng thực tế
+  document.addEventListener("DOMContentLoaded", function() {
+    const today = new Date();
+    const options = { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' };
+    document.getElementById("current-date-display").textContent = today.toLocaleDateString('vi-VN', options);
+  });
+</script>

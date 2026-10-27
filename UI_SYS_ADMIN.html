@@ -1,0 +1,257 @@
+<!-- UI_SYS_ADMIN.html - HAP HOLDING ERP SYSTEM: Thùng rác & Nhật ký thao tác (chỉ SuperAdmin) -->
+<style>
+  .sa-card { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:20px; }
+  .sa-head h2 { font-size:1.2rem; color:#0f172a; margin-bottom:4px; }
+  .sa-head p { font-size:.88rem; color:#64748b; margin-bottom:16px; }
+  .sa-tabs { display:flex; gap:6px; border-bottom:1px solid #e2e8f0; margin-bottom:16px; }
+  .sa-tab { background:none; border:none; padding:10px 16px; font-size:.9rem; font-weight:600; color:#64748b; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .sa-tab.active { color:#2563eb; border-bottom-color:#2563eb; }
+  .sa-bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px; }
+  .sa-bar select, .sa-bar input { padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:.85rem; background:#fff; }
+  .sa-bar input[type=text] { min-width:220px; }
+  .sa-btn { padding:8px 14px; border-radius:6px; font-size:.84rem; font-weight:600; cursor:pointer; border:1px solid #cbd5e1; background:#fff; color:#334155; }
+  .sa-btn:hover { background:#f1f5f9; }
+  .sa-btn.primary { background:#2563eb; border-color:#2563eb; color:#fff; }
+  .sa-btn.primary:hover { background:#1d4ed8; }
+  .sa-btn.danger { background:#fff; border-color:#fecaca; color:#dc2626; }
+  .sa-btn.danger:hover { background:#fef2f2; }
+  .sa-btn:disabled { opacity:.5; cursor:not-allowed; }
+  .sa-spacer { flex:1; }
+  .sa-info { font-size:.82rem; color:#64748b; }
+  .sa-tablewrap { overflow:auto; max-height:62vh; border:1px solid #e2e8f0; border-radius:8px; }
+  .sa-table { width:100%; border-collapse:collapse; font-size:.84rem; }
+  .sa-table th { position:sticky; top:0; background:#f8fafc; color:#64748b; text-align:left; padding:10px 12px; border-bottom:1px solid #e2e8f0; font-weight:600; white-space:nowrap; }
+  .sa-table td { padding:9px 12px; border-bottom:1px solid #f1f5f9; color:#334155; vertical-align:top; }
+  .sa-table tr:hover td { background:#f8fafc; }
+  .sa-empty { text-align:center; color:#94a3b8; padding:28px 12px !important; }
+  .sa-badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:.74rem; font-weight:600; background:#e0f2fe; color:#0369a1; white-space:nowrap; }
+  .sa-badge.red { background:#fee2e2; color:#b91c1c; }
+  .sa-badge.green { background:#dcfce7; color:#15803d; }
+  .sa-badge.amber { background:#fef3c7; color:#a16207; }
+  .sa-badge.gray { background:#f1f5f9; color:#475569; }
+  .sa-code { color:#94a3b8; font-size:.72rem; display:block; }
+  #sa-toast { position:fixed; right:20px; bottom:20px; z-index:99999; display:none; max-width:420px; padding:12px 16px; border-radius:8px; color:#fff; font-size:.86rem; box-shadow:0 10px 20px rgba(0,0,0,.2); }
+</style>
+
+<div class="sa-card">
+  <div class="sa-head">
+    <h2>Quản trị dữ liệu hệ thống</h2>
+    <p>Khôi phục dữ liệu đã xóa và xem nhật ký thao tác. Chỉ dành cho SuperAdmin.</p>
+  </div>
+
+  <div class="sa-tabs">
+    <button id="sa-tab-trash" class="sa-tab active" onclick="HapSysAdmin.open('trash')">Thùng rác</button>
+    <button id="sa-tab-audit" class="sa-tab" onclick="HapSysAdmin.open('audit')">Nhật ký thao tác</button>
+  </div>
+
+  <!-- THÙNG RÁC -->
+  <div id="sa-panel-trash">
+    <div class="sa-bar">
+      <select id="sa-trash-module" onchange="HapSysAdmin.loadTrash()">
+        <option value="ID">Hồ sơ CCCD</option>
+        <option value="EMP">Hồ sơ Nhân viên</option>
+        <option value="ATT">Chấm công &amp; Nghỉ phép</option>
+      </select>
+      <button class="sa-btn" onclick="HapSysAdmin.loadTrash()">Tải lại</button>
+      <span class="sa-info" id="sa-trash-count"></span>
+      <span class="sa-spacer"></span>
+      <button class="sa-btn primary" id="sa-btn-restore" onclick="HapSysAdmin.restore()">Khôi phục mục đã chọn</button>
+      <button class="sa-btn danger" id="sa-btn-purge" onclick="HapSysAdmin.purge()">Xóa vĩnh viễn</button>
+    </div>
+    <div class="sa-tablewrap">
+      <table class="sa-table">
+        <thead>
+          <tr>
+            <th style="width:36px;"><input type="checkbox" id="sa-trash-all" onchange="HapSysAdmin.toggleAll(this.checked)"></th>
+            <th>Mã / Khóa</th><th>Nội dung</th><th>Chi tiết</th><th>Xóa bởi</th><th>Lúc xóa</th>
+          </tr>
+        </thead>
+        <tbody id="sa-trash-body"><tr><td colspan="6" class="sa-empty">Đang tải...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- NHẬT KÝ -->
+  <div id="sa-panel-audit" style="display:none;">
+    <div class="sa-bar">
+      <input type="text" id="sa-audit-kw" placeholder="Lọc theo người dùng, hành động, mã..." onkeydown="if(event.key==='Enter'){HapSysAdmin.loadAudit();}">
+      <select id="sa-audit-limit" onchange="HapSysAdmin.loadAudit()">
+        <option value="200">200 dòng mới nhất</option>
+        <option value="500">500 dòng</option>
+        <option value="1000">1000 dòng</option>
+      </select>
+      <button class="sa-btn primary" onclick="HapSysAdmin.loadAudit()">Tìm / Tải lại</button>
+      <span class="sa-info" id="sa-audit-count"></span>
+    </div>
+    <div class="sa-tablewrap">
+      <table class="sa-table">
+        <thead>
+          <tr><th>Thời gian</th><th>Người dùng</th><th>Phân hệ</th><th>Hành động</th><th>Đối tượng</th><th>Chi tiết</th></tr>
+        </thead>
+        <tbody id="sa-audit-body"><tr><td colspan="6" class="sa-empty">Chưa có dữ liệu.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="sa-toast"></div>
+
+<script>
+  window.HapSysAdmin = (function() {
+    var MOD_LABEL = { ID: 'Hồ sơ CCCD', EMP: 'Hồ sơ Nhân viên', ATT: 'Chấm công & Nghỉ phép' };
+    var AREA = {
+      SYS: 'Hệ thống', HRM_ID: 'CCCD', HRM_EMP: 'Nhân viên', HRM_ATT: 'Chấm công',
+      TRASH_ID: 'Thùng rác · CCCD', TRASH_EMP: 'Thùng rác · Nhân viên', TRASH_ATT: 'Thùng rác · Chấm công'
+    };
+    var ACT = {
+      LOGIN: ['Đăng nhập', 'gray'], LOCKOUT: ['Khóa do sai mật khẩu', 'red'],
+      CREATE: ['Thêm mới', 'green'], UPDATE: ['Sửa', ''], RESTORE_UPDATE: ['Sửa & khôi phục', 'amber'],
+      DELETE: ['Chuyển vào Thùng rác', 'red'], RESTORE: ['Khôi phục', 'green'], PURGE: ['Xóa vĩnh viễn', 'red'],
+      IMPORT: ['Nhập Excel', ''], EXPORT: ['Xuất Excel', 'gray'], COPY_TO_EMP: ['Tạo nhân sự từ CCCD', ''],
+      LEAVE_SUBMIT: ['Gửi đơn phép', ''], APPROVE: ['Duyệt', 'green'], REJECT: ['Từ chối', 'red'],
+      PROXY_CREATE: ['Chấm công thay', 'amber'], PROXY_UPDATE: ['Chấm công thay (cập nhật)', 'amber']
+    };
+    var st = { tab: 'trash', trash: [] };
+
+    function $(id) { return document.getElementById(id); }
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+    function toast(msg, type) {
+      var t = $('sa-toast');
+      t.textContent = msg;
+      t.style.background = type === 'error' ? '#dc2626' : (type === 'success' ? '#16a34a' : '#2563eb');
+      t.style.display = 'block';
+      clearTimeout(t._timer);
+      t._timer = setTimeout(function() { t.style.display = 'none'; }, 5000);
+    }
+    // Gọi hàm server, luôn gửi kèm token phiên đăng nhập
+    function run(fn, args, onOk) {
+      var runner = google.script.run
+        .withSuccessHandler(function(res) { onOk(res); })
+        .withFailureHandler(function(err) { toast('Lỗi kết nối máy chủ: ' + (err && err.message ? err.message : err), 'error'); });
+      runner[fn].apply(runner, [window.HAP_TOKEN()].concat(args));
+    }
+
+    function open(tab) {
+      st.tab = tab;
+      $('sa-tab-trash').classList.toggle('active', tab === 'trash');
+      $('sa-tab-audit').classList.toggle('active', tab === 'audit');
+      $('sa-panel-trash').style.display = tab === 'trash' ? '' : 'none';
+      $('sa-panel-audit').style.display = tab === 'audit' ? '' : 'none';
+      if (tab === 'trash') loadTrash(); else loadAudit();
+    }
+
+    /* ---------- THÙNG RÁC ---------- */
+    function loadTrash() {
+      $('sa-trash-all').checked = false;
+      $('sa-trash-body').innerHTML = '<tr><td colspan="6" class="sa-empty">Đang tải...</td></tr>';
+      run('fetchTrashList', [$('sa-trash-module').value], function(res) {
+        if (!res || !res.success) {
+          st.trash = [];
+          toast((res && res.message) || 'Không tải được Thùng rác.', 'error');
+        } else {
+          st.trash = res.list || [];
+        }
+        renderTrash();
+      });
+    }
+
+    function renderTrash() {
+      var body = $('sa-trash-body');
+      $('sa-trash-count').textContent = st.trash.length + ' mục trong Thùng rác';
+      if (!st.trash.length) {
+        body.innerHTML = '<tr><td colspan="6" class="sa-empty">Thùng rác trống.</td></tr>';
+        return;
+      }
+      body.innerHTML = st.trash.map(function(it, i) {
+        return '<tr>' +
+          '<td><input type="checkbox" class="sa-chk" data-i="' + i + '"></td>' +
+          '<td><strong>' + esc(it.key) + '</strong></td>' +
+          '<td>' + esc(it.title) + '</td>' +
+          '<td>' + esc(it.sub) + '</td>' +
+          '<td>' + esc(it.deleted_by) + '</td>' +
+          '<td>' + esc(it.deleted_at) + '</td></tr>';
+      }).join('');
+    }
+
+    function toggleAll(on) {
+      document.querySelectorAll('#sa-trash-body .sa-chk').forEach(function(c) { c.checked = on; });
+    }
+
+    function selectedKeys() {
+      var keys = [];
+      document.querySelectorAll('#sa-trash-body .sa-chk').forEach(function(c) {
+        if (c.checked) keys.push(st.trash[parseInt(c.getAttribute('data-i'), 10)].key);
+      });
+      return keys;
+    }
+
+    function restore() {
+      var keys = selectedKeys();
+      if (!keys.length) { toast('Hãy tích chọn ít nhất một mục để khôi phục.', 'error'); return; }
+      var mod = $('sa-trash-module').value;
+      if (!confirm('Khôi phục ' + keys.length + ' mục (' + MOD_LABEL[mod] + ')?')) return;
+      $('sa-btn-restore').disabled = true;
+      run('restoreFromTrash', [mod, keys], function(res) {
+        $('sa-btn-restore').disabled = false;
+        toast((res && res.message) || 'Không có phản hồi', res && res.success ? 'success' : 'error');
+        loadTrash();
+        refreshModule(mod);
+      });
+    }
+
+    function purge() {
+      var keys = selectedKeys();
+      if (!keys.length) { toast('Hãy tích chọn ít nhất một mục để xóa vĩnh viễn.', 'error'); return; }
+      var mod = $('sa-trash-module').value;
+      if (!confirm('XÓA VĨNH VIỄN ' + keys.length + ' mục (' + MOD_LABEL[mod] + ')?\n\nThao tác này KHÔNG THỂ hoàn tác.')) return;
+      $('sa-btn-purge').disabled = true;
+      run('purgeFromTrash', [mod, keys], function(res) {
+        $('sa-btn-purge').disabled = false;
+        toast((res && res.message) || 'Không có phản hồi', res && res.success ? 'success' : 'error');
+        loadTrash();
+      });
+    }
+
+    // Sau khi khôi phục: nạp lại màn hình tương ứng để thấy dữ liệu ngay
+    function refreshModule(mod) {
+      if (mod === 'ID' && typeof reloadHRMIDData === 'function') reloadHRMIDData();
+      if (mod === 'EMP' && typeof window.reloadEMPData === 'function') window.reloadEMPData();
+      if (mod === 'ATT' && typeof window.reloadATTData === 'function') window.reloadATTData(false);
+    }
+
+    /* ---------- NHẬT KÝ ---------- */
+    function loadAudit() {
+      $('sa-audit-body').innerHTML = '<tr><td colspan="6" class="sa-empty">Đang tải...</td></tr>';
+      run('fetchAuditLog', [parseInt($('sa-audit-limit').value, 10), $('sa-audit-kw').value.trim()], function(res) {
+        if (!res || !res.success) {
+          toast((res && res.message) || 'Không tải được nhật ký.', 'error');
+          $('sa-audit-body').innerHTML = '<tr><td colspan="6" class="sa-empty">Không có dữ liệu.</td></tr>';
+          $('sa-audit-count').textContent = '';
+          return;
+        }
+        var list = res.list || [];
+        $('sa-audit-count').textContent = list.length + ' dòng';
+        if (!list.length) {
+          $('sa-audit-body').innerHTML = '<tr><td colspan="6" class="sa-empty">Chưa có thao tác nào phù hợp.</td></tr>';
+          return;
+        }
+        $('sa-audit-body').innerHTML = list.map(function(r) {
+          var a = ACT[r.action] || [r.action, 'gray'];
+          return '<tr>' +
+            '<td style="white-space:nowrap;">' + esc(r.time) + '</td>' +
+            '<td><strong>' + esc(r.username) + '</strong></td>' +
+            '<td>' + esc(AREA[r.module] || r.module) + '</td>' +
+            '<td><span class="sa-badge ' + a[1] + '">' + esc(a[0]) + '</span><span class="sa-code">' + esc(r.action) + '</span></td>' +
+            '<td>' + esc(r.record_key) + '</td>' +
+            '<td>' + esc(r.detail) + '</td></tr>';
+        }).join('');
+      });
+    }
+
+    return { open: open, loadTrash: loadTrash, loadAudit: loadAudit, restore: restore, purge: purge, toggleAll: toggleAll };
+  })();
+</script>

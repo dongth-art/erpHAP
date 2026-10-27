@@ -1,0 +1,233 @@
+<!-- UI_Styles.html - HAP ERP SYSTEM -->
+<style>
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  body {
+    background-color: #f8fafc;
+    color: #1e293b;
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  #sidebar {
+    width: 260px;
+    background-color: #0f172a;
+    color: #94a3b8;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    flex-shrink: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  #sidebar.collapsed {
+    width: 70px;
+  }
+  
+  .brand-header {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    background-color: #020617;
+    border-bottom: 1px solid #1e293b;
+    color: #ffffff;
+  }
+  .brand-title {
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: 0.5px;
+    color: #38bdf8;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  #sidebar.collapsed .brand-text,
+  #sidebar.collapsed .menu-text,
+  #sidebar.collapsed .arrow-icon,
+  #sidebar.collapsed .submenu {
+    display: none !important;
+  }
+  
+  .menu-list {
+    list-style: none;
+    padding: 10px 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+  }
+  .menu-item {
+    margin-bottom: 2px;
+  }
+  .menu-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    color: #94a3b8;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+    user-select: none;
+  }
+  .menu-link:hover {
+    background-color: #1e293b;
+    color: #38bdf8;
+  }
+  .menu-icon-text {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .svg-icon {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+    flex-shrink: 0;
+  }
+  
+  .submenu {
+    list-style: none;
+    background-color: #020617;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+  }
+  .submenu.open {
+    max-height: 500px;
+  }
+  .submenu-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 10px 10px 54px;
+    color: #64748b;
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .submenu-link:hover, .submenu-link.active {
+    color: #38bdf8;
+    background-color: #0f172a;
+    font-weight: 600;
+  }
+
+  #main-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: 100vh;
+    overflow: hidden;
+  }
+  #top-header {
+    height: 60px;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    flex-shrink: 0;
+  }
+  .toggle-sidebar-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #64748b;
+    padding: 6px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .toggle-sidebar-btn:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+  }
+  .breadcrumb {
+    font-size: 0.88rem;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .user-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.88rem;
+  }
+  .user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: #2563eb;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.95rem;
+  }
+  .btn-logout {
+    background: none;
+    border: 1px solid #cbd5e1;
+    color: #64748b;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-logout:hover {
+    background-color: #fef2f2;
+    color: #dc2626;
+    border-color: #fecaca;
+  }
+
+  #content-body {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding: 24px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background-color: #f8fafc;
+  }
+  .view-container {
+    display: none;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  .view-container.active {
+    display: block;
+    animation: fadeIn 0.2s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
