@@ -1165,3 +1165,5 @@ function wmsSyncLots_(docId, partnerCode, partnerName, lines, user) {
     Logger.log('Lỗi wmsSyncLots_: ' + e.message + '\nStack: ' + e.stack);
   }
 }
+function wmsDocInvalidateRefCache_(userKey){var cache=CacheService.getScriptCache();[\
+WAREHOUSE\,\SKU\,\LOCATION\,\SUPPLIER\].forEach(function(cat){try{cache.remove(\WMS_REF_\+cat+\_\+(userKey||\GUEST\));}catch(e){}});}
