@@ -18,7 +18,7 @@
 </style>
 
 <div class="font-sans text-slate-800">
-  <div class="max-w-7xl mx-auto space-y-3">
+  <div class="w-full mx-auto space-y-3 px-3 sm:px-4 lg:px-6">
 
 
 
@@ -54,7 +54,7 @@
       </div>
 
       <div class="overflow-x-auto min-h-[360px]">
-        <table class="w-full text-left border-collapse">
+        <table class="w-full text-left border-collapse min-w-[860px]">
           <thead>
             <tr class="bg-slate-100/70 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
               <th class="py-3.5 px-4 whitespace-nowrap">Mã / Pháp nhân</th>
@@ -85,7 +85,7 @@
 
   <!-- Modal -->
   <div id="dms-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-[1170px] overflow-hidden border border-slate-100">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-[96vw] sm:max-w-[1170px] overflow-hidden border border-slate-100">
       <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <div class="p-2 bg-brand-50 text-brand-800 rounded-lg"><i data-lucide="file-plus" class="w-5 h-5"></i></div>
@@ -94,28 +94,28 @@
         <button type="button" onclick="dmsCloseForm()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
       <form onsubmit="dmsSave(event)" class="p-6 space-y-4">
-        <div style="display:flex;gap:14px;margin-bottom:10px;">
-          <label class="dms-field" style="flex:1;">Pháp nhân<select class="dms-select" id="dms-doc-entity"><option value="HDG">HDG - Holding</option><option value="FOD">FOD - Seafood</option><option value="FED">FED - Feed</option><option value="FAM">FAM - Farm</option><option value="SEA">SEA - Seafarm</option></select></label>
-          <label class="dms-field" style="flex:1;">Mảng hoạt động<select class="dms-select" id="dms-doc-activity"><option value="VPQT">VPQT - Văn phòng & Quản trị</option><option value="KDTT">KDTT - Kinh doanh, Thị trường, Marketing</option><option value="SXCB">SXCB - Sản xuất, Chế biến</option><option value="NTKT">NTKT - Nuôi trồng, Khai thác</option><option value="TCKT">TCKT - Tài chính, Kế toán</option><option value="MHKV">MHKV - Thu mua, Mua hàng, Kho vận</option></select></label>
-          <label class="dms-field" style="flex:1;">Lĩnh vực<select class="dms-select" id="dms-doc-domain"><option value="0">0 - Tất cả / Dùng chung</option><option value="1">1 - Cá sông</option><option value="2">2 - Hải sản đông lạnh / Chế biến</option><option value="3">3 - Thức ăn / Dinh dưỡng</option><option value="4">4 - Bể biển / Lồng nuôi</option><option value="5">5 - Hồ/Áo nuôi</option></select></label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2.5">
+          <label class="dms-field">Pháp nhân<select class="dms-select" id="dms-doc-entity"><option value="HDG">HDG - Holding</option><option value="FOD">FOD - Seafood</option><option value="FED">FED - Feed</option><option value="FAM">FAM - Farm</option><option value="SEA">SEA - Seafarm</option></select></label>
+          <label class="dms-field">Mảng hoạt động<select class="dms-select" id="dms-doc-activity"><option value="VPQT">VPQT - Văn phòng & Quản trị</option><option value="KDTT">KDTT - Kinh doanh, Thị trường, Marketing</option><option value="SXCB">SXCB - Sản xuất, Chế biến</option><option value="NTKT">NTKT - Nuôi trồng, Khai thác</option><option value="TCKT">TCKT - Tài chính, Kế toán</option><option value="MHKV">MHKV - Thu mua, Mua hàng, Kho vận</option></select></label>
+          <label class="dms-field">Lĩnh vực<select class="dms-select" id="dms-doc-domain"><option value="0">0 - Tất cả / Dùng chung</option><option value="1">1 - Cá sông</option><option value="2">2 - Hải sản đông lạnh / Chế biến</option><option value="3">3 - Thức ăn / Dinh dưỡng</option><option value="4">4 - Bể biển / Lồng nuôi</option><option value="5">5 - Hồ/Áo nuôi</option></select></label>
         </div>
-        <div style="display:flex;gap:14px;margin-bottom:10px;">
-          <label class="dms-field" style="flex:1;">Loại tài liệu<select class="dms-select" id="dms-doc-doctype"><option value="QT">QT - Quy trình</option><option value="QD">QD - Quy định</option><option value="HD">HD - Hướng dẫn công việc</option><option value="BM">BM - Biểu mẫu</option><option value="QB">QB - Quyết định ban hành</option><option value="TB">TB - Thông báo</option><option value="CN">CN - Chức năng nhiệm vụ</option><option value="MC">MC - Mô tả công việc</option></select></label>
-          <label class="dms-field" style="flex:1;">Trạng thái<select class="dms-select" id="dms-doc-status"><option value="DRAFT">Bản thảo</option><option value="APPROVED">Đã ban hành</option><option value="ARCHIVED">Lưu trữ</option></select></label>
-          <label class="dms-field" style="flex:1;">Ngày hiệu lực<input class="dms-input" id="dms-doc-effective" type="date"></label>
-          <label class="dms-field" style="flex:1;">Ban hành/sửa đổi<input class="dms-input" id="dms-doc-seq" type="text"></label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2.5">
+          <label class="dms-field">Loại tài liệu<select class="dms-select" id="dms-doc-doctype"><option value="QT">QT - Quy trình</option><option value="QD">QD - Quy định</option><option value="HD">HD - Hướng dẫn công việc</option><option value="BM">BM - Biểu mẫu</option><option value="QB">QB - Quyết định ban hành</option><option value="TB">TB - Thông báo</option><option value="CN">CN - Chức năng nhiệm vụ</option><option value="MC">MC - Mô tả công việc</option></select></label>
+          <label class="dms-field">Trạng thái<select class="dms-select" id="dms-doc-status"><option value="DRAFT">Bản thảo</option><option value="APPROVED">Đã ban hành</option><option value="ARCHIVED">Lưu trữ</option></select></label>
+          <label class="dms-field">Ngày hiệu lực<input class="dms-input" id="dms-doc-effective" type="date"></label>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2.5">
+          <label class="dms-field">Người soạn<select class="dms-select" id="dms-doc-owner"></select></label>
+          <label class="dms-field">Người xem xét<select class="dms-select" id="dms-doc-reviewer"></select></label>
+          <label class="dms-field">Người duyệt<select class="dms-select" id="dms-doc-approver"></select></label>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2.5">
+          <label class="dms-field">Upload file<input class="dms-input" id="dms-doc-file" type="file"></label>
+          <label class="dms-field">URL file<input class="dms-input" id="dms-doc-url" type="url" placeholder="https://..."></label>
+          <label class="dms-field">Ban hành/sửa đổi<input class="dms-input" id="dms-doc-seq" type="text"></label>
         </div>
         <div style="margin-bottom:10px;">
           <label class="dms-field">Tiêu đề *<input class="dms-input" id="dms-doc-title" required></label>
-        </div>
-        <div style="display:flex;gap:14px;margin-bottom:10px;">
-          <label class="dms-field" style="flex:1;">Người soạn<select class="dms-select" id="dms-doc-owner"></select></label>
-          <label class="dms-field" style="flex:1;">Người xem xét<select class="dms-select" id="dms-doc-reviewer"></select></label>
-          <label class="dms-field" style="flex:1;">Người duyệt<select class="dms-select" id="dms-doc-approver"></select></label>
-        </div>
-        <div style="display:flex;gap:14px;margin-bottom:10px;">
-          <label class="dms-field" style="flex:1;">Upload file<input class="dms-input" id="dms-doc-file" type="file"></label>
-          <label class="dms-field" style="flex:1;">URL file<input class="dms-input" id="dms-doc-url" type="url" placeholder="https://..."></label>
         </div>
         <div id="dms-message" class="dms-muted" role="status" style="margin-top:12px;"></div>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;">
@@ -137,6 +137,7 @@
   var dmsEmpMap = {};
   var dmsPageNum = 1;
   var dmsPageSize = 30;
+  var dmsEmpOptionsHtml = null;
   window.dmsEditingId = null;
 
   function dmsEscape(v){ return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
@@ -163,6 +164,7 @@
       document.getElementById('dms-stat-approved').textContent = dmsDocs.filter(function(d){return String(d.status).toUpperCase()==='APPROVED';}).length;
       dmsEmpMap = {};
       (res.employees || []).forEach(function(e){ dmsEmpMap[e.emp_id] = e.full_name; });
+      dmsEmpOptionsHtml = '<option value="">-- chọn --</option>' + (res.employees || []).map(function(e){ return '<option value="'+dmsEscape(e.emp_id)+'">'+dmsEscape(e.emp_id)+' - '+dmsEscape(e.full_name)+'</option>'; }).join('');
       dmsRender();
     }).withFailureHandler(function() {
       if (body) body.innerHTML = '<tr><td colspan="7" class="py-6 px-4 text-slate-500">Lỗi kết nối.</td></tr>';
@@ -195,7 +197,7 @@
       var editBtn = (dmsPerms.canEdit && (dmsPerms.isSuper || String(d.status).toUpperCase()==='DRAFT')) ? '<button class="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-brand-50 rounded-lg" title="Sửa" onclick="event.stopPropagation();dmsOpenForm(\''+dmsEscape(d.doc_id)+'\')"><i data-lucide="edit-2" class="w-4 h-4"></i></button>' : '';
       var delBtn = (dmsPerms.canDelete && (dmsPerms.isSuper || String(d.status).toUpperCase()==='DRAFT')) ? '<button class="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Xóa" onclick="event.stopPropagation();dmsDelete(\''+dmsEscape(d.doc_id)+'\')"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' : '';
       var urlIcon = d.file_url ? '<a href="'+dmsEscape(d.file_url)+'" target="_blank" title="Xem URL" class="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-slate-100 rounded-lg inline-flex"><i data-lucide="link" class="w-4 h-4"></i></a>' : '';
-      var fileIcon = d.file_id ? '<a href="https://drive.google.com/file/d/'+dmsEscape(d.file_id)+'/view" target="_blank" title="Xem file" class="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg inline-flex"><i data-lucide="file-text" class="w-4 h-4"></i></a>' : '';
+      var fileIcon = d.file_id ? '<a href="'+(d.file_url || ('https://drive.google.com/file/d/'+dmsEscape(d.file_id)+'/view'))+'" target="_blank" title="Xem file" class="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg inline-flex"><i data-lucide="file-text" class="w-4 h-4"></i></a>' : '';
       return '<tr class="hover:bg-slate-50/80 transition-colors group">'+
         '<td class="py-3.5 px-4 whitespace-nowrap"><div class="font-bold text-slate-900">'+dmsEscape(d.entity_code||'')+'</div><div class="text-xs text-slate-500 font-mono mt-0.5">'+dmsEscape(String(d.doc_code||'').replace(/\/0$/,''))+'</div></td>'+
         '<td class="py-3.5 px-4 whitespace-nowrap"><div class="font-bold text-slate-900">'+dmsEscape(d.activity_code||'')+'</div><div class="text-xs text-slate-500 font-mono mt-0.5">'+dmsEscape(d.domain_code||'')+' '+dmsEscape(d.doc_type_code||'')+'</div></td>'+
@@ -223,15 +225,11 @@
     document.getElementById('dms-doc-effective').value = item ? dmsDateToISO(item.effective_date) : '';
     document.getElementById('dms-doc-seq').value = item ? item.seq_no || '' : '';
     document.getElementById('dms-doc-url').value = item ? item.file_url || '' : '';
-    window.dmsEditingId = docId || null;
-    document.getElementById('dms-doc-owner').innerHTML = '';
-    document.getElementById('dms-doc-reviewer').innerHTML = '';
-    document.getElementById('dms-doc-approver').innerHTML = '';
-    var opts = Object.keys(dmsEmpMap).map(function(k){ return { emp_id: k, full_name: dmsEmpMap[k] }; });
-    var html = '<option value="">-- chọn --</option>' + opts.map(function(e){ return '<option value="'+dmsEscape(e.emp_id)+'">'+dmsEscape(e.emp_id)+' - '+dmsEscape(e.full_name)+'</option>'; }).join('');
-    document.getElementById('dms-doc-owner').innerHTML = html;
-    document.getElementById('dms-doc-reviewer').innerHTML = html;
-    document.getElementById('dms-doc-approver').innerHTML = html;
+window.dmsEditingId = docId || null;
+      var html = dmsEmpOptionsHtml || '<option value="">-- chọn --</option>';
+      document.getElementById('dms-doc-owner').innerHTML = html;
+      document.getElementById('dms-doc-reviewer').innerHTML = html;
+      document.getElementById('dms-doc-approver').innerHTML = html;
     if (item) {
       document.getElementById('dms-doc-owner').value = item.owner_emp_id || '';
       document.getElementById('dms-doc-reviewer').value = item.reviewer_emp_id || '';

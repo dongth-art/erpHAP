@@ -124,12 +124,6 @@ function dmsEmpUsernameMap_() {
   return map;
 }
 
-function dmsEmpUsername_(empId) {
-  if (!empId) return '';
-  var map = dmsEmpUsernameMap_();
-  return map[String(empId)] || '';
-}
-
 function dmsListDocs(token, page, pageSize) {
   try {
   var auth = requireSessionAuth_(token, 'DMS', null);
@@ -138,7 +132,10 @@ function dmsListDocs(token, page, pageSize) {
   var info = dmsGetSheet_('SHEET_DMS_DOCS', ['doc_id','doc_code','entity_code','activity_code','domain_code','doc_type_code','seq_no','doc_title','status','effective_date','owner_emp_id','reviewer_emp_id','approver_emp_id','file_url','file_id','is_deleted','deleted_by','deleted_at','created_by','created_at','updated_by','updated_at','approval_log']);
   var rows = info.sheet.getDataRange().getValues();
   var headers = rows[0];
-  var data = rows.slice(1).filter(function(r) { return !r[headers.indexOf('is_deleted')]; });
+  var data = rows.slice(1).filter(function(r) {
+    var delVal = r[headers.indexOf('is_deleted')];
+    return delVal !== true && delVal !== 'true' && delVal !== 1 && String(delVal).toLowerCase() !== 'true';
+  });
   var list = dmsRowsAsObjects_(headers, data);
   var umap = dmsEmpUsernameMap_();
   list.forEach(function(d) {
@@ -159,7 +156,8 @@ function dmsListDocs(token, page, pageSize) {
   var pages = Math.max(1, Math.ceil(total / pageSize));
   page = Math.min(page, pages);
   var pageRows = list.slice((page - 1) * pageSize, page * pageSize);
-  return { success: true, list: pageRows, total: total, page: page, page_size: pageSize, page_count: pages, employees: dmsGetEmployees_(),   permissions: { canRead:true, canCreate:true, canEdit:true, canDelete:true, isSuper: isSuper } };
+  var perm = (auth && auth.ok && auth.permission) ? auth.permission : { canRead:true, canCreate:true, canEdit:true, canDelete:true };
+  return { success: true, list: pageRows, total: total, page: page, page_size: pageSize, page_count: pages, employees: dmsGetEmployees_(),   permissions: { canRead: !!perm.canRead, canCreate: !!perm.canCreate, canEdit: !!perm.canEdit, canDelete: !!perm.canDelete, isSuper: isSuper } };
   } catch (e) {
     return { success: false, message: 'DMS load error: ' + (e && e.message ? e.message : e) };
   }
@@ -211,13 +209,14 @@ function dmsSaveDoc(token, record) {
   }
   // update
   var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+  var curRowValues = sh.getRange(2, 1, sh.getLastRow() - 1, headers.length).getValues();
   for (var i = 0; i < ids.length; i++) {
     if (String(ids[i][0]) === String(record.doc_id)) {
-      var curStatus = String(sh.getRange(i + 2, headers.indexOf('status') + 1).getValue() || '').toUpperCase();
+      var curStatus = String(curRowValues[i][headers.indexOf('status')] || '').toUpperCase();
       if (curStatus !== 'DRAFT' && !isSuper) return { success: false, message: 'Chỉ được sửa khi trạng thái Bản thảo' };
       record.updated_by = user;
       record.updated_at = now;
-      var row = headers.map(function(h) { return record[h] !== undefined ? record[h] : sh.getRange(i + 2, headers.indexOf(h) + 1).getValue(); });
+      var row = headers.map(function(h) { return record[h] !== undefined ? record[h] : curRowValues[i][headers.indexOf(h)]; });
       sh.getRange(i + 2, 1, 1, headers.length).setValues([row]);
       return { success: true, message: 'Đã cập nhật tài liệu' };
     }
@@ -278,31 +277,8 @@ function dmsAddComment(token, record) {
 
 function dmsEmpUsername_(empId) {
   if (!empId) return '';
-  var cache = CacheService.getScriptCache();
-  var key = 'dms_empusr_' + empId;
-  var cached = cache.get(key);
-  if (cached) return cached;
-  try {
-    var ss = SpreadsheetApp.openById(CONFIG.DB_HRM_PART1_ID);
-    var sh = ss.getSheetByName(CONFIG.SHEET_HRM_EMP);
-    var rows = sh.getDataRange().getValues();
-    var h = rows[0];
-    var ei = h.indexOf('emp_id'); if (ei < 0) ei = 0;
-    var ci = h.indexOf('cccd_no'); if (ci < 0) ci = -1;
-    var cccd = '';
-    for (var i = 1; i < rows.length; i++) { if (String(rows[i][ei]) === String(empId)) { cccd = ci >= 0 ? rows[i][ci] : ''; break; } }
-    if (!cccd) { cache.put(key, '', 600); return ''; }
-    var ss2 = SpreadsheetApp.openById(CONFIG.DB_SYS_PART1_ID || CONFIG.DB_HRM_PART1_ID);
-    var sh2 = ss2.getSheetByName(CONFIG.SHEET_SYS_USR || 'SYS_USR');
-    var rows2 = sh2.getDataRange().getValues();
-    var h2 = rows2[0];
-    var ci2 = h2.indexOf('cccd_no'); if (ci2 < 0) ci2 = -1;
-    var ui = h2.indexOf('username'); if (ui < 0) ui = 0;
-    var username = '';
-    for (var j = 1; j < rows2.length; j++) { if (ci2 >= 0 && String(rows2[j][ci2]) === String(cccd)) { username = rows2[j][ui]; break; } }
-    cache.put(key, String(username || ''), 600);
-    return String(username || '');
-  } catch (e) { return ''; }
+  var map = dmsEmpUsernameMap_();
+  return map[String(empId)] || '';
 }
 
 function dmsApproveDoc(token, docId) {
